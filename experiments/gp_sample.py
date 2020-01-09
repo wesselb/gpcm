@@ -15,8 +15,8 @@ from gpcm.util import autocorr
 
 # Sample data from a GP:
 n = 200
-t = B.linspace(0, 70, n)
-y = B.flatten(GP(EQ() + 0.05*Delta())(t).sample())
+t = B.linspace(0, 100, n)
+y = B.flatten(GP(EQ() + 0.1*Delta())(t).sample())
 
 alpha = 1/4  # Inverse length scale of window w.
 lam = alpha/2  # Inverse length scale of input x.
