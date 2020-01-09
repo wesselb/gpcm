@@ -1,7 +1,32 @@
 from collections import namedtuple
-import numpy as np
 
-__all__ = ['collect', 'autocorr']
+import lab as B
+import numpy as np
+from matrix import AbstractMatrix, Woodbury
+from plum import Dispatcher
+
+__all__ = ['pd_inv', 'collect', 'autocorr']
+
+_dispatch = Dispatcher()
+
+
+@_dispatch({B.Numeric, AbstractMatrix})
+def pd_inv(a):
+    """Invert `a` using that `a` is positve definite.
+
+    Args:
+        a (matrix): Matrix to invert.
+
+    Return:
+        matrix: Inverse of `a`.
+    """
+    return B.cholsolve(B.chol(a), B.eye(a))
+
+
+@_dispatch(Woodbury)
+def pd_inv(a):
+    # In this case there is no need to use the Cholesky decomposition.
+    return B.inv(a)
 
 
 def collect(name='Quantities', **kw_args):
