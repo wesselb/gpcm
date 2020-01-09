@@ -10,7 +10,7 @@ from varz import Vars
 from varz.tensorflow import minimise_l_bfgs_b
 
 from gpcm.elbo import construct, elbo, predict, predict_fourier, predict_kernel
-from gpcm.gprv.model import GPRV
+from gpcm.gprv import GPRV
 from gpcm.util import autocorr
 
 # Sample data from a GP:

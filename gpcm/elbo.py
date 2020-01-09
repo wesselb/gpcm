@@ -2,9 +2,8 @@ import lab as B
 import numpy as np
 from stheno import Normal
 
-from .gprv.integrals import i_hx, I_ux, I_hz, I_uz
-from .gprv.kernel_approx import K_z, K_u
-from .kernel_approx import kernel_approx_u
+from .gprv import K_z, i_hx, I_ux, I_hz, I_uz
+from .kernel_approx import kernel_approx_u, K_u
 from .util import collect, pd_inv
 
 __all__ = ['construct', 'predict', 'predict_kernel', 'predict_fourier']

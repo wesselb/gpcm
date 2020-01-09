@@ -1,12 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from lab import B
-import wbml.plot
 import wbml.out
+import wbml.plot
+from lab import B
 
-from gpcm.gprv.kernel_approx import k_u
+from gpcm.gprv import k_u, GPRV, determine_a_b
 from gpcm.kernel_approx import kernel_approx_u
-from gpcm.gprv.model import GPRV, determine_a_b
 
 # Define some test parameters.
 lam = 1/2  # Model length scale.

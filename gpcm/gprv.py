@@ -1,12 +1,149 @@
-import numpy as np
 import lab as B
+import numpy as np
+from matrix import Diagonal, LowRank
 from scipy.integrate import quad
 
-__all__ = ['i_hx',
+__all__ = ['GPRV',
+           'determine_a_b',
+           'k_u',
+           'K_z',
+           'i_hx',
            'i_ux',
            'I_hz',
            'I_ux',
            'I_uz']
+
+
+class GPRV:
+    """GPRV variation of the GPCM.
+
+    Args:
+        lam (scalar): Decay of the kernel of :math:`x`.
+        alpha (scalar): Decay of the window.
+        alpha_t (scalar, optional): Scale of the window. Defaults to
+            normalise the window to unity power.
+        gamma (scalar, optional): Decay of the transform :math:`u(t)` of
+            :math:`x`. Defaults to the inverse of twice the spacing between the
+            inducing points.
+        gamma_t (scalar, optional): Scale of the transform. Defaults to
+            normalise the transform to unity power.
+        a (scalar): Lower bound of support of the basis.
+        b (scalar): Upper bound of support of the basis.
+        m_max (scalar): Defines cosine and sine basis functions.
+        ms (vector, optional): Basis function frequencies. Defaults to
+            :math:`0,\ldots,2M-1`.
+        n_u (int, optional): Number of inducing points of :math:`u(t_{u_i})`.
+        t_u (vector, optional): Location :math:`t_{u_i}` of :math:`u(t_{u_i})`.
+            Defaults to equally spaced points twice the filter length scale.
+    """
+
+    def __init__(self,
+                 lam=None,
+                 alpha=None,
+                 alpha_t=None,
+                 gamma=None,
+                 gamma_t=None,
+                 a=None,
+                 b=None,
+                 m_max=None,
+                 ms=None,
+                 n_u=None,
+                 t_u=None):
+        self.lam = lam
+        self.alpha = alpha
+        self.alpha_t = alpha_t
+        self.a = a
+        self.b = b
+        self.m_max = m_max
+        self.ms = ms
+        self.n_u = n_u
+        self.t_u = t_u
+        self.gamma = gamma
+        self.gamma_t = gamma_t
+
+        self.dtype = B.dtype(self.lam)
+
+        if self.alpha_t is None:
+            self.alpha_t = B.sqrt(2*self.alpha)
+
+        if self.ms is None:
+            self.ms = B.range(2*self.m_max + 1)
+
+        if self.t_u is None:
+            self.t_u = B.linspace(0, 2/self.alpha, n_u)
+            self.n_u = B.length(self.t_u)
+
+        if self.gamma is None:
+            self.gamma = 1/(2*(self.t_u[1] - self.t_u[0]))
+
+        if self.gamma_t is None:
+            self.gamma_t = B.sqrt(2*self.gamma)
+
+
+def determine_a_b(alpha, t):
+    """Determine parameters :math:`a` and :math:`b` for the GPRV model.
+
+    Args:
+        alpha (scalar): Decay of the window.
+        t (vector): Time points of data.
+
+    Returns:
+        tuple: Tuple containing :math:`a` and :math:`b`.
+    """
+    return min(t) - 2/alpha, max(t)
+
+
+def k_u(model, t_u_1, t_u_2):
+    """Covariance function of inducing variables :math:`u` associated with
+    :math:`h`.
+
+    Args:
+        model (:class:`.model.GPRV`): Model.
+        t_u_1 (tensor): First inducing point location input.
+        t_u_2 (tensor): Second inducing point location input.
+
+    Returns:
+        tensor: Kernel matrix broadcasted over `tu1` and `tu2`.
+    """
+    return (model.gamma_t**2/model.gamma/2*
+            B.exp(-model.gamma*B.abs(t_u_1 - t_u_2)))
+
+
+def psd_matern_05(omega, lam, lam_t):
+    """Spectral density of Matern-1/2 process.
+
+    Args:
+        omega (tensor): Frequency.
+        lam (tensor): Decay.
+        lam_t (tensor): Scale.
+
+    Returns:
+        tensor: Spectral density.
+    """
+    return 2*lam_t*lam/(lam**2 + omega**2)
+
+
+def K_z(model):
+    """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\ldots,2M`.
+
+    Args:
+        model (:class:`.model.GPRV`): Model.
+
+    Returns:
+        matrix: :math:`K_z`.
+    """
+    # Compute harmonic frequencies.
+    m = model.ms - B.cast(model.dtype, (model.ms > model.m_max))*model.m_max
+    omega = 2*B.pi*m/(model.b - model.a)
+
+    # Compute the parameters of the kernel matrix.
+    lam_t = 1
+    psd = psd_matern_05(omega, model.lam, lam_t)
+    alpha_tmp = (model.b - model.a)/2*psd**(-1)
+    alpha = alpha_tmp + alpha_tmp*B.cast(B.dtype(alpha_tmp), model.ms == 0)
+    beta = 1/(lam_t**.5)*B.cast(model.dtype, model.ms <= model.m_max)
+
+    return Diagonal(alpha) + LowRank(left=beta[:, None])
 
 
 def i_hx(model, t1=0, t2=0):
