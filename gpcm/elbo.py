@@ -1,10 +1,11 @@
 import lab as B
-from stheno import Normal
 import numpy as np
+from stheno import Normal
 
-from .gprv.integrals import ihx, I_ux, I_hz, I_uz
-from .gprv.kernel_approx import K_z, K_z_inv, K_u, kernel_approx_u
-from .util import collect
+from .gprv.integrals import i_hx, I_ux, I_hz, I_uz
+from .gprv.kernel_approx import K_z, K_u
+from .kernel_approx import kernel_approx_u
+from .util import collect, pd_inv
 
 __all__ = ['construct', 'predict', 'predict_kernel', 'predict_fourier']
 
@@ -28,7 +29,7 @@ def construct(model, t, y, sigma, mu_u, cov_u):
     n = B.length(t)
     q_u = Normal(cov_u, mu_u)
 
-    I_hx_ = ihx(model, t, t)
+    I_hx_ = i_hx(model, t, t)
     I_ux_ = I_ux(model)  # Does not depend on `t`!
     I_hz_ = I_hz(model, t)
     I_uz_ = I_uz(model, t)
@@ -39,13 +40,10 @@ def construct(model, t, y, sigma, mu_u, cov_u):
 
     # Construct kernel matrices.
     K_z_ = K_z(model)
-    K_z_inv_ = K_z_inv(model)
-    # TODO: Use Woodbury determinant lemma here.
-    L_z = B.chol(B.reg(K_z_))
+    K_z_inv = pd_inv(K_z_)
     K_u_ = K_u(model)
-    L_u = B.chol(B.reg(K_u_))
-    # TODO: Optimise this!
-    K_u_inv = B.cholsolve(L_u, B.eye(L_u))
+    L_u = B.chol(K_u_)
+    K_u_inv = pd_inv(K_u_)
 
     # Do some precomputations.
     L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
@@ -58,13 +56,13 @@ def construct(model, t, y, sigma, mu_u, cov_u):
     I_hz_sum = B.sum(I_hz_, axis=0)
     I_uz_sum = B.sum(y[:, None, None]*I_uz_, axis=0)  # Weighted by data.
 
-    A_sum = I_ux_sum - \
-            B.sum(B.mm(B.mm(I_uz_, K_z_inv_), I_uz_, tr_b=True), axis=0)
+    A_sum = I_ux_sum - B.sum(B.mm(B.mm(I_uz_, B.dense(K_z_inv)),
+                                  I_uz_, tr_b=True), axis=0)
     B_sum = I_hz_sum - I_zu_inv_K_u_I_uz_sum
     c_sum = I_hx_sum - \
             B.sum(K_u_inv*I_ux_sum) - \
-            B.sum(K_z_inv_*I_hz_sum) + \
-            B.sum(K_z_inv_*I_zu_inv_K_u_I_uz_sum)
+            B.sum(K_z_inv*I_hz_sum) + \
+            B.sum(K_z_inv*I_zu_inv_K_u_I_uz_sum)
 
     # Compute optimal q(z).
     inv_cov_z = K_z_ + 1/sigma**2* \
@@ -85,8 +83,8 @@ def construct(model, t, y, sigma, mu_u, cov_u):
                    y=y,
                    sigma=sigma,
 
-                   L_z=L_z,
-                   K_z_inv_=K_z_inv_,
+                   K_z_=K_z_,
+                   K_z_inv=K_z_inv,
 
                    K_u_=K_u_,
                    K_u_inv=K_u_inv,
@@ -123,7 +121,7 @@ def elbo(c):
            -0.5/c.sigma**2*B.sum(c.q_u.mean*B.mm(c.A_sum, c.q_u.mean)) + \
            -0.5/c.sigma**2*B.sum(c.q_u.var*c.A_sum) + \
            -0.5/c.sigma**2*c.c_sum + \
-           -0.5*2*B.sum(B.log(B.diag(c.L_z))) + \
+           -0.5*B.logdet(c.K_z_) + \
            0.5*2*B.sum(B.log(B.diag(c.L_inv_cov_z))) + \
            0.5*B.sum(c.root**2) - \
            c.q_u.kl(c.p_u)
@@ -146,15 +144,15 @@ def predict(c):
     q_z = Normal(cov_z, mu_z)
 
     # Compute mean.
-    mu = B.flatten(B.mm(B.mm(c.q_u.mean, c.I_uz_, tr_a=True), mu_z))
+    mu = B.flatten(B.mm(B.mm(c.q_u.mean, c.I_uz_, tr_a=True), B.dense(mu_z)))
 
     # Compute variance.
-    A = c.I_ux_ - B.mm(B.mm(c.I_uz_, c.K_z_inv_), c.I_uz_, tr_b=True)
+    A = c.I_ux_ - B.mm(B.mm(c.I_uz_, B.dense(c.K_z_inv)), c.I_uz_, tr_b=True)
     B_ = c.I_hz_ - c.I_zu_inv_K_u_I_uz
     c_ = c.I_hx_ - \
          B.sum(c.K_u_inv*c.I_ux_) - \
-         B.sum(B.sum(c.K_z_inv_[None, :, :]*c.I_hz_, axis=1), axis=1) + \
-         B.sum(B.sum(c.K_z_inv_[None, :, :]*c.I_zu_inv_K_u_I_uz, axis=1),
+         B.sum(B.sum(c.K_z_inv[None, :, :]*c.I_hz_, axis=1), axis=1) + \
+         B.sum(B.sum(c.K_z_inv[None, :, :]*c.I_zu_inv_K_u_I_uz, axis=1),
                axis=1)
     var = B.sum(B.sum(A*c.q_u.m2[None, :, :], axis=1), axis=1) + \
           B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c_

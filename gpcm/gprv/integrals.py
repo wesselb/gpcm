@@ -1,17 +1,15 @@
 import numpy as np
-from lab import B
+import lab as B
 from scipy.integrate import quad
 
-__all__ = ['ihx',
-           'iux',
-           'integral_abcd',
-           'integral_abcd_lu',
+__all__ = ['i_hx',
+           'i_ux',
            'I_hz',
            'I_ux',
            'I_uz']
 
 
-def ihx(model, t1=0, t2=0):
+def i_hx(model, t1=0, t2=0):
     """Compute the :math:`I_{hx}` integral from the paper.
 
     Args:
@@ -22,8 +20,74 @@ def ihx(model, t1=0, t2=0):
     Returns:
         tensor: Value of :math:`I_{hx}` for all `t1` and `t2`.
     """
-    alpha_t, alpha, lam = model.alpha_t, model.alpha, model.lam
-    return alpha_t**2/2/alpha*B.exp(-lam*B.abs(t1 - t2))
+    return model.alpha_t**2/2/model.alpha*B.exp(-model.lam*B.abs(t1 - t2))
+
+
+def i_ux(model, t1, t2, t_u_1, t_u_2):
+    """Compute the :math:`I_{ux}` integral from the paper.
+
+    Args:
+        model (:class:`.model.GPRV`): Model.
+        t1 (tensor): First time input.
+        t2 (tensor): Second time input.
+        t_u_1 (tensor): First inducing point location input.
+        t_u_2 (tensor): Second inducing point location input.
+
+    Returns:
+        tensor: Value of :math:`I_{hx}` for all `t1`, `t2`, `tu1`, and `tu2`.
+    """
+    ag = model.gamma - model.alpha
+    return model.alpha_t**2*model.gamma_t**2* \
+           B.exp(-model.gamma*(t_u_1 + t_u_2) + ag*(t1 + t2))* \
+           integral_abcd_lu(-t1, t_u_1 - t1, -t2, t_u_2 - t2, ag, model.lam)
+
+
+def integral_abcd(a, b, c, d):
+    """Compute the a-b-c-d integral from the paper.
+
+    Args:
+        a (tensor): First upper integration bound.
+        b (tensor): Second upper integration bound.
+        c (tensor): Decay for sum.
+        d (tensor): Decay for absolute difference.
+
+    Returns:
+        tensor: Value of the integral.
+    """
+    # Compute the conditional and signs.
+    sign = B.sign(a)
+    condition = a*b >= 0
+
+    # Compute the two parts.
+    part1 = sign*d/c*(1 - B.exp(2*c*sign*B.minimum(B.abs(a), B.abs(b))))
+    part2 = 1 - \
+            B.exp(c*a - d*B.abs(a)) - \
+            B.exp(c*b - d*B.abs(b)) + \
+            B.exp(c*(a + b) - d*B.abs(a - b))
+
+    # Combine and return.
+    condition = B.cast(B.dtype(part1), condition)
+    return (condition*part1 + part2)/(c**2 - d**2)
+
+
+def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
+    """Compute the a-b-c-d integral with lower and upper bounds from the paper.
+
+    Args:
+        a_lb (tensor): First lower integration bound.
+        a_ub (tensor): First upper integration bound.
+        b_lb (tensor): Second lower integration bound.
+        b_ub (tensor): Second upper integration bound.
+        c (tensor): Decay for sum.
+        d (tensor): Decay for absolute difference.
+
+    Returns:
+        tensor: Value of the integral.
+    """
+    return integral_abcd(a_ub, b_ub, c, d) + \
+           integral_abcd(a_lb, b_lb, c, d) - \
+           integral_abcd(a_ub, b_lb, c, d) - \
+           integral_abcd(a_lb, b_ub, c, d)
 
 
 def I_hz(model, t):
@@ -134,78 +198,11 @@ def I_ux(model):
             `(len(model.t_u), len(model.t_u))`.
     """
     t_u = B.flatten(model.t_u)
-    return iux(model,
-               t1=B.cast(model.dtype, 0),
-               t2=B.cast(model.dtype, 0),
-               t_u_1=t_u[:, None],
-               t_u_2=t_u[None, :])
-
-
-def iux(model, t1, t2, t_u_1, t_u_2):
-    """Compute the :math:`I_{ux}` integral from the paper.
-
-    Args:
-        model (:class:`.model.GPRV`): Model.
-        t1 (tensor): First time input.
-        t2 (tensor): Second time input.
-        t_u_1 (tensor): First inducing point location input.
-        t_u_2 (tensor): Second inducing point location input.
-
-    Returns:
-        tensor: Value of :math:`I_{hx}` for all `t1`, `t2`, `tu1`, and `tu2`.
-    """
-    ag = model.gamma - model.alpha
-    return model.alpha_t**2*model.gamma_t**2* \
-           B.exp(-model.gamma*(t_u_1 + t_u_2) + ag*(t1 + t2))* \
-           integral_abcd_lu(-t1, t_u_1 - t1, -t2, t_u_2 - t2, ag, model.lam)
-
-
-def integral_abcd(a, b, c, d):
-    """Compute the a-b-c-d integral from the paper.
-
-    Args:
-        a (tensor): First upper integration bound.
-        b (tensor): Second upper integration bound.
-        c (tensor): Decay for sum.
-        d (tensor): Decay for absolute difference.
-
-    Returns:
-        tensor: Value of the integral.
-    """
-    # Compute the conditional and signs.
-    sign = B.sign(a)
-    condition = a*b >= 0
-
-    # Compute the two parts.
-    part1 = sign*d/c*(1 - B.exp(2*c*sign*B.minimum(B.abs(a), B.abs(b))))
-    part2 = 1 - \
-            B.exp(c*a - d*B.abs(a)) - \
-            B.exp(c*b - d*B.abs(b)) + \
-            B.exp(c*(a + b) - d*B.abs(a - b))
-
-    # Combine and return.
-    condition = B.cast(B.dtype(part1), condition)
-    return (condition*part1 + part2)/(c**2 - d**2)
-
-
-def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
-    """Compute the a-b-c-d integral with lower and upper bounds from the paper.
-
-    Args:
-        a_lb (tensor): First lower integration bound.
-        a_ub (tensor): First upper integration bound.
-        b_lb (tensor): Second lower integration bound.
-        b_ub (tensor): Second upper integration bound.
-        c (tensor): Decay for sum.
-        d (tensor): Decay for absolute difference.
-
-    Returns:
-        tensor: Value of the integral.
-    """
-    return integral_abcd(a_ub, b_ub, c, d) + \
-           integral_abcd(a_lb, b_lb, c, d) - \
-           integral_abcd(a_ub, b_lb, c, d) - \
-           integral_abcd(a_lb, b_ub, c, d)
+    return i_ux(model,
+                t1=B.cast(model.dtype, 0),
+                t2=B.cast(model.dtype, 0),
+                t_u_1=t_u[:, None],
+                t_u_2=t_u[None, :])
 
 
 def I_uz(model, t):
@@ -325,28 +322,28 @@ def I_hz_quad(model, t_1, t_2=None):
         it = np.nditer(out, flags=['multi_index'])
         while not it.finished:
             i, j, k, l = it.multi_index
-            out[i, j, k, l] = ihz_quad(model,
-                                       m=model.ms[i],
-                                       n=model.ms[j],
-                                       t_1=t_1[k],
-                                       t_2=t_2[l])
+            out[i, j, k, l] = i_hz_quad(model,
+                                        m=model.ms[i],
+                                        n=model.ms[j],
+                                        t_1=t_1[k],
+                                        t_2=t_2[l])
             it.iternext()
     else:
         for i in range(model.ms.size):
             for j in range(i, model.ms.size):
                 for k in range(t_1.size):
                     for l in range(t_2.size):
-                        out[i, j, k, l] = ihz_quad(model,
-                                                   m=model.ms[i],
-                                                   n=model.ms[j],
-                                                   t_1=t_1[k],
-                                                   t_2=t_2[l])
+                        out[i, j, k, l] = i_hz_quad(model,
+                                                    m=model.ms[i],
+                                                    n=model.ms[j],
+                                                    t_1=t_1[k],
+                                                    t_2=t_2[l])
                 if i is not j:
                     out[j, i, :, :] = out[i, j, :, :].T
     return out
 
 
-def ihz_quad(model, m, n, t_1, t_2):
+def i_hz_quad(model, m, n, t_1, t_2):
     """Compute the :math:`I_{hz}(t,t')` integral for `t_1` and `t_2`.
     :math:`t'` in `t_2`.
 
