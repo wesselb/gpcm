@@ -5,7 +5,7 @@ import numpy as np
 from matrix import AbstractMatrix, Woodbury
 from plum import Dispatcher
 
-__all__ = ['pd_inv', 'collect', 'autocorr']
+__all__ = ['pd_inv', 'collect', 'autocorr', 'method']
 
 _dispatch = Dispatcher()
 
@@ -60,3 +60,16 @@ def autocorr(x, lags):
     k = np.correlate(x, x, mode='full')[:x.size][::-1]
     k /= np.arange(x.size, 0, -1)  # Divide by the number of estimates.
     return k[:lags + 1]
+
+
+def method(cls):
+    """Decorator to add the function as a method to a class.
+
+    Args:
+        cls (type): Class to add the function as a method to.
+    """
+    def decorator(f):
+        setattr(cls, f.__name__, f)
+        return f
+
+    return decorator

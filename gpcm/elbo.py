@@ -2,7 +2,6 @@ import lab as B
 import numpy as np
 from stheno import Normal
 
-from .gprv import K_z, i_hx, I_ux, I_hz, I_uz
 from .kernel_approx import kernel_approx_u, K_u
 from .util import collect, pd_inv
 
@@ -28,17 +27,17 @@ def construct(model, t, y, sigma, mu_u, cov_u):
     n = B.length(t)
     q_u = Normal(cov_u, mu_u)
 
-    I_hx_ = i_hx(model, t, t)
-    I_ux_ = I_ux(model)  # Does not depend on `t`!
-    I_hz_ = I_hz(model, t)
-    I_uz_ = I_uz(model, t)
+    I_hx_ = model.i_hx(t, t)
+    I_ux_ = model.I_ux()  # Does not depend on `t`!
+    I_hz_ = model.I_hz(t)
+    I_uz_ = model.I_uz(t)
 
     # Put data dimensions first.
     I_uz_ = B.transpose(I_uz_, perm=(2, 0, 1))
     I_hz_ = B.transpose(I_hz_, perm=(2, 0, 1))
 
     # Construct kernel matrices.
-    K_z_ = K_z(model)
+    K_z_ = model.K_z()
     K_z_inv = pd_inv(K_z_)
     K_u_ = K_u(model)
     L_u = B.chol(K_u_)

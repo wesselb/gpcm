@@ -4,7 +4,7 @@ import wbml.out
 import wbml.plot
 from lab import B
 
-from gpcm.gprv import k_u, GPRV, determine_a_b
+from gpcm.gprv import GPRV, determine_a_b
 from gpcm.kernel_approx import kernel_approx_u
 
 # Define some test parameters.
@@ -35,7 +35,7 @@ with wbml.out.Progress(name='Sampling', total=5) as progress:
         # Sample random u.
         while f is None:
             try:
-                Ku = k_u(model, tu[:, None], tu[None, :])
+                Ku = model.k_u(tu[:, None], tu[None, :])
                 u = B.matmul(B.cholesky(Ku), np.random.randn(len(tu), 1))[:, 0]
 
                 # Construct the kernel matrix.

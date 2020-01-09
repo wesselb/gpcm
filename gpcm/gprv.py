@@ -3,6 +3,8 @@ import numpy as np
 from matrix import Diagonal, LowRank
 from scipy.integrate import quad
 
+from .util import method
+
 __all__ = ['GPRV',
            'determine_a_b',
            'k_u',
@@ -93,6 +95,7 @@ def determine_a_b(alpha, t):
     return min(t) - 2/alpha, max(t)
 
 
+@method(GPRV)
 def k_u(model, t_u_1, t_u_2):
     """Covariance function of inducing variables :math:`u` associated with
     :math:`h`.
@@ -123,6 +126,7 @@ def psd_matern_05(omega, lam, lam_t):
     return 2*lam_t*lam/(lam**2 + omega**2)
 
 
+@method(GPRV)
 def K_z(model):
     """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\ldots,2M`.
 
@@ -146,6 +150,7 @@ def K_z(model):
     return Diagonal(alpha) + LowRank(left=beta[:, None])
 
 
+@method(GPRV)
 def i_hx(model, t1=0, t2=0):
     """Compute the :math:`I_{hx}` integral from the paper.
 
@@ -160,6 +165,7 @@ def i_hx(model, t1=0, t2=0):
     return model.alpha_t**2/2/model.alpha*B.exp(-model.lam*B.abs(t1 - t2))
 
 
+@method(GPRV)
 def i_ux(model, t1, t2, t_u_1, t_u_2):
     """Compute the :math:`I_{ux}` integral from the paper.
 
@@ -227,6 +233,7 @@ def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
            integral_abcd(a_lb, b_ub, c, d)
 
 
+@method(GPRV)
 def I_hz(model, t):
     """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in t_vec.
 
@@ -324,6 +331,7 @@ def _I_hx_0_sin(model, n, t):
              2*model.alpha*B.sin(omega_vec*t_less_a)))
 
 
+@method(GPRV)
 def I_ux(model):
     """Compute the :math:`I_{ux}` matrix.
 
@@ -342,6 +350,7 @@ def I_ux(model):
                 t_u_2=t_u[None, :])
 
 
+@method(GPRV)
 def I_uz(model, t):
     """Compute the :math:`I_{uz,t_i}` matrix for :math:`t_i` in `t`.
 
