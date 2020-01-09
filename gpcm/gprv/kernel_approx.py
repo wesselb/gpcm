@@ -58,7 +58,8 @@ def ku(model, t_u_1, t_u_2):
     Returns:
         tensor: Kernel matrix broadcasted over `tu1` and `tu2`.
     """
-    return model.gamma_t**2/model.gamma/2*B.exp(-model.gamma*B.abs(t_u_1 - t_u_2))
+    return (model.gamma_t**2/model.gamma/2*
+            B.exp(-model.gamma*B.abs(t_u_1 - t_u_2)))
 
 
 def kernel_approx_u(model, t1, t2, u):
