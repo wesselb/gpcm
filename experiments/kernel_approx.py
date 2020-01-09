@@ -5,6 +5,7 @@ import wbml.plot
 import wbml.out
 
 from gpcm.gprv.kernel_approx import kernel_approx_u, ku
+from gpcm.gprv.model import GPRV, determine_a_b
 
 B.epsilon = 1e-8
 
@@ -13,22 +14,23 @@ lam = 1/2  # Model length scale
 wbml.out.kv('Lambda', lam)
 
 # Set window to twice the length scale of the model.
-a = lam/2
-wbml.out.kv('Window length scale', 1/a)
-wbml.out.kv('Alpha', a)
-
-# Make the prior kernel have variance one.
-at = (2*a)**.5
+alpha = lam/2
+wbml.out.kv('Window length scale', 1/alpha)
+wbml.out.kv('Alpha', alpha)
 
 t = np.linspace(0, 10, 200)
-tu = np.linspace(0, 2/a, 20)
+tu = np.linspace(0, 2/alpha, 20)
 
-g = 1/(4*(tu[1] - tu[0]))  # Kernel inter-domain transformation
-wbml.out.kv('Gamma', g)
-gt = (2*g)**.5
+gamma = 1/(4*(tu[1] - tu[0]))  # Kernel inter-domain transformation
+wbml.out.kv('Gamma', gamma)
 
 noise_f = np.random.randn(len(t), 1)
 ks, fs = [], []
+
+# Construct model.
+a, b = determine_a_b(alpha, t)
+model = GPRV(lam, alpha, a, b, m_max=50, n_u=20)
+
 with wbml.out.Progress(name='Sampling', total=5) as progress:
     for i in range(5):
         progress()
@@ -38,11 +40,11 @@ with wbml.out.Progress(name='Sampling', total=5) as progress:
         # Sample random u.
         while f is None:
             try:
-                Ku = ku(gt, g, tu[:, None], tu[None, :])
+                Ku = ku(model, tu[:, None], tu[None, :])
                 u = B.matmul(B.cholesky(Ku), np.random.randn(len(tu), 1))[:, 0]
 
                 # Construct the kernel matrix.
-                K = B.reg(kernel_approx_u(at, a, gt, g, lam, t, t, tu, u))
+                K = B.reg(kernel_approx_u(model, t, t, u))
                 wbml.out.kv('Minimal eigenvalue', min(np.linalg.eigvals(K)))
                 wbml.out.kv('Sampled variance', K[0, 0])
                 K /= K[0, 0]  # Set to unity variance.
