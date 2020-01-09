@@ -26,7 +26,8 @@ alpha_t = (2*alpha)**.5  # Set prior kernel to variance one.
 
 # Determine inducing points for h.
 n_u_max = 50
-dt_u = t[1] - t[0]
+dt = t[1] - t[0]
+dt_u = dt
 t_max_u = 2/alpha  # Twice window length.
 n_u = int(t_max_u/dt_u)
 n_u = min(n_u_max, n_u)
