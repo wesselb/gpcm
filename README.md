@@ -7,18 +7,3 @@
 Implementation of the GPCM and variations
 
 *Note:* GPCM requires Python 3.6 or higher.
-
-## Installation
-
-```bash
-pip install package
-```
-
-## Basic Usage
-
-Like so:
-
-```python
->>> print('Hello, world!')
-Hello, world!
-```
