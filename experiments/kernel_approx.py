@@ -10,7 +10,7 @@ from gpcm.gprv.model import GPRV, determine_a_b
 B.epsilon = 1e-8
 
 # Define some test parameters.
-lam = 1/2  # Model length scale
+lam = 1/2  # Model length scale.
 wbml.out.kv('Lambda', lam)
 
 # Set window to twice the length scale of the model.
@@ -21,15 +21,12 @@ wbml.out.kv('Alpha', alpha)
 t = np.linspace(0, 10, 200)
 tu = np.linspace(0, 2/alpha, 20)
 
-gamma = 1/(4*(tu[1] - tu[0]))  # Kernel inter-domain transformation
-wbml.out.kv('Gamma', gamma)
-
 noise_f = np.random.randn(len(t), 1)
 ks, fs = [], []
 
 # Construct model.
 a, b = determine_a_b(alpha, t)
-model = GPRV(lam, alpha, a, b, m_max=50, n_u=20)
+model = GPRV(lam=lam, alpha=alpha, a=a, b=b, m_max=50, n_u=20)
 
 with wbml.out.Progress(name='Sampling', total=5) as progress:
     for i in range(5):
