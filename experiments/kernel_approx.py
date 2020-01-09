@@ -7,8 +7,6 @@ import wbml.out
 from gpcm.gprv.kernel_approx import kernel_approx_u, ku
 from gpcm.gprv.model import GPRV, determine_a_b
 
-B.epsilon = 1e-8
-
 # Define some test parameters.
 lam = 1/2  # Model length scale.
 wbml.out.kv('Lambda', lam)

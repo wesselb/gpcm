@@ -13,8 +13,6 @@ from gpcm.elbo import construct, elbo, predict, predict_fourier, predict_kernel
 from gpcm.gprv.model import GPRV
 from gpcm.util import autocorr
 
-B.epsilon = 1e-10
-
 # Sample data from a GP:
 n = 200
 t = B.linspace(0, 70, n)
