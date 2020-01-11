@@ -1,59 +1,80 @@
+import warnings
+
 import lab as B
 import numpy as np
-from matrix import Diagonal, LowRank
-from scipy.integrate import quad
+from matrix import Dense, Diagonal, LowRank
 
-from .util import method
+from .util import method, invert_perm
 
 __all__ = ['GPRV',
-           'determine_a_b',
-           'k_u',
+           'K_u',
            'K_z',
            'i_hx',
-           'i_ux',
-           'I_hz',
            'I_ux',
+           'I_hz',
            'I_uz']
 
 
 class GPRV:
-    """GPRV variation of the GPCM.
+    """GP-RV variation of the GPCM.
 
     Args:
-        lam (scalar): Decay of the kernel of :math:`x`.
-        alpha (scalar): Decay of the window.
+        alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to
             normalise the window to unity power.
+        window (scalar, alternative): Length of the window. This will be used
+            to determine `alpha` if it is not given.
+        lam (scalar, optional): Decay of the kernel of :math:`x`. Defaults
+            to four times `alpha`.
         gamma (scalar, optional): Decay of the transform :math:`u(t)` of
             :math:`x`. Defaults to the inverse of twice the spacing between the
             inducing points.
         gamma_t (scalar, optional): Scale of the transform. Defaults to
             normalise the transform to unity power.
-        a (scalar): Lower bound of support of the basis.
-        b (scalar): Upper bound of support of the basis.
-        m_max (scalar): Defines cosine and sine basis functions.
+        a (scalar, optional): Lower bound of support of the basis.
+        b (scalar, optional): Upper bound of support of the basis.
+        m_max (scalar, optional): Defines cosine and sine basis functions.
+        m_max_cap (scalar, optional): Maximum value for `m_max` if it is 
+            determined automatically.
+        per (scalar, alternative): Minimal period in the data to model. This will
+            be used to automatically determine `m_max`.
         ms (vector, optional): Basis function frequencies. Defaults to
-            :math:`0,\ldots,2M-1`.
+            :math:`0,\\ldots,2M-1`.
         n_u (int, optional): Number of inducing points of :math:`u(t_{u_i})`.
+        n_u_cap (scalar, optional): Maximum value for `n_u` if it is 
+            determined automatically.
+        resolution (float, optional): Spacing between the inducing points
+            compared to the spacing between the locations of the observations.
+            This will be used to automatically determine `n_u` if it is not
+            given.
         t_u (vector, optional): Location :math:`t_{u_i}` of :math:`u(t_{u_i})`.
             Defaults to equally spaced points twice the filter length scale.
+        t (vector, alternative): Locations of the observations. If `a` and `b`
+            are not specified, then `t` will be asserted to exist and used to
+            determine `a` and `b`.
     """
 
     def __init__(self,
-                 lam=None,
                  alpha=None,
                  alpha_t=None,
+                 window=None,
+                 lam=None,
                  gamma=None,
                  gamma_t=None,
                  a=None,
                  b=None,
                  m_max=None,
+                 m_max_cap=80,
+                 per=None,
                  ms=None,
                  n_u=None,
-                 t_u=None):
-        self.lam = lam
+                 n_u_cap=50,
+                 resolution=1,
+                 t_u=None,
+                 t=None):
         self.alpha = alpha
         self.alpha_t = alpha_t
+        self.lam = lam
         self.a = a
         self.b = b
         self.m_max = m_max
@@ -63,17 +84,36 @@ class GPRV:
         self.gamma = gamma
         self.gamma_t = gamma_t
 
-        self.dtype = B.dtype(self.lam)
+        if self.alpha is None:
+            self.alpha = 1/window
 
         if self.alpha_t is None:
             self.alpha_t = B.sqrt(2*self.alpha)
 
-        if self.ms is None:
-            self.ms = B.range(2*self.m_max + 1)
+        if self.lam is None:
+            self.lam = 4*self.alpha
 
         if self.t_u is None:
-            self.t_u = B.linspace(0, 2/self.alpha, n_u)
-            self.n_u = B.length(self.t_u)
+            t_u_max = 2/self.alpha
+
+            if self.n_u is None:
+                dt = t[1] - t[0]
+                dt_u = dt/resolution
+                self.n_u = int(np.ceil(t_u_max/dt_u))
+
+                if self.n_u > n_u_cap:
+                    warnings.warn(f'Given resolution {resolution} for '
+                                  f'the inducing points of the filter '
+                                  f'requires {self.n_u} inducing points, '
+                                  f'which is too many. It is capped at '
+                                  f'{n_u_cap}.',
+                                  category=UserWarning)
+                    self.n_u = n_u_cap
+
+            self.t_u = B.linspace(0, t_u_max, self.n_u)
+
+        if self.n_u is None:
+            self.n_u = B.shape(self.t_u)[0]
 
         if self.gamma is None:
             self.gamma = 1/(2*(self.t_u[1] - self.t_u[0]))
@@ -81,38 +121,45 @@ class GPRV:
         if self.gamma_t is None:
             self.gamma_t = B.sqrt(2*self.gamma)
 
+        if self.a is None:
+            self.a = B.min(t) - B.max(self.t_u)
 
-def determine_a_b(alpha, t):
-    """Determine parameters :math:`a` and :math:`b` for the GPRV model.
+        if self.b is None:
+            self.b = B.max(t)
 
-    Args:
-        alpha (scalar): Decay of the window.
-        t (vector): Time points of data.
+        if self.m_max is None:
+            freq = 1/per
+            self.m_max = int(np.ceil(freq*(self.b - self.a)))
+            if self.m_max > m_max_cap:
+                warnings.warn(f'Given period {per} for the inducing features '
+                              f'requires M={self.m_max}, which is too high. '
+                              f'It is capped at {m_max_cap}.',
+                              category=UserWarning)
+                self.m_max = m_max_cap
 
-    Returns:
-        tuple: Tuple containing :math:`a` and :math:`b`.
-    """
-    return min(t) - 2/alpha, max(t)
+        if self.ms is None:
+            self.ms = B.range(2*self.m_max + 1)
+
+        self.dtype = B.dtype(self.lam)
 
 
 @method(GPRV)
-def k_u(model, t_u_1, t_u_2):
+def K_u(model):
     """Covariance function of inducing variables :math:`u` associated with
     :math:`h`.
 
     Args:
         model (:class:`.model.GPRV`): Model.
-        t_u_1 (tensor): First inducing point location input.
-        t_u_2 (tensor): Second inducing point location input.
 
     Returns:
         tensor: Kernel matrix broadcasted over `tu1` and `tu2`.
     """
-    return (model.gamma_t**2/model.gamma/2*
-            B.exp(-model.gamma*B.abs(t_u_1 - t_u_2)))
+    return Dense(model.gamma_t**2/(2*model.gamma)*
+                 B.exp(-model.gamma*B.abs(model.t_u[:, None] -
+                                          model.t_u[None, :])))
 
 
-def psd_matern_05(omega, lam, lam_t):
+def psd_matern_12(omega, lam, lam_t):
     """Spectral density of Matern-1/2 process.
 
     Args:
@@ -128,7 +175,7 @@ def psd_matern_05(omega, lam, lam_t):
 
 @method(GPRV)
 def K_z(model):
-    """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\ldots,2M`.
+    """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\\ldots,2M`.
 
     Args:
         model (:class:`.model.GPRV`): Model.
@@ -137,21 +184,20 @@ def K_z(model):
         matrix: :math:`K_z`.
     """
     # Compute harmonic frequencies.
-    m = model.ms - B.cast(model.dtype, (model.ms > model.m_max))*model.m_max
+    m = model.ms - B.cast(model.dtype, model.ms > model.m_max)*model.m_max
     omega = 2*B.pi*m/(model.b - model.a)
 
     # Compute the parameters of the kernel matrix.
     lam_t = 1
-    psd = psd_matern_05(omega, model.lam, lam_t)
-    alpha_tmp = (model.b - model.a)/2*psd**(-1)
-    alpha = alpha_tmp + alpha_tmp*B.cast(B.dtype(alpha_tmp), model.ms == 0)
+    alpha = 0.5*(model.b - model.a)/psd_matern_12(omega, model.lam, lam_t)
+    alpha = alpha + alpha*B.cast(model.dtype, model.ms == 0)
     beta = 1/(lam_t**.5)*B.cast(model.dtype, model.ms <= model.m_max)
 
     return Diagonal(alpha) + LowRank(left=beta[:, None])
 
 
 @method(GPRV)
-def i_hx(model, t1=0, t2=0):
+def i_hx(model, t1=None, t2=None):
     """Compute the :math:`I_{hx}` integral from the paper.
 
     Args:
@@ -162,27 +208,54 @@ def i_hx(model, t1=0, t2=0):
     Returns:
         tensor: Value of :math:`I_{hx}` for all `t1` and `t2`.
     """
+    if t1 is None:
+        t1 = B.zero(model.dtype)
+    if t2 is None:
+        t2 = B.zero(model.dtype)
     return model.alpha_t**2/2/model.alpha*B.exp(-model.lam*B.abs(t1 - t2))
 
 
 @method(GPRV)
-def i_ux(model, t1, t2, t_u_1, t_u_2):
+def I_ux(model, t1=None, t2=None):
     """Compute the :math:`I_{ux}` integral from the paper.
 
     Args:
         model (:class:`.model.GPRV`): Model.
-        t1 (tensor): First time input.
-        t2 (tensor): Second time input.
-        t_u_1 (tensor): First inducing point location input.
-        t_u_2 (tensor): Second inducing point location input.
+        t1 (tensor, optional): First time input. Defaults to zero.
+        t2 (tensor, optional): Second time input. Defaults to zero.
 
     Returns:
         tensor: Value of :math:`I_{hx}` for all `t1`, `t2`, `tu1`, and `tu2`.
     """
-    ag = model.gamma - model.alpha
-    return model.alpha_t**2*model.gamma_t**2* \
-           B.exp(-model.gamma*(t_u_1 + t_u_2) + ag*(t1 + t2))* \
-           integral_abcd_lu(-t1, t_u_1 - t1, -t2, t_u_2 - t2, ag, model.lam)
+    if t1 is None:
+        t1 = B.zeros(model.dtype, 1)
+        squeeze_t1 = True
+    else:
+        squeeze_t1 = False
+
+    if t2 is None:
+        t2 = B.zeros(model.dtype, 1)
+        squeeze_t2 = True
+    else:
+        squeeze_t2 = False
+
+    t1 = t1[:, None, None, None]
+    t2 = t2[None, :, None, None]
+    t_u_1 = model.t_u[None, None, :, None]
+    t_u_2 = model.t_u[None, None, None, :]
+    ga = model.gamma - model.alpha
+    result = model.alpha_t**2*model.gamma_t**2* \
+             B.exp(-model.gamma*(t_u_1 + t_u_2) + ga*(t1 + t2))* \
+             integral_abcd_lu(-t1, t_u_2 - t1, -t2, t_u_1 - t2, ga, model.lam)
+
+    if squeeze_t1 and squeeze_t2:
+        return result[0, 0, :, :]
+    elif squeeze_t1:
+        return result[0, :, :, :]
+    elif squeeze_t2:
+        return result[:, 0, :, :]
+    else:
+        return result
 
 
 def integral_abcd(a, b, c, d):
@@ -227,15 +300,15 @@ def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
     Returns:
         tensor: Value of the integral.
     """
-    return integral_abcd(a_ub, b_ub, c, d) + \
-           integral_abcd(a_lb, b_lb, c, d) - \
-           integral_abcd(a_ub, b_lb, c, d) - \
-           integral_abcd(a_lb, b_ub, c, d)
+    return (integral_abcd(a_ub, b_ub, c, d) +
+            integral_abcd(a_lb, b_lb, c, d) +
+            -integral_abcd(a_ub, b_lb, c, d) +
+            -integral_abcd(a_lb, b_ub, c, d))
 
 
 @method(GPRV)
 def I_hz(model, t):
-    """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in t_vec.
+    """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in `t`.
 
     Args:
         model (:class:`.model.GPRV`): Model.
@@ -243,74 +316,73 @@ def I_hz(model, t):
 
     Returns:
         tensor: Value of :math:`I_{hz,t_i}`, with shape
-            `(len(model.ms), len(model.ms), len(t))`.
+            `(len(t), len(model.ms), len(model.ms))`.
     """
     # Compute sorting permutation.
     perm = np.argsort(model.ms)
-    inverse_perm = np.arange(len(model.ms))
-    for i, p in enumerate(perm):
-        inverse_perm[p] = i
+    inverse_perm = invert_perm(perm)
 
     # Sort to allow for simple concatenation.
     m_max = model.m_max
     ms = model.ms[perm]
 
     # Construct I_hz for m,n <= M.
-    n_vec = ms[ms <= m_max]
+    ns = ms[ms <= m_max]
     I_0_cos_1 = _I_hx_0_cos(model,
-                            -n_vec[:, None, None] + n_vec[None, :, None],
-                            t[None, None, :])
+                            -ns[None, :, None] + ns[None, None, :],
+                            t[:, None, None])
     I_0_cos_2 = _I_hx_0_cos(model,
-                            n_vec[:, None, None] + n_vec[None, :, None],
-                            t[None, None, :])
+                            ns[None, :, None] + ns[None, None, :],
+                            t[:, None, None])
     I_hz_mnleM = 0.5*(I_0_cos_1 + I_0_cos_2)
 
     # Construct I_hz for m,n > M.
-    n_vec = ms[ms > m_max] - m_max
+    ns = ms[ms > m_max] - m_max
     I_0_cos_1 = _I_hx_0_cos(model,
-                            -n_vec[:, None, None] + n_vec[None, :, None],
-                            t[None, None, :])
+                            -ns[None, :, None] + ns[None, None, :],
+                            t[:, None, None])
     I_0_cos_2 = _I_hx_0_cos(model,
-                            n_vec[:, None, None] + n_vec[None, :, None],
-                            t[None, None, :])
+                            ns[None, :, None] + ns[None, None, :],
+                            t[:, None, None])
     I_hz_mngtM = 0.5*(I_0_cos_1 - I_0_cos_2)
 
     # Construct I_hz for 0 < m <= M and n > M.
-    n_vec = ms[(0 < ms)*(ms <= m_max)]
-    n_vec_2 = ms[ms > m_max]  # Do not subtract M!
+    ns = ms[(0 < ms)*(ms <= m_max)]
+    ns2 = ms[ms > m_max]  # Do not subtract M!
     I_0_sin_1 = _I_hx_0_sin(model,
-                            n_vec[:, None, None] + n_vec_2[None, :, None],
-                            t[None, None, :])
+                            ns[None, :, None] + ns2[None, None, :],
+                            t[:, None, None])
     I_0_sin_2 = _I_hx_0_sin(model,
-                            -n_vec[:, None, None] + n_vec_2[None, :, None],
-                            t[None, None, :])
+                            -ns[None, :, None] + ns2[None, None, :],
+                            t[:, None, None])
     I_hz_mleM_ngtM = 0.5*(I_0_sin_1 + I_0_sin_2)
 
     # Construct I_hz for m = 0 and n > M.
-    n_vec = ms[ms == 0]
-    n_vec_2 = ms[ms > m_max]  # Do not subtract M!
+    ns = ms[ms == 0]
+    ns2 = ms[ms > m_max]  # Do not subtract M!
     I_hz_0_gtM = _I_hx_0_sin(model,
-                             n_vec[:, None, None] + n_vec_2[None, :, None],
-                             t[None, None, :])
+                             ns[None, :, None] + ns2[None, None, :],
+                             t[:, None, None])
 
     # Concatenate to form I_hz for m <= M and n > M.
-    I_hz_mleM_ngtM = B.concat(I_hz_0_gtM, I_hz_mleM_ngtM, axis=0)
+    I_hz_mleM_ngtM = B.concat(I_hz_0_gtM, I_hz_mleM_ngtM, axis=1)
 
     # Compute the other half by transposing.
-    I_hz_mgtM_nleM = B.transpose(I_hz_mleM_ngtM, perm=(1, 0, 2))
+    I_hz_mgtM_nleM = B.transpose(I_hz_mleM_ngtM, perm=(0, 2, 1))
 
     # Construct result.
-    result = B.concat2d([I_hz_mnleM, I_hz_mleM_ngtM],
-                        [I_hz_mgtM_nleM, I_hz_mngtM])
+    result = B.concat(B.concat(I_hz_mnleM, I_hz_mleM_ngtM, axis=2),
+                      B.concat(I_hz_mgtM_nleM, I_hz_mngtM, axis=2), axis=1)
 
-    # Undo sorting and return.
-    result = B.take(result, inverse_perm, axis=0)
+    # Undo sorting.
     result = B.take(result, inverse_perm, axis=1)
+    result = B.take(result, inverse_perm, axis=2)
+
     return result
 
 
 def _I_hx_0_cos(model, n, t):
-    """Compute the for :math:`I_{0,n:\cos}` integral."""
+    """Compute the :math:`I_{0,n:\\cos}` integral."""
     omega_n = 2*B.pi*n/(model.b - model.a)
     t_less_a = t - model.a
     return (model.alpha_t**2/(4*model.alpha**2 + omega_n**2)*
@@ -322,32 +394,13 @@ def _I_hx_0_cos(model, n, t):
 
 
 def _I_hx_0_sin(model, n, t):
-    """Compute the :math:`I_{0,n:\sin}`, :math:`n>M`, integral."""
-    omega_vec = 2*B.pi*(n - model.m_max)/(model.b - model.a)
+    """Compute the :math:`I_{0,n:\\sin}`, :math:`n>M`, integral."""
+    omega = 2*B.pi*(n - model.m_max)/(model.b - model.a)
     t_less_a = t - model.a
-    return (model.alpha_t**2/(4*model.alpha**2 + omega_vec**2)*
-            (omega_vec*(B.exp(-2*model.alpha*t_less_a) -
-                        B.cos(omega_vec*t_less_a)) +
-             2*model.alpha*B.sin(omega_vec*t_less_a)))
-
-
-@method(GPRV)
-def I_ux(model):
-    """Compute the :math:`I_{ux}` matrix.
-
-    Args:
-        model (:class:`.model.GPRV`): Model.
-
-    Returns:
-        tensor: Value of :math:`I_{ux}`, with shape
-            `(len(model.t_u), len(model.t_u))`.
-    """
-    t_u = B.flatten(model.t_u)
-    return i_ux(model,
-                t1=B.cast(model.dtype, 0),
-                t2=B.cast(model.dtype, 0),
-                t_u_1=t_u[:, None],
-                t_u_2=t_u[None, :])
+    return (model.alpha_t**2/(4*model.alpha**2 + omega**2)*
+            (omega*(B.exp(-2*model.alpha*t_less_a) -
+                    B.cos(omega*t_less_a)) +
+             2*model.alpha*B.sin(omega*t_less_a)))
 
 
 @method(GPRV)
@@ -360,49 +413,43 @@ def I_uz(model, t):
 
     Returns:
         tensor: Value of :math:`I_{uz,t_i}`, with shape
-            `(len(model.t_u), len(model.ms), len(t))`.
+            `(len(t), len(model.t_u), len(model.ms))`.
     """
     # Compute sorting permutation.
     perm = np.argsort(model.ms)
-    inverse_perm = np.arange(len(model.ms))
-    for i, p in enumerate(perm):
-        inverse_perm[p] = i
+    inverse_perm = invert_perm(perm)
 
     # Sort to allow for simple concatenation.
     ms = model.ms[perm]
 
+    # Part of the factor is absorbed in the integrals.
     factor = (model.alpha_t*model.gamma_t*
-              B.exp(-model.gamma*model.t_u[:, None, None]))
+              B.exp(-model.gamma*model.t_u[None, :, None]))
 
     # Compute I(l, u, 0).
     k = ms[ms == 0]
-    I_uz0 = factor*_integral_lu0(model,
-                                 t[None, None, :] -
-                                 model.t_u[:, None, None],
-                                 t[None, None, :]) + \
-            k[None, :, None]
+    I_uz0 = _integral_lu0(model,
+                          t[:, None, None] - model.t_u[None, :, None],
+                          t[:, None, None]) + \
+            k[None, None, :]  # This is all zeros, but performs broadcasting.
 
     # Compute I(l, u, k) for 0 < k < M + 1.
     k = ms[(0 < ms)*(ms <= model.m_max)]
-    I_uz_leM = factor*_integral_luk_leq_M(model,
-                                          t[None, None, :] -
-                                          model.t_u[:, None, None],
-                                          t[None, None, :],
-                                          k[None, :, None])
+    I_uz_leM = _integral_luk_leq_M(model,
+                                   t[:, None, None] - model.t_u[None, :, None],
+                                   t[:, None, None], k[None, None, :])
 
     # Compute I(l, u, k) for k > M.
     k = ms[ms > model.m_max]
-    I_uz_gtM = factor*_integral_luk_g_M(model,
-                                        t[None, None, :] -
-                                        model.t_u[:, None, None],
-                                        t[None, None, :],
-                                        k[None, :, None])
+    I_uz_gtM = _integral_luk_g_M(model,
+                                 t[:, None, None] - model.t_u[None, :, None],
+                                 t[:, None, None], k[None, None, :])
 
     # Construct result.
-    result = B.concat(I_uz0, I_uz_leM, I_uz_gtM, axis=1)
+    result = B.concat(I_uz0, I_uz_leM, I_uz_gtM, axis=2)
 
     # Undo sorting and return.
-    return B.take(result, inverse_perm, axis=1)
+    return factor*B.take(result, inverse_perm, axis=2)
 
 
 def _integral_lu0(model, l, u):
@@ -437,104 +484,3 @@ def _integral_luk_g_M(model, l, u, k):
            ((-ag*B.sin(om*(u - model.a)) + om*B.cos(om*(u - model.a))) -
             B.exp(ag*(l - u))*
             (-ag*B.sin(om*(l - model.a)) + om*B.cos(om*(l - model.a))))
-
-
-def I_hz_quad(model, t_1, t_2=None):
-    """Compute the :math:`I_{hz}(t, t')` matrix with **quadrature** for
-    :math:`t` in `t_1` and :math:`t'` in `t_2`.
-
-    Args:
-        model (:class:`.model.GPRV`): Model.
-        t_1 (vector): Time points :math:`t` of data.
-        t_2 (vector, optional): Other time points :math:`t'` of data.
-            Defaults to `t_vec_1`.
-
-    Returns:
-        tensor: Value of :math:`I_{hz}(t, t')`, with shape
-            `(len(model.ms), len(model.ms), len(t_vec_1), len(t_vec_2)`.
-    """
-    # Set default for `t_vec_2`.
-    if t_2 is None:
-        symmetric = True
-        t_2 = t_1
-    else:
-        symmetric = False
-
-    # Construct output.
-    out = B.zeros(model.ms.size, model.ms.size, t_1.size, t_2.size)
-
-    # Fill output, exploiting symmetry.
-    if not symmetric:
-        it = np.nditer(out, flags=['multi_index'])
-        while not it.finished:
-            i, j, k, l = it.multi_index
-            out[i, j, k, l] = i_hz_quad(model,
-                                        m=model.ms[i],
-                                        n=model.ms[j],
-                                        t_1=t_1[k],
-                                        t_2=t_2[l])
-            it.iternext()
-    else:
-        for i in range(model.ms.size):
-            for j in range(i, model.ms.size):
-                for k in range(t_1.size):
-                    for l in range(t_2.size):
-                        out[i, j, k, l] = i_hz_quad(model,
-                                                    m=model.ms[i],
-                                                    n=model.ms[j],
-                                                    t_1=t_1[k],
-                                                    t_2=t_2[l])
-                if i is not j:
-                    out[j, i, :, :] = out[i, j, :, :].T
-    return out
-
-
-def i_hz_quad(model, m, n, t_1, t_2):
-    """Compute the :math:`I_{hz}(t,t')` integral for `t_1` and `t_2`.
-    :math:`t'` in `t_2`.
-
-    Args:
-        model (:class:`.model.GPRV`): Model.
-        m (int): Frequency corresponding to `t_1`.
-        n (int): Frequency corresponding to `t_2`.
-        t_1 (scalar): :math:`t` of data point.
-        t_2 (scalar, optional): :math:`t'` of data point. Defaults to `t_1`.
-
-    Returns:
-        scalar: Value of :math:`I_{hz}(t, t')`.
-    """
-
-    # Ensure that `t_1 <= t_2`.
-    if t_1 > t_2:
-        t_1, t_2 = t_2, t_1
-        m, n = n, m
-
-    if m <= model.m_max and n <= model.m_max:
-        int_left_a = (model.alpha_t**2/(2*(model.alpha + model.lam))*
-                      np.exp(-2*model.alpha*(t_2 - model.a))*
-                      np.exp(-model.lam*(t_2 - t_1)))
-    else:
-        int_left_a = 0
-
-    def window(tau):
-        return model.alpha_t*np.exp(-model.alpha*np.abs(tau))
-
-    def beta(tau, m):
-        if m <= model.m_max:
-            left_a = np.exp(-model.lam*(tau - model.b))
-            right_b = np.exp(model.lam*(tau - model.a))
-            omega = 2*np.pi*m/(model.b - model.a)
-            in_a_b = np.cos(omega*(tau - model.a))
-        else:
-            left_a = 0
-            right_b = 0
-            omega = 2*np.pi*(m - model.m_max)/(model.b - model.a)
-            in_a_b = np.sin(omega*(tau - model.a))
-        return (left_a*(tau > model.b) +
-                right_b*(tau < model.a) +
-                in_a_b*(tau >= model.a)*(tau <= model.b))
-
-    def f(tau):
-        return window(t_2 - tau)**2*beta(tau - t_2 + t_1, m)*beta(tau, n)
-
-    return quad(f, model.a, t_2)[0] + int_left_a
