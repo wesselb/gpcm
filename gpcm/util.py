@@ -5,9 +5,26 @@ import numpy as np
 from matrix import AbstractMatrix, Woodbury
 from plum import Dispatcher
 
-__all__ = ['pd_inv', 'collect', 'autocorr', 'method']
+__all__ = ['invert_perm', 'pd_inv', 'collect', 'autocorr', 'method']
 
 _dispatch = Dispatcher()
+
+
+@B.matmul.extend(B.Numeric, B.Numeric, B.Numeric)
+def matmul(a, b, c, tr_a=False, tr_b=False, tr_c=False):
+    return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
+
+
+def invert_perm(perm):
+    """Compute the inverse of a permutation.
+
+    Args:
+        perm (list): Permutation to invert.
+    """
+    inverse_perm = np.array([-1]*len(perm), dtype=int)
+    for i, p in enumerate(perm):
+        inverse_perm[p] = i
+    return inverse_perm
 
 
 @_dispatch({B.Numeric, AbstractMatrix})
@@ -68,6 +85,7 @@ def method(cls):
     Args:
         cls (type): Class to add the function as a method to.
     """
+
     def decorator(f):
         setattr(cls, f.__name__, f)
         return f
