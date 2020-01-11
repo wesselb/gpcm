@@ -23,11 +23,9 @@ def signed_pairs(num):
             for _ in range(num)]
 
 
-def test_k_u(model):
-    assert_positive_definite(gprv.k_u(model,
-                                      model.t_u[:, None],
-                                      model.t_u[None, :]))
-    approx(gprv.k_u(model, 1, 1), 1)  # Test default of `gamma_t`.
+def test_K_u(model):
+    assert_positive_definite(gprv.K_u(model))
+    approx(gprv.K_u(model)[0, 0], 1)  # Test default of `gamma_t`.
 
 
 def test_K_z(model):
@@ -63,7 +61,7 @@ def test_integral_abcd_lu():
                decimal=5)
 
 
-def test_i_ux(model, t):
+def test_I_ux(model, t):
     def integral_quadrature(t1, t2, t_u_1, t_u_2):
         def integral(tau1, tau2):
             return (model.alpha_t**2*model.gamma_t**2*
@@ -76,11 +74,7 @@ def test_i_ux(model, t):
                        0, t_u_1,
                        lambda tau: 0, lambda tau: t_u_2)[0]
 
-    I_ux = gprv.i_ux(model,
-                     t[:, None, None, None],
-                     t[None, :, None, None],
-                     model.t_u[None, None, :, None],
-                     model.t_u[None, None, None, :])
+    I_ux = gprv.I_ux(model, t, t)
 
     for i in range(len(t)):
         for j in range(len(t)):
@@ -117,7 +111,7 @@ def beta(model, m, tau):
 
 
 def test_I_hz(model, t):
-    def integral_quadrature(m, n, t):
+    def integral_quadrature(t, m, n):
         def integral(tau):
             return (model.alpha_t**2*B.exp(-2*model.alpha*B.abs(t - tau))*
                     beta(model, m, tau)*beta(model, n, tau))
@@ -126,18 +120,18 @@ def test_I_hz(model, t):
 
     I_hz = gprv.I_hz(model, t)
 
-    for i in range(len(model.ms)):
+    for i in range(len(t)):
         for j in range(len(model.ms)):
-            for k in range(len(t)):
+            for k in range(len(model.ms)):
                 approx(I_hz[i, j, k],
-                       integral_quadrature(model.ms[i],
+                       integral_quadrature(t[i],
                                            model.ms[j],
-                                           t[k]),
+                                           model.ms[k]),
                        decimal=5)
 
 
 def test_I_uz(model, t):
-    def integral_quadrature(t_u, m, t):
+    def integral_quadrature(t, t_u, m):
         def integral(tau):
             return (model.alpha_t*model.gamma_t*
                     B.exp(-model.alpha*B.abs(tau) +
@@ -148,11 +142,11 @@ def test_I_uz(model, t):
 
     I_uz = gprv.I_uz(model, t)
 
-    for i in range(len(model.t_u)):
-        for j in range(len(model.ms)):
-            for k in range(len(t)):
+    for i in range(len(t)):
+        for j in range(len(model.t_u)):
+            for k in range(len(model.ms)):
                 approx(I_uz[i, j, k],
-                       integral_quadrature(model.t_u[i],
-                                           model.ms[j],
-                                           t[k]),
+                       integral_quadrature(t[i],
+                                           model.t_u[j],
+                                           model.ms[k]),
                        decimal=5)
