@@ -216,7 +216,7 @@ def compute_I_ux(model, t1=None, t2=None):
         t2 (tensor, optional): Second time input. Defaults to zero.
 
     Returns:
-        tensor: Value of :math:`I_{hx}` for all `t1`, `t2`, `tu1`, and `tu2`.
+        tensor: Value of :math:`I_{ux}` for all `t1`, `t2`.
     """
     if t1 is None:
         t1 = B.zeros(model.dtype, 1)
