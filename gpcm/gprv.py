@@ -25,8 +25,8 @@ class GPRV(Model):
         lam (scalar, optional): Decay of the kernel of :math:`x`. Defaults
             to four times `alpha`.
         gamma (scalar, optional): Decay of the transform :math:`u(t)` of
-            :math:`x`. Defaults to the inverse of twice the spacing between the
-            inducing points.
+            :math:`x`. Defaults to the inverse of ten times the spacing
+            between locations of data points.
         gamma_t (scalar, optional): Scale of the transform. Defaults to
             normalise the transform to unity power.
         a (scalar, optional): Lower bound of support of the basis.
@@ -37,9 +37,8 @@ class GPRV(Model):
         n_u (int, optional): Number of inducing points of :math:`u(t_{u_i})`.
         t_u (vector, optional): Location :math:`t_{u_i}` of :math:`u(t_{u_i})`.
             Defaults to equally spaced points twice the filter length scale.
-        t (vector, alternative): Locations of the observations. If `a` and `b`
-            are not specified, then `t` will be asserted to exist and used to
-            determine `a` and `b`.
+        t (vector, alternative): Locations of the observations. Can be used to
+            automatically initialise quantities.
     """
 
     def __init__(self,
