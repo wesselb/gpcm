@@ -3,6 +3,7 @@ import numpy as np
 from scipy.integrate import dblquad, quad
 from itertools import product
 import gpcm.gprv as gprv
+from varz import Vars
 import lab as B
 
 from .util import approx, assert_positive_definite
@@ -15,7 +16,7 @@ def t():
 
 @pytest.fixture()
 def model(t):
-    return gprv.GPRV(window=0.5, per=0.5, t=t, n_u=3)
+    return gprv.GPRV(Vars(np.float64), window=0.5, t=t, n_u=3, m_max=2)
 
 
 def signed_pairs(num):
@@ -24,17 +25,17 @@ def signed_pairs(num):
 
 
 def test_K_u(model):
-    assert_positive_definite(gprv.K_u(model))
-    approx(gprv.K_u(model)[0, 0], 1)  # Test default of `gamma_t`.
+    assert_positive_definite(model.compute_K_u())
+    approx(gprv.compute_K_u(model)[0, 0], 1)  # Test default of `gamma_t`.
 
 
 def test_K_z(model):
-    assert_positive_definite(gprv.K_z(model))
+    assert_positive_definite(model.compute_K_z())
 
 
 def test_i_hx(model, t):
-    assert_positive_definite(gprv.i_hx(model, t[:, None], t[None, :]))
-    approx(gprv.i_hx(model, 1, 1), 1)  # Test default for `alpha_t`.
+    assert_positive_definite(model.compute_i_hx(t[:, None], t[None, :]))
+    approx(model.compute_i_hx(1, 1), 1)  # Test default for `alpha_t`.
 
 
 def test_integral_abcd():
@@ -74,7 +75,7 @@ def test_I_ux(model, t):
                        0, t_u_1,
                        lambda tau: 0, lambda tau: t_u_2)[0]
 
-    I_ux = gprv.I_ux(model, t, t)
+    I_ux = model.compute_I_ux(t, t)
 
     for i in range(len(t)):
         for j in range(len(t)):
@@ -118,7 +119,7 @@ def test_I_hz(model, t):
 
         return quad(integral, -np.inf, t)[0]
 
-    I_hz = gprv.I_hz(model, t)
+    I_hz = model.compute_I_hz(t)
 
     for i in range(len(t)):
         for j in range(len(model.ms)):
@@ -140,7 +141,7 @@ def test_I_uz(model, t):
 
         return quad(integral, 0, t_u)[0]
 
-    I_uz = gprv.I_uz(model, t)
+    I_uz = model.compute_I_uz(t)
 
     for i in range(len(t)):
         for j in range(len(model.t_u)):

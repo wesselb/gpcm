@@ -3,22 +3,20 @@ import warnings
 import lab as B
 import numpy as np
 from matrix import Dense, Diagonal, LowRank
+from stheno import Normal
 
 from .util import method, invert_perm
+from .model import Model
 
-__all__ = ['GPRV',
-           'K_u',
-           'K_z',
-           'i_hx',
-           'I_ux',
-           'I_hz',
-           'I_uz']
+__all__ = ['GPRV', 'determine_m_max']
 
 
-class GPRV:
+class GPRV(Model):
     """GP-RV variation of the GPCM.
 
     Args:
+        vs (:class:`varz.Vars`): Variable container.
+        noise (scalar, optional): Observation noise. Defaults to `1e-4`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to
             normalise the window to unity power.
@@ -34,19 +32,9 @@ class GPRV:
         a (scalar, optional): Lower bound of support of the basis.
         b (scalar, optional): Upper bound of support of the basis.
         m_max (scalar, optional): Defines cosine and sine basis functions.
-        m_max_cap (scalar, optional): Maximum value for `m_max` if it is 
-            determined automatically.
-        per (scalar, alternative): Minimal period in the data to model. This will
-            be used to automatically determine `m_max`.
         ms (vector, optional): Basis function frequencies. Defaults to
             :math:`0,\\ldots,2M-1`.
         n_u (int, optional): Number of inducing points of :math:`u(t_{u_i})`.
-        n_u_cap (scalar, optional): Maximum value for `n_u` if it is 
-            determined automatically.
-        resolution (float, optional): Spacing between the inducing points
-            compared to the spacing between the locations of the observations.
-            This will be used to automatically determine `n_u` if it is not
-            given.
         t_u (vector, optional): Location :math:`t_{u_i}` of :math:`u(t_{u_i})`.
             Defaults to equally spaced points twice the filter length scale.
         t (vector, alternative): Locations of the observations. If `a` and `b`
@@ -55,6 +43,8 @@ class GPRV:
     """
 
     def __init__(self,
+                 vs,
+                 noise=1e-4,
                  alpha=None,
                  alpha_t=None,
                  window=None,
@@ -64,87 +54,89 @@ class GPRV:
                  a=None,
                  b=None,
                  m_max=None,
-                 m_max_cap=80,
-                 per=None,
                  ms=None,
                  n_u=None,
-                 n_u_cap=50,
-                 resolution=1,
                  t_u=None,
                  t=None):
-        self.alpha = alpha
-        self.alpha_t = alpha_t
-        self.lam = lam
+        Model.__init__(self)
+
+        # First initialise optimisable model parameters.
+        if alpha is None:
+            alpha = 1/window
+
+        if alpha_t is None:
+            alpha_t = B.sqrt(2*alpha)
+
+        if lam is None:
+            lam = 2*alpha
+
+        if gamma is None:
+            gamma = 1/(10*(t[1] - t[0]))
+
+        if gamma_t is None:
+            gamma_t = B.sqrt(2*gamma)
+
+        self.noise = vs.positive(noise, name='noise')
+        self.alpha = alpha  # Don't learn the window length.
+        self.alpha_t = vs.positive(alpha_t, name='alpha_t')
+        self.lam = vs.positive(lam, name='lambda')
+        self.gamma = vs.positive(gamma, name='gamma')
+        self.gamma_t = vs.positive(gamma_t, name='gamma_t')
+
+        self.vs = vs
+        self.dtype = vs.dtype
+
+        # Then initialise fixed variables.
+        if t_u is None:
+            t_u_max = 2/self.alpha
+            t_u = B.linspace(0, t_u_max, n_u)
+
+        if n_u is None:
+            n_u = B.shape(t_u)[0]
+
+        if a is None:
+            a = B.min(t) - B.max(t_u)
+
+        if b is None:
+            b = B.max(t)
+
+        if ms is None:
+            ms = B.range(2*m_max + 1)
+
         self.a = a
         self.b = b
         self.m_max = m_max
         self.ms = ms
         self.n_u = n_u
         self.t_u = t_u
-        self.gamma = gamma
-        self.gamma_t = gamma_t
 
-        if self.alpha is None:
-            self.alpha = 1/window
+        # Finally initialise variational parameters.
+        mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
+        cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
+        self.q_u = Normal(cov_u, mu_u)
 
-        if self.alpha_t is None:
-            self.alpha_t = B.sqrt(2*self.alpha)
 
-        if self.lam is None:
-            self.lam = 4*self.alpha
+def determine_m_max(per, t, m_max_cap=80):
+    """Determine an appropriate value for `m_max`.
 
-        if self.t_u is None:
-            t_u_max = 2/self.alpha
-
-            if self.n_u is None:
-                dt = t[1] - t[0]
-                dt_u = dt/resolution
-                self.n_u = int(np.ceil(t_u_max/dt_u))
-
-                if self.n_u > n_u_cap:
-                    warnings.warn(f'Given resolution {resolution} for '
-                                  f'the inducing points of the filter '
-                                  f'requires {self.n_u} inducing points, '
-                                  f'which is too many. It is capped at '
-                                  f'{n_u_cap}.',
-                                  category=UserWarning)
-                    self.n_u = n_u_cap
-
-            self.t_u = B.linspace(0, t_u_max, self.n_u)
-
-        if self.n_u is None:
-            self.n_u = B.shape(self.t_u)[0]
-
-        if self.gamma is None:
-            self.gamma = 1/(2*(self.t_u[1] - self.t_u[0]))
-
-        if self.gamma_t is None:
-            self.gamma_t = B.sqrt(2*self.gamma)
-
-        if self.a is None:
-            self.a = B.min(t) - B.max(self.t_u)
-
-        if self.b is None:
-            self.b = B.max(t)
-
-        if self.m_max is None:
-            freq = 1/per
-            self.m_max = int(np.ceil(freq*(self.b - self.a)))
-            if self.m_max > m_max_cap:
-                warnings.warn(f'Given period {per} for the inducing features '
-                              f'requires M={self.m_max}, which is too high. '
-                              f'It is capped at {m_max_cap}.',
-                              category=UserWarning)
-                self.m_max = m_max_cap
-
-        if self.ms is None:
-            self.ms = B.range(2*self.m_max + 1)
-
-        self.dtype = B.dtype(self.lam)
+    Args:
+        per (scalar): Minimal period to model.
+        t (vector): Locations of data points.
+        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to 80.
+    """
+    freq = 1/per
+    m_max = int(np.ceil(freq*(max(t) - min(t))))
+    if m_max > m_max_cap:
+        warnings.warn(f'Given period {per} for the inducing features '
+                      f'requires M={m_max}, which is too high. '
+                      f'It is capped at {m_max_cap}.',
+                      category=UserWarning)
+        m_max = m_max_cap
+    return m_max
 
 
 @method(GPRV)
-def K_u(model):
+def compute_K_u(model):
     """Covariance function of inducing variables :math:`u` associated with
     :math:`h`.
 
@@ -174,7 +166,7 @@ def psd_matern_12(omega, lam, lam_t):
 
 
 @method(GPRV)
-def K_z(model):
+def compute_K_z(model):
     """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\\ldots,2M`.
 
     Args:
@@ -197,7 +189,7 @@ def K_z(model):
 
 
 @method(GPRV)
-def i_hx(model, t1=None, t2=None):
+def compute_i_hx(model, t1=None, t2=None):
     """Compute the :math:`I_{hx}` integral from the paper.
 
     Args:
@@ -216,7 +208,7 @@ def i_hx(model, t1=None, t2=None):
 
 
 @method(GPRV)
-def I_ux(model, t1=None, t2=None):
+def compute_I_ux(model, t1=None, t2=None):
     """Compute the :math:`I_{ux}` integral from the paper.
 
     Args:
@@ -307,7 +299,7 @@ def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
 
 
 @method(GPRV)
-def I_hz(model, t):
+def compute_I_hz(model, t):
     """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in `t`.
 
     Args:
@@ -404,7 +396,7 @@ def _I_hx_0_sin(model, n, t):
 
 
 @method(GPRV)
-def I_uz(model, t):
+def compute_I_uz(model, t):
     """Compute the :math:`I_{uz,t_i}` matrix for :math:`t_i` in `t`.
 
     Args:

@@ -1,1 +1,1 @@
-from .elbo import *
+from .model import *

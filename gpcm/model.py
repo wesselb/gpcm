@@ -4,14 +4,9 @@ import wbml.out
 from matrix import Dense
 from stheno import Normal
 
-from .kernel_approx import kernel_approx_u
 from .util import collect, pd_inv
 
-__all__ = ['construct',
-           'elbo',
-           'predict',
-           'predict_kernel',
-           'predict_fourier']
+__all__ = ['Model']
 
 
 class Model:
@@ -42,6 +37,12 @@ class Model:
         self.root = None
 
         self.p_u = None
+
+        # Initialise quantities that the particular model should populate.
+        self.noise = None
+        self.dtype = None
+        self.t_u = None
+        self.q_u = None
 
     def construct(self, t, y):
         # Construct integrals.
@@ -118,201 +119,127 @@ class Model:
 
         self.p_u = p_u
 
+    def elbo(self):
+        """Compute the ELBO.
 
-def construct(model, t, y):
-    """Construct quantities to perform compute the ELBO, perform prediction, et
-    cetera.
+        Returns:
+            scalar: ELBO.
+        """
+        return -0.5*self.n*B.log(2*B.pi*self.noise) + \
+               -0.5/self.noise*(B.sum(self.y**2) +
+                                B.sum(self.q_u.m2*self.A_sum) +
+                                self.c_sum) + \
+               -0.5*B.logdet(self.K_z) + \
+               -0.5*2*B.sum(B.log(B.diag(self.L_inv_cov_z))) + \
+               0.5*B.sum(self.root**2) + \
+               -self.q_u.kl(self.p_u)
 
-    Args:
-        model (object): Model object.
-        t (vector): Time points of data.
-        y (vector): Data.
+    def predict(self):
+        """Predict at the data.
 
-    Returns:
-        :class:`collections.namedtuple`: Computed quantities.
-    """
+        Returns:
+            tuple: Tuple containing the mean and standard deviation of the
+                predictions.
+        """
 
-    # Construct integrals.
-    I_hx = model.i_hx(t, t)
-    I_ux = model.I_ux()
-    I_hz = model.I_hz(t)
-    I_uz = model.I_uz(t)
+        # Construct optimal q(z).
+        mu_z = B.trisolve(B.transpose(self.L_inv_cov_z),
+                          self.root, lower_a=False)
+        cov_z = B.cholsolve(self.L_inv_cov_z, B.eye(self.L_inv_cov_z))
+        q_z = Normal(cov_z, mu_z)
 
-    # Construct kernel matrices.
-    K_z = model.K_z()
-    K_z_inv = pd_inv(K_z)
+        # Compute mean.
+        mu = B.flatten(B.mm(self.q_u.mean, self.I_uz, B.dense(mu_z),
+                            tr_a=True))
 
-    K_u = model.K_u()
-    K_u_inv = pd_inv(K_u)
-    L_u = B.chol(K_u)  # Cholesky will be cached.
+        # Compute variance.
+        A = self.I_ux[None, :, :] - \
+            B.mm(self.I_uz, B.dense(self.K_z_inv), self.I_uz, tr_c=True)
+        B_ = self.I_hz - self.I_zu_inv_K_u_I_uz
+        c = self.I_hx - \
+            B.sum(self.K_u_inv*self.I_ux) - \
+            B.sum(B.sum(self.K_z_inv[None, :, :]*self.I_hz, axis=1),
+                  axis=1) + \
+            B.sum(B.sum(self.K_z_inv[None, :, :]*self.I_zu_inv_K_u_I_uz,
+                        axis=1), axis=1)
+        var = B.sum(B.sum(A*self.q_u.m2[None, :, :], axis=1), axis=1) + \
+              B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c
 
-    n = B.length(t)
+        return B.to_numpy(mu), B.to_numpy(B.sqrt(var))
 
-    # Do some precomputations.
-    L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
-    L_u_inv_I_uz = B.trisolve(L_u_tiled, I_uz)
-    I_zu_inv_K_u_I_uz = B.mm(L_u_inv_I_uz, L_u_inv_I_uz, tr_a=True)
-    I_zu_inv_K_u_I_uz_sum = B.sum(I_zu_inv_K_u_I_uz, axis=0)
+    def predict_kernel(self):
+        """Predict kernel and normalise prediction.
 
-    I_hx_sum = B.sum(I_hx, axis=0)
-    I_hz_sum = B.sum(I_hz, axis=0)
-    I_ux_sum = n*I_ux
-    I_uz_sum = B.sum(y[:, None, None]*I_uz, axis=0)  # Weighted by data.
+        Returns:
+            :class:`collections.namedtuple`: Named tuple containing the
+                prediction.
+        """
+        # Transform back to normal space.
+        q_u = self.q_u.lmatmul(self.K_u)
 
-    A_sum = I_ux_sum - \
-            B.sum(B.mm(I_uz, B.dense(K_z_inv), I_uz, tr_c=True), axis=0)
-    B_sum = I_hz_sum - I_zu_inv_K_u_I_uz_sum
-    c_sum = I_hx_sum - \
-            B.sum(K_u_inv*I_ux_sum) - \
-            B.sum(K_z_inv*I_hz_sum) + \
-            B.sum(K_z_inv*I_zu_inv_K_u_I_uz_sum)
+        ks = []
+        t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 100)
+        for i in range(100):
+            k = self.kernel_approx(t_k, B.zeros(self.dtype, 1),
+                                   u=B.flatten(q_u.sample()))
+            ks.append(B.flatten(k))
+        ks = B.to_numpy(B.stack(*ks, axis=0))
 
-    # Compute optimal q(z).
-    inv_cov_z = \
-        K_z + 1/model.noise* \
-        B.sum(B_sum + B.mm(I_uz, B.dense(model.q_u.m2), I_uz, tr_a=True),
-              axis=0)
-    inv_cov_z_mu_z = 1/model.noise*B.mm(I_uz_sum, model.q_u.mean, tr_a=True)
-    L_inv_cov_z = B.chol(Dense(inv_cov_z))
-    root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
+        # Normalise predicted kernel.
+        var_mean = B.mean(ks[:, 0])
+        ks = ks/var_mean
+        wbml.out.kv('Mean variance of kernel prediction', var_mean)
 
-    # Construct prior p(u).
-    p_u = Normal(K_u_inv)
+        k_mean = B.mean(ks, axis=0)
+        k_68 = (np.percentile(ks, 32, axis=0),
+                np.percentile(ks, 100 - 32, axis=0))
+        k_95 = (np.percentile(ks, 2.5, axis=0),
+                np.percentile(ks, 100 - 2.5, axis=0))
+        k_99 = (np.percentile(ks, 0.15, axis=0),
+                np.percentile(ks, 100 - 0.15, axis=0))
+        return collect(t=t_k,
+                       mean=k_mean,
+                       err_68=k_68,
+                       err_95=k_95,
+                       err_99=k_99,
+                       samples=B.transpose(ks)[:, :3])
 
-    return collect(model=model,
+    def predict_fourier(self):
+        """Predict Fourier features.
 
-                   n=n,
-                   t=t,
-                   y=y,
+        Returns:
+            tuple: Marginals of the predictions.
+        """
+        mu_z = B.trisolve(B.transpose(self.L_inv_cov_z), self.root,
+                          lower_a=False)
+        cov_z = B.cholsolve(self.L_inv_cov_z, B.eye(self.L_inv_cov_z))
+        q_z = Normal(cov_z, mu_z)
+        return [B.to_numpy(x) for x in q_z.marginals()]
 
-                   K_z=K_z,
-                   K_z_inv=K_z_inv,
+    def kernel_approx(self, t1, t2, u):
+        """Kernel approximation using inducing variables :math:`u` for the impulse
+        response :math:`h`.
 
-                   K_u=K_u,
-                   K_u_inv=K_u_inv,
+        Args:
+            t1 (vector): First time input.
+            t2 (vector): Second time input.
+            u (vector): Values of the inducing variables.
 
-                   I_hx=I_hx,
-                   I_ux=I_ux,
-                   I_hz=I_hz,
-                   I_uz=I_uz,
+        Returns:
+            tensor: Approximation of the kernel matrix broadcasted over `t1`
+                and `t2`.
+        """
+        # Construct the first part.
+        part1 = self.compute_i_hx(t1[:, None], t2[None, :])
 
-                   I_zu_inv_K_u_I_uz=I_zu_inv_K_u_I_uz,
+        # Construct the second part.
+        L_u = B.cholesky(self.compute_K_u())
+        inv_L_u = B.dense(B.trisolve(L_u, B.eye(L_u)))
+        prod = B.mm(inv_L_u, u[:, None])
+        I_ux = self.compute_I_ux(t1, t2)
+        trisolved = B.mm(inv_L_u, I_ux, inv_L_u, tr_a=True)
+        part2 = \
+            B.trace(trisolved, axis1=2, axis2=3) - \
+            B.trace(B.mm(prod, trisolved, prod, tr_a=True), axis1=2, axis2=3)
 
-                   A_sum=A_sum,
-                   B_sum=B_sum,
-                   c_sum=c_sum,
-
-                   L_inv_cov_z=L_inv_cov_z,
-                   root=root,
-
-                   p_u=p_u)
-
-
-def elbo(c):
-    """Compute the ELBO.
-
-    Args:
-        c (:class:`collections.namedtuple`): Computed quantities.
-
-    Returns:
-        scalar: ELBO.
-    """
-    return -0.5*c.n*B.log(2*B.pi*c.model.noise) + \
-           -0.5/c.model.noise*(B.sum(c.y**2) +
-                               B.sum(c.model.q_u.m2*c.A_sum) +
-                               c.c_sum) + \
-           -0.5*B.logdet(c.K_z) + \
-           -0.5*2*B.sum(B.log(B.diag(c.L_inv_cov_z))) + \
-           0.5*B.sum(c.root**2) + \
-           -c.model.q_u.kl(c.p_u)
-
-
-def predict(c):
-    """Predict at the data.
-
-    Args:
-        c (:class:`collections.namedtuple`): Computed quantities.
-
-    Returns:
-        tuple: Tuple containing the mean and standard deviation of the
-            predictions.
-    """
-
-    # Construct optimal q(z).
-    mu_z = B.trisolve(B.transpose(c.L_inv_cov_z), c.root, lower_a=False)
-    cov_z = B.cholsolve(c.L_inv_cov_z, B.eye(c.L_inv_cov_z))
-    q_z = Normal(cov_z, mu_z)
-
-    # Compute mean.
-    mu = B.flatten(B.mm(c.model.q_u.mean, c.I_uz, B.dense(mu_z), tr_a=True))
-
-    # Compute variance.
-    A = c.I_ux[None, :, :] - \
-        B.mm(c.I_uz, B.dense(c.K_z_inv), c.I_uz, tr_c=True)
-    B_ = c.I_hz - c.I_zu_inv_K_u_I_uz
-    c_ = c.I_hx - \
-         B.sum(c.K_u_inv*c.I_ux) - \
-         B.sum(B.sum(c.K_z_inv[None, :, :]*c.I_hz, axis=1), axis=1) + \
-         B.sum(B.sum(c.K_z_inv[None, :, :]*c.I_zu_inv_K_u_I_uz, axis=1),
-               axis=1)
-    var = B.sum(B.sum(A*c.model.q_u.m2[None, :, :], axis=1), axis=1) + \
-          B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c_
-
-    return B.to_numpy(mu), B.to_numpy(B.sqrt(var))
-
-
-def predict_kernel(c):
-    """Predict kernel and normalise prediction.
-
-    Args:
-        c (:class:`collections.namedtuple`): Computed quantities.
-
-    Returns:
-        :class:`collections.namedtuple`: Named tuple containing the prediction.
-    """
-    # Transform back to normal space.
-    q_u_orig = c.model.q_u.lmatmul(c.K_u)
-
-    ks = []
-    t_k = B.linspace(c.model.dtype, 0, 1.2*B.max(c.model.t_u), 100)
-    for i in range(100):
-        k = kernel_approx_u(c.model,
-                            t1=t_k,
-                            t2=B.zeros(c.model.dtype, 1),
-                            u=B.flatten(q_u_orig.sample()))
-        ks.append(B.flatten(k))
-    ks = B.to_numpy(B.stack(*ks, axis=0))
-
-    # Normalise predicted kernel.
-    var_mean = B.mean(ks[:, 0])
-    ks = ks/var_mean
-    wbml.out.kv('Mean variance of kernel prediction', var_mean)
-
-    k_mean = B.mean(ks, axis=0)
-    k_68 = (np.percentile(ks, 32, axis=0),
-            np.percentile(ks, 100 - 32, axis=0))
-    k_95 = (np.percentile(ks, 2.5, axis=0),
-            np.percentile(ks, 100 - 2.5, axis=0))
-    k_99 = (np.percentile(ks, 0.15, axis=0),
-            np.percentile(ks, 100 - 0.15, axis=0))
-    return collect(t=t_k,
-                   mean=k_mean,
-                   err_68=k_68,
-                   err_95=k_95,
-                   err_99=k_99,
-                   samples=B.transpose(ks)[:, :3])
-
-
-def predict_fourier(c):
-    """Predict Fourier features.
-
-    Args:
-        c (:class:`collections.namedtuple`): Computed quantities.
-
-    Returns:
-        tuple: Marginals of the predictions.
-    """
-    mu_z = B.trisolve(B.transpose(c.L_inv_cov_z), c.root, lower_a=False)
-    cov_z = B.cholsolve(c.L_inv_cov_z, B.eye(c.L_inv_cov_z))
-    q_z = Normal(cov_z, mu_z)
-    return [B.to_numpy(x) for x in q_z.marginals()]
+        return part1 - part2
