@@ -4,7 +4,12 @@ import numpy as np
 import wbml.out
 import wbml.plot
 from varz import Vars
+# noinspection PyUnresolvedReferences
 from gpcm.gprv import GPRV
+# noinspection PyUnresolvedReferences
+from gpcm.gpcm import GPCM
+
+B.epsilon = 1e-10
 
 t = np.linspace(0, 10, 200)
 
@@ -12,7 +17,8 @@ noise_f = np.random.randn(len(t), 1)
 ks, fs = [], []
 
 # Construct model.
-model = GPRV(Vars(np.float64), window=4, m_max=40, n_u=20, t=t, gamma=1)
+# model = GPRV(Vars(np.float64), window=4, m_max=40, n_u=20, t=t, gamma=1)
+model = GPCM(Vars(np.float64), window=2, scale=0.5, n_z=100, n_u=20, t=t)
 
 with wbml.out.Progress(name='Sampling', total=5) as progress:
     for i in range(5):
@@ -38,8 +44,9 @@ with wbml.out.Progress(name='Sampling', total=5) as progress:
 
                 # Draw sample function.
                 f = B.matmul(B.cholesky(K), noise_f)[:, 0]
-            except np.linalg.LinAlgError:
-                wbml.out.out('Sampling failed. Trying again...')
+            except np.linalg.LinAlgError as e:
+                wbml.out.out(f'Sampling failed with exception "{e}". '
+                             f'Trying again...')
                 continue
 
         fs.append(f)
