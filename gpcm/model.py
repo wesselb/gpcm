@@ -14,7 +14,112 @@ __all__ = ['construct',
            'predict_fourier']
 
 
-def construct(model, t, y, sigma, mu_u, cov_u):
+class Model:
+    def __init__(self):
+        # Initialise quantities to compute.
+        self.n = None
+        self.t = None
+        self.y = None
+
+        self.K_z = None
+        self.K_z_inv = None
+
+        self.K_u = None
+        self.K_u_inv = None
+
+        self.I_hx = None
+        self.I_ux = None
+        self.I_hz = None
+        self.I_uz = None
+
+        self.I_zu_inv_K_u_I_uz = None
+
+        self.A_sum = None
+        self.B_sum = None
+        self.c_sum = None
+
+        self.L_inv_cov_z = None
+        self.root = None
+
+        self.p_u = None
+
+    def construct(self, t, y):
+        # Construct integrals.
+        I_hx = self.compute_i_hx(t, t)
+        I_ux = self.compute_I_ux()
+        I_hz = self.compute_I_hz(t)
+        I_uz = self.compute_I_uz(t)
+
+        # Construct kernel matrices.
+        K_z = self.compute_K_z()
+        K_z_inv = pd_inv(K_z)
+
+        K_u = self.compute_K_u()
+        K_u_inv = pd_inv(K_u)
+        L_u = B.chol(K_u)  # Cholesky will be cached.
+
+        n = B.length(t)
+
+        # Do some precomputations.
+        L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
+        L_u_inv_I_uz = B.trisolve(L_u_tiled, I_uz)
+        I_zu_inv_K_u_I_uz = B.mm(L_u_inv_I_uz, L_u_inv_I_uz, tr_a=True)
+        I_zu_inv_K_u_I_uz_sum = B.sum(I_zu_inv_K_u_I_uz, axis=0)
+
+        I_hx_sum = B.sum(I_hx, axis=0)
+        I_hz_sum = B.sum(I_hz, axis=0)
+        I_ux_sum = n*I_ux
+        I_uz_sum = B.sum(y[:, None, None]*I_uz, axis=0)  # Weighted by data.
+
+        A_sum = I_ux_sum - \
+                B.sum(B.mm(I_uz, B.dense(K_z_inv), I_uz, tr_c=True), axis=0)
+        B_sum = I_hz_sum - I_zu_inv_K_u_I_uz_sum
+        c_sum = I_hx_sum - \
+                B.sum(K_u_inv*I_ux_sum) - \
+                B.sum(K_z_inv*I_hz_sum) + \
+                B.sum(K_z_inv*I_zu_inv_K_u_I_uz_sum)
+
+        # Compute optimal q(z).
+        inv_cov_z = \
+            K_z + 1/self.noise* \
+            B.sum(B_sum + B.mm(I_uz, B.dense(self.q_u.m2), I_uz, tr_a=True),
+                  axis=0)
+        inv_cov_z_mu_z = 1/self.noise*B.mm(I_uz_sum, self.q_u.mean, tr_a=True)
+        L_inv_cov_z = B.chol(Dense(inv_cov_z))
+        root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
+
+        # Construct prior p(u).
+        p_u = Normal(K_u_inv)
+
+        # Store computed quantities.
+        self.n = n
+        self.t = t
+        self.y = y
+
+        self.K_z = K_z
+        self.K_z_inv = K_z_inv
+
+        self.K_u = K_u
+        self.K_u_inv = K_u_inv
+
+        self.I_hx = I_hx
+        self.I_ux = I_ux
+        self.I_hz = I_hz
+        self.I_uz = I_uz
+
+        self.I_zu_inv_K_u_I_uz = I_zu_inv_K_u_I_uz
+
+        self.A_sum = A_sum
+        self.B_sum = B_sum
+        self.c_sum = c_sum
+
+        self.L_inv_cov_z = L_inv_cov_z
+        self.root = root
+
+        self.p_u = p_u
+
+
+def construct(model, t, y):
     """Construct quantities to perform compute the ELBO, perform prediction, et
     cetera.
 
@@ -22,15 +127,10 @@ def construct(model, t, y, sigma, mu_u, cov_u):
         model (object): Model object.
         t (vector): Time points of data.
         y (vector): Data.
-        sigma (scalar): Standard deviation of observation noise.
-        mu_u (matrix): Mean of approximate posterior.
-        cov_u (matrix): Covariance of approximate posterior.
 
     Returns:
         :class:`collections.namedtuple`: Computed quantities.
     """
-    n = B.length(t)
-    q_u = Normal(cov_u, mu_u)
 
     # Construct integrals.
     I_hx = model.i_hx(t, t)
@@ -45,6 +145,8 @@ def construct(model, t, y, sigma, mu_u, cov_u):
     K_u = model.K_u()
     K_u_inv = pd_inv(K_u)
     L_u = B.chol(K_u)  # Cholesky will be cached.
+
+    n = B.length(t)
 
     # Do some precomputations.
     L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
@@ -67,9 +169,10 @@ def construct(model, t, y, sigma, mu_u, cov_u):
 
     # Compute optimal q(z).
     inv_cov_z = \
-        K_z + 1/sigma**2* \
-        B.sum(B_sum + B.mm(I_uz, B.dense(q_u.m2), I_uz, tr_a=True), axis=0)
-    inv_cov_z_mu_z = 1/sigma**2*B.mm(I_uz_sum, q_u.mean, tr_a=True)
+        K_z + 1/model.noise* \
+        B.sum(B_sum + B.mm(I_uz, B.dense(model.q_u.m2), I_uz, tr_a=True),
+              axis=0)
+    inv_cov_z_mu_z = 1/model.noise*B.mm(I_uz_sum, model.q_u.mean, tr_a=True)
     L_inv_cov_z = B.chol(Dense(inv_cov_z))
     root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
 
@@ -81,7 +184,6 @@ def construct(model, t, y, sigma, mu_u, cov_u):
                    n=n,
                    t=t,
                    y=y,
-                   sigma=sigma,
 
                    K_z=K_z,
                    K_z_inv=K_z_inv,
@@ -103,8 +205,7 @@ def construct(model, t, y, sigma, mu_u, cov_u):
                    L_inv_cov_z=L_inv_cov_z,
                    root=root,
 
-                   p_u=p_u,
-                   q_u=q_u)
+                   p_u=p_u)
 
 
 def elbo(c):
@@ -116,14 +217,14 @@ def elbo(c):
     Returns:
         scalar: ELBO.
     """
-    return -0.5*c.n*B.log(2*B.pi*c.sigma**2) + \
-           -0.5/c.sigma**2*(B.sum(c.y**2) +
-                            B.sum(c.q_u.m2*c.A_sum) +
-                            c.c_sum) + \
+    return -0.5*c.n*B.log(2*B.pi*c.model.noise) + \
+           -0.5/c.model.noise*(B.sum(c.y**2) +
+                               B.sum(c.model.q_u.m2*c.A_sum) +
+                               c.c_sum) + \
            -0.5*B.logdet(c.K_z) + \
            -0.5*2*B.sum(B.log(B.diag(c.L_inv_cov_z))) + \
            0.5*B.sum(c.root**2) + \
-           -c.q_u.kl(c.p_u)
+           -c.model.q_u.kl(c.p_u)
 
 
 def predict(c):
@@ -143,7 +244,7 @@ def predict(c):
     q_z = Normal(cov_z, mu_z)
 
     # Compute mean.
-    mu = B.flatten(B.mm(c.q_u.mean, c.I_uz, B.dense(mu_z), tr_a=True))
+    mu = B.flatten(B.mm(c.model.q_u.mean, c.I_uz, B.dense(mu_z), tr_a=True))
 
     # Compute variance.
     A = c.I_ux[None, :, :] - \
@@ -154,7 +255,7 @@ def predict(c):
          B.sum(B.sum(c.K_z_inv[None, :, :]*c.I_hz, axis=1), axis=1) + \
          B.sum(B.sum(c.K_z_inv[None, :, :]*c.I_zu_inv_K_u_I_uz, axis=1),
                axis=1)
-    var = B.sum(B.sum(A*c.q_u.m2[None, :, :], axis=1), axis=1) + \
+    var = B.sum(B.sum(A*c.model.q_u.m2[None, :, :], axis=1), axis=1) + \
           B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c_
 
     return B.to_numpy(mu), B.to_numpy(B.sqrt(var))
@@ -170,7 +271,7 @@ def predict_kernel(c):
         :class:`collections.namedtuple`: Named tuple containing the prediction.
     """
     # Transform back to normal space.
-    q_u_orig = c.q_u.lmatmul(c.K_u)
+    q_u_orig = c.model.q_u.lmatmul(c.K_u)
 
     ks = []
     t_k = B.linspace(c.model.dtype, 0, 1.2*B.max(c.model.t_u), 100)

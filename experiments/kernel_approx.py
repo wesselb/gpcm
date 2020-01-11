@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out
 import wbml.plot
+from varz import Vars
 from gpcm.gprv import GPRV
-from gpcm.kernel_approx import kernel_approx_u
 
 t = np.linspace(0, 10, 200)
 
@@ -12,7 +12,7 @@ noise_f = np.random.randn(len(t), 1)
 ks, fs = [], []
 
 # Construct model.
-model = GPRV(window=4, m_max=50, n_u=20, t=t)
+model = GPRV(Vars(np.float64), window=4, m_max=40, n_u=20, t=t, gamma=1)
 
 with wbml.out.Progress(name='Sampling', total=5) as progress:
     for i in range(5):
@@ -23,13 +23,18 @@ with wbml.out.Progress(name='Sampling', total=5) as progress:
         # Sample random u.
         while f is None:
             try:
-                u = B.sample(model.K_u())[:, 0]
+                u = B.sample(model.compute_K_u())[:, 0]
 
                 # Construct the kernel matrix.
-                K = B.reg(kernel_approx_u(model, t, t, u))
-                wbml.out.kv('Minimal eigenvalue', min(np.linalg.eigvals(K)))
+                K = B.reg(model.kernel_approx(t, t, u))
+
+                # Check minimal eigenvalue.
+                vals = np.real(np.linalg.eigvals(K))
+                wbml.out.kv('Minimal eigenvalue', min(vals))
+
+                # Set to unity variance.
                 wbml.out.kv('Sampled variance', K[0, 0])
-                K /= K[0, 0]  # Set to unity variance.
+                K /= K[0, 0]
 
                 # Draw sample function.
                 f = B.matmul(B.cholesky(K), noise_f)[:, 0]
