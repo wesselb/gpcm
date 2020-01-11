@@ -1,30 +1,18 @@
+import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out
 import wbml.plot
-from lab import B
-
-from gpcm.gprv import GPRV, determine_a_b
+from gpcm.gprv import GPRV
 from gpcm.kernel_approx import kernel_approx_u
 
-# Define some test parameters.
-lam = 1/2  # Model length scale.
-wbml.out.kv('Lambda', lam)
-
-# Set window to twice the length scale of the model.
-alpha = lam/2
-wbml.out.kv('Window length scale', 1/alpha)
-wbml.out.kv('Alpha', alpha)
-
 t = np.linspace(0, 10, 200)
-tu = np.linspace(0, 2/alpha, 20)
 
 noise_f = np.random.randn(len(t), 1)
 ks, fs = [], []
 
 # Construct model.
-a, b = determine_a_b(alpha, t)
-model = GPRV(lam=lam, alpha=alpha, a=a, b=b, m_max=50, n_u=20)
+model = GPRV(window=4, m_max=50, n_u=20, t=t)
 
 with wbml.out.Progress(name='Sampling', total=5) as progress:
     for i in range(5):
@@ -35,8 +23,7 @@ with wbml.out.Progress(name='Sampling', total=5) as progress:
         # Sample random u.
         while f is None:
             try:
-                Ku = model.k_u(tu[:, None], tu[None, :])
-                u = B.matmul(B.cholesky(Ku), np.random.randn(len(tu), 1))[:, 0]
+                u = B.sample(model.K_u())[:, 0]
 
                 # Construct the kernel matrix.
                 K = B.reg(kernel_approx_u(model, t, t, u))
@@ -89,7 +76,7 @@ wbml.plot.tweak(legend=False)
 
 plt.subplot(1, 4, 3)
 plt.plot(t, ks, lw=1)
-plt.scatter(tu, tu*0, s=5, marker='o', c='black')
+plt.scatter(model.t_u, model.t_u*0, s=5, marker='o', c='black')
 plt.title('Kernel')
 plt.xlabel('Lag (s)')
 wbml.plot.tweak(legend=False)
