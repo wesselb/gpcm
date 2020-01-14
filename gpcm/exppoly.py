@@ -66,12 +66,19 @@ class Factor(metaclass=Referentiable):
 
     Args:
         name (str): Variable name.
-        power (int): Power.
+        power (int, optional): Power. Defaults to one.
     """
     _dispatch = Dispatcher(in_class=Self)
 
+    @_dispatch(str)
+    def __init__(self, name):
+        Factor.__init__(self, name, 1)
+
     @_dispatch(str, int)
     def __init__(self, name, power):
+        if power < 1:
+            raise ValueError(f'Power for variable "{name}" is {power}, but '
+                             f'must be at least 1.')
         self.name = name
         self.power = power
 
@@ -135,6 +142,10 @@ class Term(metaclass=Referentiable):
     """
     _dispatch = Dispatcher(in_class=Self)
 
+    @_dispatch([Factor])
+    def __init__(self, *factors):
+        Term.__init__(self, 1, *factors)
+
     @_dispatch(B.Numeric, [Factor])
     def __init__(self, const, *factors):
         self.const = const
@@ -143,7 +154,8 @@ class Term(metaclass=Referentiable):
         if isinstance(const, B.Number) and const == 0:
             factors = []
 
-        # Merge common factors.
+        # Merge common factors. Store this as a set so that equality works as
+        # expected.
         self.factors = set(_merge_common_factors(*factors))
 
     @_dispatch(str)
@@ -196,6 +208,23 @@ class Term(metaclass=Referentiable):
         """
         return len(self.factors) == 0
 
+    @_dispatch(str)
+    def highest_power(self, name):
+        """Find the highest power of a variable.
+
+        Args:
+            name (str): Name of variable.
+
+        Returns:
+            int: Highest power of variable `name`. Returns `0` if it does not
+                depend on `name`.
+        """
+        highest_power = 0
+        for factor in self.factors:
+            if factor.name == name:
+                highest_power = max(highest_power, factor.power)
+        return highest_power
+
     @_dispatch(str, PromisedPoly)
     def substitute(self, name, poly):
         """Substitute a polynomial for a variable.
@@ -221,7 +250,8 @@ class Term(metaclass=Referentiable):
 
     def __str__(self):
         if len(self.factors) > 0:
-            return f'{self.const} * {" ".join(map(str, self.factors))}'
+            names = ' '.join(sorted(map(str, self.factors)))
+            return f'{self.const} * {names}'
         else:
             return str(self.const)
 
@@ -247,7 +277,7 @@ class Term(metaclass=Referentiable):
             raise RuntimeError('Can only add to terms zero identically.')
 
     def __radd__(self, other):
-        return self.__add__(other)
+        return self + other
 
     @_dispatch(Self)
     def __mul__(self, other):
@@ -262,10 +292,13 @@ class Term(metaclass=Referentiable):
             raise RuntimeError('Can only multiply terms with one identically.')
 
     def __rmul__(self, other):
-        return self.__mul__(other)
+        return self*other
 
     def __neg__(self):
         return Term(-self.const, *self.factors)
+
+    def __hash__(self):
+        return hash(self.const) + hash(frozenset(self.factors))
 
 
 def _merge_common_terms(*terms):
@@ -286,7 +319,23 @@ class Poly(metaclass=Referentiable):
 
     @_dispatch([Term])
     def __init__(self, *terms):
+        # Merge common terms. Do _not_ store this as a set, even though we
+        # would like to, because in certain AD frameworks the hash of the
+        # constant of a term cannot be computed.
         self.terms = _merge_common_terms(*terms)
+
+    @_dispatch(str)
+    def is_function_of(self, name):
+        """Check if this polynomial is a function of some variable.
+
+        Args:
+            name (str): Variable name.
+
+        Returns:
+            bool: `True` if this term is a function of `var` and `False`
+                otherwise.
+        """
+        return any([term.is_function_of(name) for term in self.terms])
 
     @_dispatch(Factor)
     def collect_for(self, factor):
@@ -338,6 +387,19 @@ class Poly(metaclass=Referentiable):
         """
         return all([x.is_constant() for x in self.terms])
 
+    @_dispatch(str)
+    def highest_power(self, name):
+        """Find the highest power of a variable.
+
+        Args:
+            name (str): Name of variable.
+
+        Returns:
+            int: Highest power of variable `name`. Returns `0` if it does not
+                depend on `name`.
+        """
+        return max([term.highest_power(name) for term in self.terms])
+
     @_dispatch(str, Self)
     def substitute(self, name, poly):
         """Substitute a polynomial for a variable.
@@ -365,6 +427,10 @@ class Poly(metaclass=Referentiable):
         return str(self)
 
     @_dispatch(Self)
+    def __eq__(self, other):
+        return set(self.terms) == set(other.terms)
+
+    @_dispatch(Self)
     def __add__(self, other):
         return Poly(*(list(self.terms) + list(other.terms)))
 
@@ -376,7 +442,7 @@ class Poly(metaclass=Referentiable):
             return self + const(other)
 
     def __radd__(self, other):
-        return self.__add__(other)
+        return self + other
 
     def __neg__(self):
         return Poly(*[-term for term in self.terms])
@@ -399,11 +465,11 @@ class Poly(metaclass=Referentiable):
             return self*const(other)
 
     def __rmul__(self, other):
-        return self.__mul__(other)
+        return self*other
 
     @_dispatch(int)
     def __pow__(self, power, modulo=None):
-        assert modulo is None, 'Module is not supported.'
+        assert modulo is None, 'Keyword "module" is not supported.'
         if power < 0:
             raise RuntimeError('Can only raise polynomials to non-negative '
                                'integers.')
@@ -493,7 +559,7 @@ class ExpPoly(metaclass=Referentiable):
             return self._integrate_half1(names[0], **var_map)
         elif len(names) == 2:
             return self._integrate_half2(*names, **var_map)
-        else:
+        else:  # pragma: no cover
             raise NotImplementedError('Cannot integrate from -inf to 0 over '
                                       'more than two variables.')
 
@@ -562,12 +628,16 @@ class ExpPoly(metaclass=Referentiable):
                        self.poly.substitute(name, var(name) + poly))
 
     def _integrate(self, name):
+        if self.poly.highest_power(name) != 2:
+            raise RuntimeError(f'Dependency on "{name}" must be quadratic.')
+
         a = self.poly.collect_for(Factor(name, 2))
         b = self.poly.collect_for(Factor(name, 1))
         c = self.poly.reject(name)
 
         if not a.is_constant():
-            raise ValueError('Quadratic coefficient must be constant.')
+            raise RuntimeError(f'Quadratic coefficient for "{name}" must be '
+                               f'constant.')
 
         a = a.eval()
 
@@ -575,12 +645,12 @@ class ExpPoly(metaclass=Referentiable):
                        Poly(Term(-0.25/a))*b**2 + c)
 
     def _integrate_half1(self, name, **var_map):
+        if self.poly.highest_power(name) != 2:
+            raise RuntimeError(f'Dependency on "{name}" must be quadratic.')
+
         a = self.poly.collect_for(Factor(name, 2))
         b = self.poly.collect_for(Factor(name, 1))
         c = self.poly.reject(name)
-
-        if not a.is_constant():
-            raise ValueError('Quadratic coefficient must be constant.')
 
         a = a.eval(**var_map)
         b = b.eval(**var_map)
@@ -591,6 +661,13 @@ class ExpPoly(metaclass=Referentiable):
                 (1 - B.erf(.5*b/safe_sqrt(-a))))
 
     def _integrate_half2(self, name1, name2, **var_map):
+        if (
+                self.poly.highest_power(name1) != 2 or
+                self.poly.highest_power(name2) != 2
+        ):
+            raise RuntimeError(f'Dependency on "{name1}" and {name2}" must '
+                               f'be quadratic.')
+
         a11 = self.poly.collect_for(Factor(name1, 2))
         a22 = self.poly.collect_for(Factor(name2, 2))
         a12 = (self.poly
@@ -599,9 +676,6 @@ class ExpPoly(metaclass=Referentiable):
         b1 = self.poly.collect_for(Factor(name1, 1)).reject(name2)
         b2 = self.poly.collect_for(Factor(name2, 1)).reject(name1)
         c = self.poly.reject(name1).reject(name2)
-
-        if not (a11.is_constant() and a22.is_constant() and a12.is_constant()):
-            raise ValueError('Quadratic coefficients must be constant.')
 
         # Evaluate and scale A.
         a11 = -2*a11.eval(**var_map)
@@ -645,13 +719,14 @@ class ExpPoly(metaclass=Referentiable):
         return self.const*cdf_part*exp_part
 
     def __str__(self):
-        if len(self.poly.terms) == 0:
-            return str(self.const)
-        else:
-            return f'{self.const} * exp({self.poly})'
+        return f'{self.const} * exp({self.poly})'
 
     def __repr__(self):
         return str(self)
+
+    @_dispatch(Self)
+    def __eq__(self, other):
+        return self.const == other.const and self.poly == other.poly
 
     @_dispatch(Self)
     def __mul__(self, other):
@@ -660,6 +735,9 @@ class ExpPoly(metaclass=Referentiable):
     @_dispatch(B.Numeric)
     def __mul__(self, other):
         return ExpPoly(self.const*other, self.poly)
+
+    def __rmul__(self, other):
+        return self*other
 
     def __neg__(self):
         return ExpPoly(-self.const, self.poly)
