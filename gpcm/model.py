@@ -217,8 +217,8 @@ class Model:
         return [B.to_numpy(x) for x in q_z.marginals()]
 
     def kernel_approx(self, t1, t2, u):
-        """Kernel approximation using inducing variables :math:`u` for the impulse
-        response :math:`h`.
+        """Kernel approximation using inducing variables :math:`u` for the
+        impulse response :math:`h`.
 
         Args:
             t1 (vector): First time input.
@@ -237,7 +237,7 @@ class Model:
         inv_L_u = B.dense(B.trisolve(L_u, B.eye(L_u)))
         prod = B.mm(inv_L_u, u[:, None])
         I_ux = self.compute_I_ux(t1, t2)
-        trisolved = B.mm(inv_L_u, I_ux, inv_L_u, tr_a=True)
+        trisolved = B.mm(inv_L_u, I_ux, inv_L_u, tr_c=True)
         part2 = \
             B.trace(trisolved, axis1=2, axis2=3) - \
             B.trace(B.mm(prod, trisolved, prod, tr_a=True), axis1=2, axis2=3)
