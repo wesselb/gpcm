@@ -129,7 +129,7 @@ class GPRV(Model):
             gamma_t = B.sqrt(2*gamma)
 
         self.gamma = vs.positive(gamma, name='gamma')
-        self.gamma_t = vs.positive(gamma_t, name='gamma_t')
+        self.gamma_t = gamma_t  # Don't learn `gamma_t`: overparametrised.
 
         # Finally initialise variational parameters.
         mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
