@@ -243,3 +243,20 @@ class Model:
             B.trace(B.mm(prod, trisolved, prod, tr_a=True), axis1=2, axis2=3)
 
         return part1 - part2
+
+    def sample(self, t, normalise=True):
+        """Sample the kernel then the function.
+
+        Args:
+            t (vector): Time points to sample the function at.
+            normalise (bool, optional): Normalise the sample of the kernel.
+                Defaults to `False`.
+        Returns:
+            tuple: Tuple containing the kernel matrix and the function.
+        """
+        u = B.sample(self.compute_K_u())[:, 0]
+        K = self.kernel_approx(t, t, u)
+        if normalise:
+            K = K/K[0, 0]
+        f = B.sample(B.reg(K))[:, 0]
+        return K, f
