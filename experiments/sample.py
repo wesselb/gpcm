@@ -59,9 +59,9 @@ t = np.linspace(0, 10, 200)
 noise_f = np.random.randn(len(t), 1)
 
 # Construct models.
-models = [('GP-RV', GPRV(window=2, scale=1, n_u=30, t=t, gamma=1)),
-          ('GPCM', GPCM(window=2, scale=1, n_u=30, t=t)),
-          ('CGPCM', GPCM(window=2, scale=1, n_u=30, t=t, causal=True))]
+models = [('GPCM', GPCM(window=2, scale=1, n_u=30, t=t)),
+          ('CGPCM', GPCM(window=2, scale=1, n_u=30, t=t, causal=True)),
+          ('GP-RV', GPRV(window=2, scale=1, n_u=30, t=t, gamma=1))]
 
 # Perform sampling.
 model_ks, model_fs = zip(*[sample(model, t, noise_f) for _, model in models])
