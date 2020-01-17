@@ -22,7 +22,7 @@ def scale_to_factor(scale):
     Returns:
         tensor: Equivalent factor.
     """
-    return (0.5*B.pi)*(0.5/scale**2)
+    return (B.pi/2)/(2*scale**2)
 
 
 def factor_to_scale(factor):
@@ -98,15 +98,13 @@ class GPCM(Model):
             alpha = scale_to_factor(window)
 
         if alpha_t is None:
-            alpha_t = B.sqrt(2*alpha/B.pi)
+            if causal:
+                alpha_t = (8*alpha/B.pi)**0.25
+            else:
+                alpha_t = (2*alpha/B.pi)**0.25
 
         if gamma is None:
             gamma = scale_to_factor(scale) - 0.5*alpha
-
-        # Apply correction in causal case.
-        if causal:
-            gamma = gamma + 3/8*alpha
-            alpha = alpha/4
 
         self.noise = vs.positive(noise, name='noise')
         self.alpha = alpha  # Don't learn the window length.
@@ -142,8 +140,9 @@ class GPCM(Model):
                     n_z = n_z_cap
 
             t_z_extra = 2*factor_to_scale(self.alpha)
-            d_t_u = (max(t) - min(t))/n_z
+            d_t_u = (max(t) - min(t))/(n_z - 1)
             n_z_extra = int(np.ceil(t_z_extra/d_t_u))
+            t_z_extra = n_z_extra*d_t_u  # Make it align exactly.
             if causal:
                 n_z += n_z_extra
                 t_z = B.linspace(min(t) - t_z_extra, max(t), n_z)
@@ -172,7 +171,7 @@ class GPCM(Model):
 
         # And finally initialise kernels.
         def k_h(t1, t2):
-            return ExpPoly(self.alpha_t,
+            return ExpPoly(self.alpha_t**2,
                            -const(self.alpha)*(t1**2 + t2**2) +
                            -const(self.gamma)*(t1 - t2)**2)
 
