@@ -101,12 +101,13 @@ def collect(name='Quantities', **kw_args):
     return namedtuple(name, kw_args)(**kw_args)
 
 
-def autocorr(x, lags):
+def autocorr(x, lags, normalise=True):
     """Estimate the autocorrelation.
 
     Args:
         x (vector): Time series to estimate autocorrelation of.
         lags (int): Number of lags.
+        normalise (bool): Normalise estimation.
 
     Returns:
         vector: Autocorrelation.
@@ -117,7 +118,13 @@ def autocorr(x, lags):
     x = x - np.mean(x)
     k = np.correlate(x, x, mode='full')[:x.size][::-1]
     k /= np.arange(x.size, 0, -1)  # Divide by the number of estimates.
-    return k[:lags + 1]
+    k = k[:lags + 1]  # Get the right number of lags.
+
+    # Normalise, if required.
+    if normalise:
+        k = k/max(k)
+
+    return k
 
 
 def method(cls):
