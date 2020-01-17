@@ -78,10 +78,10 @@ for name, vs, construct_model in models:
         with wbml.out.Section('Variables before optimisation'):
             vs.print()
         elbo = train(construct_model, vs,
-                     iters_var=10,
-                     iters_var_power=10,
-                     iters_no_noise=10,
-                     iters_all=10)
+                     iters_var=50,
+                     iters_var_power=100,
+                     iters_no_noise=100,
+                     iters_all=100)
         with wbml.out.Section('Variables after optimisation'):
             vs.print()
 
