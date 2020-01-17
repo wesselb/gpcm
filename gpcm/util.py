@@ -5,7 +5,12 @@ import numpy as np
 from matrix import AbstractMatrix, Woodbury
 from plum import Dispatcher
 
-__all__ = ['invert_perm', 'pd_inv', 'collect', 'autocorr', 'method']
+__all__ = ['estimate_psd',
+           'invert_perm',
+           'pd_inv',
+           'collect',
+           'autocorr',
+           'method']
 
 _dispatch = Dispatcher()
 
@@ -13,6 +18,42 @@ _dispatch = Dispatcher()
 @B.matmul.extend(B.Numeric, B.Numeric, B.Numeric)
 def matmul(a, b, c, tr_a=False, tr_b=False, tr_c=False):
     return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
+
+
+def estimate_psd(t, k, n_zero=1000):
+    """Estimate the PSD from samples of the kernel.
+
+    Args:
+        t (vector): Time points of the kernel, which should be a linear space
+            starting from the origin.
+        k (vector): Kernel.
+        n_zero (int, optional): Zero padding. Defaults to `1000`.
+
+    Returns:
+        vector: PSD, correctly scaled.
+    """
+    if t[0] != 0:
+        raise ValueError('Time points must start at zero.')
+
+    # Perform zero padding.
+    k = B.concat(k, B.zeros(n_zero))
+
+    # Symmetrise and Fourier transform.
+    k_symmetric = B.concat(k, k[1:-1][::-1])
+    psd = np.fft.fft(k_symmetric)
+    freqs = np.fft.fftfreq(len(psd))/(t[1] - t[0])
+
+    # Should be real and positive, but the numerics may not be in our favour.
+    psd = np.abs(np.real(psd))
+
+    # Now scale appropriately: the total power should equal `k[0]`.
+    total_power = np.trapz(y=psd, x=freqs)
+    psd /= total_power/k[0]
+
+    # Convert to dB.
+    psd = 10*np.log10(psd)
+
+    return freqs, psd
 
 
 def invert_perm(perm):
