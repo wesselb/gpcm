@@ -176,9 +176,9 @@ for i, (name, vs, construct_model) in enumerate(models):
     plt.plot(freqs_true, psd_true, c='black', label='True')
     plt.fill_between(pred.x, pred.err_68_lower, pred.err_68_upper,
                      facecolor='tab:green', alpha=0.15)
-    plt.fill_between(pred.x, pred.err_95_upper, pred.err_95_upper,
+    plt.fill_between(pred.x, pred.err_95_lower, pred.err_95_upper,
                      facecolor='tab:green', alpha=0.15)
-    plt.fill_between(pred.x, pred.err_99_upper, pred.err_99_upper,
+    plt.fill_between(pred.x, pred.err_99_lower, pred.err_99_upper,
                      facecolor='tab:green', alpha=0.15)
     plt.plot(freqs_ac, psd_ac, c='tab:blue', label='Autocorrelation')
     plt.plot(pred.x, pred.samples, c='tab:red', lw=1)
