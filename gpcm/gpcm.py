@@ -10,7 +10,7 @@ from gpcm.exppoly import ExpPoly, const, var
 from .model import Model
 from .util import method
 
-__all__ = ['GPCM']
+__all__ = ['GPCM', 'CGPCM']
 
 
 def scale_to_factor(scale):
@@ -180,6 +180,17 @@ class GPCM(Model):
 
         self.k_h = k_h
         self.k_xs = k_xs
+
+
+class CGPCM(GPCM):
+    """CGPCM variant of the GPCM.
+
+    Takes in the same keyword arguments as :class:`.gpcm.GPCM`, but the keyword
+    `causal` default to `True`.
+    """
+
+    def __init__(self, causal=True, **kw_args):
+        GPCM.__init__(self, causal=causal, **kw_args)
 
 
 @method(GPCM)
