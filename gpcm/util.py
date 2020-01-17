@@ -5,7 +5,8 @@ import numpy as np
 from matrix import AbstractMatrix, Woodbury
 from plum import Dispatcher
 
-__all__ = ['estimate_psd',
+__all__ = ['summarise_samples',
+           'estimate_psd',
            'invert_perm',
            'pd_inv',
            'collect',
@@ -18,6 +19,30 @@ _dispatch = Dispatcher()
 @B.matmul.extend(B.Numeric, B.Numeric, B.Numeric)
 def matmul(a, b, c, tr_a=False, tr_b=False, tr_c=False):
     return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
+
+
+def summarise_samples(x, samples):
+    """Summarise samples.
+
+    Args:
+        x (vector): Inputs of samples.
+        samples (tensor): Samples, with the first dimension corresponding
+            to different samples.
+
+    Returns:
+        :class:`collections.namedtuple`: Named tuple containing various
+            statistics of the samples.
+    """
+    samples = B.to_numpy(samples)
+    return collect(x=B.to_numpy(x),
+                   mean=B.mean(samples, axis=0),
+                   err_68_lower=np.percentile(samples, 32, axis=0),
+                   err_68_upper=np.percentile(samples, 100 - 32, axis=0),
+                   err_95_lower=np.percentile(samples, 2.5, axis=0),
+                   err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
+                   err_99_lower=np.percentile(samples, 0.15, axis=0),
+                   err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
+                   samples=B.transpose(samples)[:, :3])
 
 
 def estimate_psd(t, k, n_zero=1000):

@@ -1,39 +1,14 @@
 import lab as B
-import numpy as np
+import tensorflow as tf
+import wbml.out
 import wbml.out
 from matrix import Dense
 from stheno import Normal
-import tensorflow as tf
 from varz.tensorflow import minimise_l_bfgs_b, minimise_adam
-import wbml.out
 
-from .util import collect, pd_inv, estimate_psd
+from .util import summarise_samples, pd_inv, estimate_psd
 
 __all__ = ['Model', 'train']
-
-
-def summarise_samples(x, samples):
-    """Summarise samples.
-
-    Args:
-        x (vector): Inputs of samples.
-        samples (tensor): Samples, with the first dimension corresponding
-            to different samples.
-
-    Returns:
-        :class:`collections.namedtuple`: Named tuple containing various
-            statistics of the samples.
-    """
-    samples = B.to_numpy(samples)
-    return collect(x=B.to_numpy(x),
-                   mean=B.mean(samples, axis=0),
-                   err_68_lower=np.percentile(samples, 32, axis=0),
-                   err_68_upper=np.percentile(samples, 100 - 32, axis=0),
-                   err_95_lower=np.percentile(samples, 2.5, axis=0),
-                   err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
-                   err_99_lower=np.percentile(samples, 0.15, axis=0),
-                   err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
-                   samples=B.transpose(samples)[:, :3])
 
 
 class Model:
