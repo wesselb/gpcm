@@ -4,6 +4,7 @@ import lab as B
 import numpy as np
 from matrix import Dense
 from stheno import Normal
+from varz import Vars
 
 from gpcm.exppoly import ExpPoly, const, var
 from .model import Model
@@ -40,7 +41,7 @@ class GPCM(Model):
     """GPCM and causal variant.
 
     Args:
-        vs (:class:`varz.Vars`): Variable container.
+        vs (:class:`varz.Vars`, optional): Variable container.
         causal (bool, optional): Use causal variant. Defaults to `False`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to
@@ -68,7 +69,7 @@ class GPCM(Model):
     """
 
     def __init__(self,
-                 vs,
+                 vs=None,
                  causal=False,
                  noise=1e-4,
                  alpha=None,
@@ -85,7 +86,12 @@ class GPCM(Model):
                  t=None):
         Model.__init__(self)
 
+        # Store whether this is the CGPCM instead of the GPCM.
         self.causal = causal
+
+        # Initialise default variable container.
+        if vs is None:
+            vs = Vars(np.float64)
 
         # First initialise optimisable model parameters.
         if alpha is None:

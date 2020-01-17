@@ -4,18 +4,19 @@ import lab as B
 import numpy as np
 from matrix import Dense, Diagonal, LowRank
 from stheno import Normal
+from varz import Vars
 
 from .model import Model
 from .util import method, invert_perm
 
-__all__ = ['GPRV', 'determine_m_max']
+__all__ = ['GPRV']
 
 
 class GPRV(Model):
     """GP-RV variation of the GPCM.
 
     Args:
-        vs (:class:`varz.Vars`): Variable container.
+        vs (:class:`varz.Vars`, optional): Variable container.
         noise (scalar, optional): Observation noise. Defaults to `1e-4`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to
@@ -46,7 +47,7 @@ class GPRV(Model):
     """
 
     def __init__(self,
-                 vs,
+                 vs=None,
                  noise=1e-4,
                  alpha=None,
                  alpha_t=None,
@@ -64,6 +65,10 @@ class GPRV(Model):
                  t_u=None,
                  t=None):
         Model.__init__(self)
+
+        # Initialise default variable container.
+        if vs is None:
+            vs = Vars(np.float64)
 
         # First initialise optimisable model parameters.
         if alpha is None:
