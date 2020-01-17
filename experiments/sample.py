@@ -40,7 +40,7 @@ def sample(model, t, noise_f):
 
                     # Set to unity variance.
                     wbml.out.kv('Sampled variance', K[0, 0])
-                    K /= K[0, 0]
+                    K = K/K[0, 0]
 
                     # Draw sample function.
                     f = B.matmul(B.cholesky(K), noise_f)[:, 0]
