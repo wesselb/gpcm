@@ -1,3 +1,5 @@
+import warnings
+
 import lab as B
 import numpy as np
 from matrix import Dense
@@ -49,13 +51,15 @@ class GPCM(Model):
         scale (scalar, alternative): Length scale of the function. This will be
             used to determine `gamma` if it is not given.
         omega (scalar, optional): Decay of the transform :math:`s` of
-            :math:`x`. Defaults to length scale twice the spacing between
-            the inducing points.
+            :math:`x`. Defaults to length scale twice the spacing
+            between the inducing points.
         n_u (int, optional): Number of inducing points for :math:`u`.
         t_u (vector, optional): Locations of inducing points for :math:`u`.
             Defaults to equally spaced points across twice the filter length
             scale.
         n_z (int, optional): Number of inducing points for :math:`s`.
+        n_z_cap (int, optional): Maximum number of inducing points. Defaults
+            to `150`.
         t_z (vector, optional): Locations of inducing points for :math:`s`.
             Defaults to equally spaced points across the span of the data
             extended by twice the filter length scale.
@@ -76,6 +80,7 @@ class GPCM(Model):
                  n_u=None,
                  t_u=None,
                  n_z=None,
+                 n_z_cap=150,
                  t_z=None,
                  t=None):
         Model.__init__(self)
@@ -84,7 +89,7 @@ class GPCM(Model):
 
         # First initialise optimisable model parameters.
         if alpha is None:
-            alpha = scale_to_factor(2*window)
+            alpha = scale_to_factor(window)
 
         if alpha_t is None:
             alpha_t = B.sqrt(2*alpha/B.pi)
@@ -107,21 +112,38 @@ class GPCM(Model):
 
         # Then initialise fixed variables.
         if t_u is None:
+            t_u_max = 2*factor_to_scale(self.alpha)
             if causal:
-                t_u_max = 2*factor_to_scale(self.alpha)
                 d_t_u = t_u_max/(n_u - 1)
-                n_u = n_u + 2
+                n_u += 2
                 t_u = B.linspace(-2*d_t_u, t_u_max, n_u)
             else:
-                t_u_max = 2*factor_to_scale(self.alpha)
+                if n_u%2 == 0:
+                    n_u += 1
                 t_u = B.linspace(-t_u_max, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
 
         if t_z is None:
+            if n_z is None:
+                # Use three inducing points per wiggle.
+                n_z = int(np.ceil(3*(max(t) - min(t))/scale))
+                if n_z > 150:
+                    warnings.warn(f'Using {n_z} inducing points, which is too '
+                                  f'many. It is capped to {n_z_cap}.',
+                                  category=UserWarning)
+                    n_z = n_z_cap
+
             t_z_extra = 2*factor_to_scale(self.alpha)
-            t_z = B.linspace(min(t) - t_z_extra, max(t) + t_z_extra, n_z)
+            d_t_u = (max(t) - min(t))/n_z
+            n_z_extra = int(np.ceil(t_z_extra/d_t_u))
+            if causal:
+                n_z += n_z_extra
+                t_z = B.linspace(min(t) - t_z_extra, max(t), n_z)
+            else:
+                n_z += 2*n_z_extra
+                t_z = B.linspace(min(t) - t_z_extra, max(t) + t_z_extra, n_z)
 
         if n_z is None:
             n_z = B.shape(t_z)[0]
