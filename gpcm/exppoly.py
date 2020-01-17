@@ -376,7 +376,7 @@ class Poly(metaclass=Referentiable):
         """
         result = 0
         for term in self.terms:
-            result += term.eval(**var_map)
+            result = result + term.eval(**var_map)
         return result
 
     def is_constant(self):
@@ -414,7 +414,7 @@ class Poly(metaclass=Referentiable):
         """
         result = 0
         for term in self.terms:
-            result += term.substitute(name, poly)
+            result = result + term.substitute(name, poly)
         return result
 
     def __str__(self):
@@ -609,7 +609,7 @@ class ExpPoly(metaclass=Referentiable):
         result = 0
         names = [name for name, _, _ in name_and_lims]
         for part in parts:
-            result += part.integrate_half(*names, **var_map)
+            result = result + part.integrate_half(*names, **var_map)
         return result
 
     @_dispatch(str, Poly)
