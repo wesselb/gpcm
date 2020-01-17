@@ -59,7 +59,7 @@ t = np.linspace(0, 10, 200)
 noise_f = np.random.randn(len(t), 1)
 
 # Construct models.
-models = [('GP-RV', GPRV(window=2, scale=0.5, n_u=30, t=t, gamma=1)),
+models = [('GP-RV', GPRV(window=2, scale=1, n_u=30, t=t, gamma=1)),
           ('GPCM', GPCM(window=2, scale=1, n_u=30, t=t)),
           ('CGPCM', GPCM(window=2, scale=1, n_u=30, t=t, causal=True))]
 
