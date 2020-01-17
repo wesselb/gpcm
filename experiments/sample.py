@@ -103,5 +103,5 @@ for i, ((name, model), ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     wbml.plot.tweak(legend=False)
 
 plt.tight_layout()
-plt.savefig('experiments/samples.pdf')
+plt.savefig('experiments/sample.pdf')
 plt.show()
