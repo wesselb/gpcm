@@ -1,2 +1,8 @@
 TODO:
-     ☐ Port over tests from GP-RV.
+
+
+＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
+Archive:
+ ✓ Thoroughly test `expq`. @done (20-01-17 21:54) @project(TODO)
+ ✓ Double check argument names. @done (20-01-17 21:54) @project(TODO)
+ ✓ Port over tests from GP-RV. @done (20-01-11 20:27) @project(TODO)
