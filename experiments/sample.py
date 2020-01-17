@@ -8,7 +8,7 @@ from gpcm.gpcm import GPCM
 from gpcm.gprv import GPRV
 from gpcm.util import estimate_psd
 
-B.epsilon = 1e-7
+B.epsilon = 1e-6
 
 
 def sample(model, t, noise_f):
