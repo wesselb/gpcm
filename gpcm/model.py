@@ -3,10 +3,37 @@ import numpy as np
 import wbml.out
 from matrix import Dense
 from stheno import Normal
+import tensorflow as tf
+from varz.tensorflow import minimise_l_bfgs_b, minimise_adam
+import wbml.out
 
-from .util import collect, pd_inv
+from .util import collect, pd_inv, estimate_psd
 
-__all__ = ['Model']
+__all__ = ['Model', 'train']
+
+
+def summarise_samples(x, samples):
+    """Summarise samples.
+
+    Args:
+        x (vector): Inputs of samples.
+        samples (tensor): Samples, with the first dimension corresponding
+            to different samples.
+
+    Returns:
+        :class:`collections.namedtuple`: Named tuple containing various
+            statistics of the samples.
+    """
+    samples = B.to_numpy(samples)
+    return collect(x=B.to_numpy(x),
+                   mean=B.mean(samples, axis=0),
+                   err_68_lower=np.percentile(samples, 32, axis=0),
+                   err_68_upper=np.percentile(samples, 100 - 32, axis=0),
+                   err_95_lower=np.percentile(samples, 2.5, axis=0),
+                   err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
+                   err_99_lower=np.percentile(samples, 0.15, axis=0),
+                   err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
+                   samples=B.transpose(samples)[:, :3])
 
 
 class Model:
@@ -167,16 +194,22 @@ class Model:
 
         return B.to_numpy(mu), B.to_numpy(B.sqrt(var))
 
-    def predict_kernel(self):
+    def predict_kernel(self, samples=False):
         """Predict kernel and normalise prediction.
 
+        Args:
+            samples (bool, optional): Return samples instead of prediction.
+                Defaults to `False`.
+
         Returns:
-            :class:`collections.namedtuple`: Named tuple containing the
-                prediction.
+            :class:`collections.namedtuple` or tuple: Named tuple containing
+                the prediction, or a tuple containing the time points of the
+                samples and the samples.
         """
         # Transform back to normal space.
         q_u = self.q_u.lmatmul(self.K_u)
 
+        # Sample kernels.
         ks = []
         t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 100)
         for i in range(100):
@@ -190,19 +223,25 @@ class Model:
         ks = ks/var_mean
         wbml.out.kv('Mean variance of kernel prediction', var_mean)
 
-        k_mean = B.mean(ks, axis=0)
-        k_68 = (np.percentile(ks, 32, axis=0),
-                np.percentile(ks, 100 - 32, axis=0))
-        k_95 = (np.percentile(ks, 2.5, axis=0),
-                np.percentile(ks, 100 - 2.5, axis=0))
-        k_99 = (np.percentile(ks, 0.15, axis=0),
-                np.percentile(ks, 100 - 0.15, axis=0))
-        return collect(t=t_k,
-                       mean=k_mean,
-                       err_68=k_68,
-                       err_95=k_95,
-                       err_99=k_99,
-                       samples=B.transpose(ks)[:, :3])
+        if samples:
+            return t_k, ks
+        else:
+            return summarise_samples(t_k, ks)
+
+    def predict_psd(self):
+        """Predict the PSD in dB.
+
+        Returns:
+            :class:`collections.namedtuple`: Predictions.
+        """
+        t_k, ks = self.predict_kernel(samples=True)
+
+        # Estimate PSDs.
+        freqs, psds = zip(*[estimate_psd(t_k, k) for k in ks])
+        freqs = freqs[0]
+        psds = B.stack(*psds, axis=0)
+
+        return summarise_samples(freqs, psds)
 
     def predict_fourier(self):
         """Predict Fourier features.
@@ -260,3 +299,43 @@ class Model:
             K = K/K[0, 0]
         f = B.sample(B.reg(K))[:, 0]
         return K, f
+
+
+def train(construct_model,
+          vs,
+          iters_var=50,
+          iters_var_power=100,
+          iters_no_noise=100,
+          iters_all=100):
+    """Train a model.
+
+    Args:
+        construct_model (function): Function that takes in a variable container
+            and gives back the model.
+        vs (:class:`varz.Vars`): Variable container.
+        iters_var (int, optional): Iterations to train just the variational
+            parameters. Defaults to `50`.
+        iters_var_power (int, optional): Iterations to train the variational
+            parameters and the power of the model. Defaults to `100`.
+        iters_no_noise (int, optional): Iterations to train all parameters
+            except for the noise. Defaults to `100`.
+        iters_all (int, optional): Iterations to train all parameters.
+            Defaults to `100`.
+
+    Returns:
+        scalar: Final ELBO value.
+    """
+    objective = tf.function(lambda vs_: -construct_model(vs_).elbo(),
+                            autograph=False)
+    with wbml.out.Section('Training variational parameters'):
+        minimise_l_bfgs_b(objective, vs, iters=iters_var, trace=True,
+                          names=['mu_u', 'cov_u'])
+    with wbml.out.Section('Training variational parameters and model power'):
+        minimise_l_bfgs_b(objective, vs, iters=iters_var_power, trace=True,
+                          names=['mu_u', 'cov_u', 'alpha_t'])
+    with wbml.out.Section('Training all parameters except for the noise'):
+        minimise_l_bfgs_b(objective, vs, iters=iters_no_noise, trace=True,
+                          names=list(set(vs.names) - {'noise'}))
+    with wbml.out.Section('Training all parameters'):
+        minimise_adam(objective, vs, iters=iters_all, trace=True)
+    return -objective(vs)
