@@ -24,7 +24,7 @@ class GPRV(Model):
             to determine `alpha` if it is not given.
         lam (scalar, optional): Decay of the kernel of :math:`x`. Defaults
             to four times `alpha`.
-        gamma (scalar, optional): Decay of the transform :math:`u(t)` of
+        gamma (scalar, optional): Decay of the transform :math:`u` of
             :math:`x`. Defaults to the inverse of ten times the spacing
             between locations of data points.
         gamma_t (scalar, optional): Scale of the transform. Defaults to
@@ -34,9 +34,10 @@ class GPRV(Model):
         m_max (scalar, optional): Defines cosine and sine basis functions.
         ms (vector, optional): Basis function frequencies. Defaults to
             :math:`0,\\ldots,2M-1`.
-        n_u (int, optional): Number of inducing points of :math:`u(t_{u_i})`.
-        t_u (vector, optional): Location :math:`t_{u_i}` of :math:`u(t_{u_i})`.
-            Defaults to equally spaced points twice the filter length scale.
+        n_u (int, optional): Number of inducing points for :math:`u`.
+        t_u (vector, optional): Locations of inducing points for :math:`u`.
+            Defaults to equally spaced points across twice the filter length
+            scale.
         t (vector, alternative): Locations of the observations. Can be used to
             automatically initialise quantities.
     """
@@ -69,18 +70,10 @@ class GPRV(Model):
         if lam is None:
             lam = 2*alpha
 
-        if gamma is None:
-            gamma = 1/(10*(t[1] - t[0]))
-
-        if gamma_t is None:
-            gamma_t = B.sqrt(2*gamma)
-
         self.noise = vs.positive(noise, name='noise')
         self.alpha = alpha  # Don't learn the window length.
         self.alpha_t = vs.positive(alpha_t, name='alpha_t')
         self.lam = vs.positive(lam, name='lambda')
-        self.gamma = vs.positive(gamma, name='gamma')
-        self.gamma_t = vs.positive(gamma_t, name='gamma_t')
 
         self.vs = vs
         self.dtype = vs.dtype
@@ -109,6 +102,16 @@ class GPRV(Model):
         self.n_u = n_u
         self.t_u = t_u
 
+        # Initialise dependent model parameters.
+        if gamma is None:
+            gamma = 1/(2*(self.t_u[1] - self.t_u[0]))
+
+        if gamma_t is None:
+            gamma_t = B.sqrt(2*gamma)
+
+        self.gamma = vs.positive(gamma, name='gamma')
+        self.gamma_t = vs.positive(gamma_t, name='gamma_t')
+
         # Finally initialise variational parameters.
         mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
         cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
@@ -136,14 +139,14 @@ def determine_m_max(per, t, m_max_cap=80):
 
 @method(GPRV)
 def compute_K_u(model):
-    """Covariance function of inducing variables :math:`u` associated with
+    """Covariance matrix of inducing variables :math:`u` associated with
     :math:`h`.
 
     Args:
-        model (:class:`.model.GPRV`): Model.
+        model (:class:`.gprv.GPRV`): Model.
 
     Returns:
-        tensor: Kernel matrix broadcasted over `tu1` and `tu2`.
+        tensor: :math:`K_u`.
     """
     return Dense(model.gamma_t**2/(2*model.gamma)*
                  B.exp(-model.gamma*B.abs(model.t_u[:, None] -
@@ -169,7 +172,7 @@ def compute_K_z(model):
     """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\\ldots,2M`.
 
     Args:
-        model (:class:`.model.GPRV`): Model.
+        model (:class:`.gprv.GPRV`): Model.
 
     Returns:
         matrix: :math:`K_z`.
@@ -189,10 +192,10 @@ def compute_K_z(model):
 
 @method(GPRV)
 def compute_i_hx(model, t1=None, t2=None):
-    """Compute the :math:`I_{hx}` integral from the paper.
+    """Compute the :math:`I_{hx}` integral.
 
     Args:
-        model (:class:`.model.GPRV`): Model.
+        model (:class:`.gprv.GPRV`): Model.
         t1 (tensor, optional): First time input. Defaults to zero.
         t2 (tensor, optional): Second time input. Defaults to zero.
 
@@ -208,10 +211,10 @@ def compute_i_hx(model, t1=None, t2=None):
 
 @method(GPRV)
 def compute_I_ux(model, t1=None, t2=None):
-    """Compute the :math:`I_{ux}` integral from the paper.
+    """Compute the :math:`I_{ux}` integral.
 
     Args:
-        model (:class:`.model.GPRV`): Model.
+        model (:class:`.gprv.GPRV`): Model.
         t1 (tensor, optional): First time input. Defaults to zero.
         t2 (tensor, optional): Second time input. Defaults to zero.
 
@@ -302,7 +305,7 @@ def compute_I_hz(model, t):
     """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in `t`.
 
     Args:
-        model (:class:`.model.GPRV`): Model.
+        model (:class:`.gprv.GPRV`): Model.
         t (vector): Time points of data.
 
     Returns:
@@ -399,7 +402,7 @@ def compute_I_uz(model, t):
     """Compute the :math:`I_{uz,t_i}` matrix for :math:`t_i` in `t`.
 
     Args:
-        model (:class:`.model.GPRV`): Model.
+        model (:class:`.gprv.GPRV`): Model.
         t (vector): Time points :math:`t_i` of data.
 
     Returns:
