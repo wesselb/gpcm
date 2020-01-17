@@ -18,7 +18,7 @@ def test_prior_power(Model):
 
     # Estimate power with Monte Carlo.
     powers = []
-    for _ in range(5_000):
+    for _ in range(2_000):
         u = B.sample(K_u)[:, 0]
         powers.append(model.kernel_approx(t_u, t_u, u)[0, 0])
     power = np.mean(powers)
