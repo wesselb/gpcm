@@ -5,8 +5,8 @@ import numpy as np
 from matrix import Dense, Diagonal, LowRank
 from stheno import Normal
 
-from .util import method, invert_perm
 from .model import Model
+from .util import method, invert_perm
 
 __all__ = ['GPRV', 'determine_m_max']
 
@@ -31,7 +31,10 @@ class GPRV(Model):
             normalise the transform to unity power.
         a (scalar, optional): Lower bound of support of the basis.
         b (scalar, optional): Upper bound of support of the basis.
-        m_max (scalar, optional): Defines cosine and sine basis functions.
+        m_max (int, optional): Defines cosine and sine basis functions.
+        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to 80.
+        scale (scalar, alternative): Length scale of the function. This will be
+            used to determine `m_max` if it is not given.
         ms (vector, optional): Basis function frequencies. Defaults to
             :math:`0,\\ldots,2M-1`.
         n_u (int, optional): Number of inducing points for :math:`u`.
@@ -54,6 +57,8 @@ class GPRV(Model):
                  a=None,
                  b=None,
                  m_max=None,
+                 m_max_cap=100,
+                 scale=None,
                  ms=None,
                  n_u=None,
                  t_u=None,
@@ -92,6 +97,15 @@ class GPRV(Model):
         if b is None:
             b = B.max(t)
 
+        if m_max is None:
+            freq = 1/scale
+            m_max = int(np.ceil(freq*(b - a)))
+            if m_max > m_max_cap:
+                warnings.warn(f'Using {m_max} inducing features, which is too '
+                              f'many. It is capped to {m_max_cap}.',
+                              category=UserWarning)
+                m_max = m_max_cap
+
         if ms is None:
             ms = B.range(2*m_max + 1)
 
@@ -116,25 +130,6 @@ class GPRV(Model):
         mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
         cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
         self.q_u = Normal(cov_u, mu_u)
-
-
-def determine_m_max(per, t, m_max_cap=80):
-    """Determine an appropriate value for `m_max`.
-
-    Args:
-        per (scalar): Minimal period to model.
-        t (vector): Locations of data points.
-        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to 80.
-    """
-    freq = 1/per
-    m_max = int(np.ceil(freq*(max(t) - min(t))))
-    if m_max > m_max_cap:
-        warnings.warn(f'Given period {per} for the inducing features '
-                      f'requires M={m_max}, which is too high. '
-                      f'It is capped at {m_max_cap}.',
-                      category=UserWarning)
-        m_max = m_max_cap
-    return m_max
 
 
 @method(GPRV)
