@@ -8,7 +8,7 @@ import gpcm.gprv as gprv
 
 @pytest.mark.parametrize('Model',
                          [lambda **kw_args: gpcm.GPCM(**kw_args),
-                          lambda **kw_args: gpcm.GPCM(causal=False, **kw_args),
+                          lambda **kw_args: gpcm.CGPCM(**kw_args),
                           lambda **kw_args: gprv.GPRV(gamma=1, **kw_args)])
 def test_prior_power(Model):
     t = B.linspace(0, 10, 50)
