@@ -53,6 +53,11 @@ def estimate_psd(t, k, n_zero=1000):
     # Convert to dB.
     psd = 10*np.log10(psd)
 
+    # Only return non-negative frequencies.
+    inds = freqs >= 0
+    freqs = freqs[inds]
+    psd = psd[inds]
+
     return freqs, psd
 
 
