@@ -18,7 +18,7 @@ def safe_sqrt(x):
     Returns:
         tensor: Square root of `x`.
     """
-    return B.sqrt(B.maximum(x, 1e-30))
+    return B.sqrt(B.maximum(x, B.cast(B.dtype(x), 1e-30)))
 
 
 def is_inf(x):
@@ -708,7 +708,7 @@ class ExpPoly(metaclass=Referentiable):
         num = reduce(operator.mul, orig_shape, 1)
         x1 = B.reshape(x1, num)
         x2 = B.reshape(x2, num)
-        rho *= B.ones(x1)
+        rho = rho * B.ones(x1)
         cdf_part = B.reshape(B.bvn_cdf(x1, x2, rho), *orig_shape)
 
         # Compute exponentiated part.
