@@ -120,11 +120,11 @@ class GPCM(Model):
             if causal:
                 d_t_u = t_u_max/(n_u - 1)
                 n_u += 2
-                t_u = B.linspace(-2*d_t_u, t_u_max, n_u)
+                t_u = B.linspace(self.dtype, -2*d_t_u, t_u_max, n_u)
             else:
                 if n_u%2 == 0:
                     n_u += 1
-                t_u = B.linspace(-t_u_max, t_u_max, n_u)
+                t_u = B.linspace(self.dtype, -t_u_max, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -145,10 +145,16 @@ class GPCM(Model):
             t_z_extra = n_z_extra*d_t_u  # Make it align exactly.
             if causal:
                 n_z += n_z_extra
-                t_z = B.linspace(min(t) - t_z_extra, max(t), n_z)
+                t_z = B.linspace(self.dtype,
+                                 min(t) - t_z_extra,
+                                 max(t),
+                                 n_z)
             else:
                 n_z += 2*n_z_extra
-                t_z = B.linspace(min(t) - t_z_extra, max(t) + t_z_extra, n_z)
+                t_z = B.linspace(self.dtype,
+                                 min(t) - t_z_extra,
+                                 max(t) + t_z_extra,
+                                 n_z)
 
         if n_z is None:
             n_z = B.shape(t_z)[0]

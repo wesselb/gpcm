@@ -91,7 +91,7 @@ class GPRV(Model):
         # Then initialise fixed variables.
         if t_u is None:
             t_u_max = 2/self.alpha
-            t_u = B.linspace(0, t_u_max, n_u)
+            t_u = B.linspace(self.dtype, 0, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -112,7 +112,7 @@ class GPRV(Model):
                 m_max = m_max_cap
 
         if ms is None:
-            ms = B.range(2*m_max + 1)
+            ms = B.range(self.dtype, 2*m_max + 1)
 
         self.a = a
         self.b = b
