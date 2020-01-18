@@ -6,4 +6,32 @@
 
 Implementation of the GPCM and variations
 
-*Note:* GPCM requires Python 3.6 or higher.
+## Installation
+
+Python 3.6 or higher is required.
+To begin with, clone and enter the repo.
+
+```bash
+git clone https://github.com/wesselb/gpcm
+cd gpcm
+```
+
+Then make a virtual environment and install the requirements.
+
+```bash
+virtualenv -p python3 venv
+source venv/bin/activate
+pip install -r requirements_dev.txt
+```
+
+## Sample From the Prior
+
+```bash
+PYTHONPATH=. python examples/sample.y
+```
+
+## Learn a GP With a Known Kernel
+
+```bash
+PYTHONPATH=. python experiments/learn_gp.py
+```
