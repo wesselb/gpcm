@@ -1,6 +1,6 @@
 import warnings
 
-import lab.tensorflow as B
+import lab.torch as B
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
