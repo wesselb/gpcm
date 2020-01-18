@@ -289,11 +289,11 @@ def train(construct_model,
         iters_var (int, optional): Iterations to train just the variational
             parameters. Defaults to `50`.
         iters_var_power (int, optional): Iterations to train the variational
-            parameters and the power of the model. Defaults to `100`.
+            parameters and the power of the model. Defaults to `50`.
         iters_no_noise (int, optional): Iterations to train all parameters
-            except for the noise. Defaults to `100`.
+            except for the noise. Defaults to `50`.
         iters_all (int, optional): Iterations to train all parameters.
-            Defaults to `100`.
+            Defaults to `200`.
 
     Returns:
         scalar: Final ELBO value.
@@ -312,5 +312,6 @@ def train(construct_model,
         minimise_l_bfgs_b(objective, vs, iters=iters_no_noise, trace=True,
                           names=list(set(vs.names) - {'noise'}))
     with wbml.out.Section('Training all parameters'):
-        minimise_adam(objective, vs, iters=iters_all, trace=True)
+        minimise_adam(objective, vs, iters=iters_all, trace=True,
+                      rate=5e-2)
     return -objective(vs)
