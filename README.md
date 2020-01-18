@@ -27,7 +27,7 @@ pip install -r requirements_dev.txt
 ## Sample From the Prior
 
 ```bash
-PYTHONPATH=. python examples/sample.y
+PYTHONPATH=. python examples/sample.py
 ```
 
 ## Learn a GP With a Known Kernel
