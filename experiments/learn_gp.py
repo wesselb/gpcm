@@ -162,6 +162,7 @@ for i, (name, vs, construct_model) in enumerate(models):
 
     # Set limits and format.
     plt.xlim(0, max(pred.x))
+    plt.ylim(-1, 1.5)
     wbml.plot.tweak(legend=True)
 
 plt.tight_layout()
