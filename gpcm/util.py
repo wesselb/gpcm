@@ -33,7 +33,7 @@ def summarise_samples(x, samples):
         :class:`collections.namedtuple`: Named tuple containing various
             statistics of the samples.
     """
-    samples = B.to_numpy(samples)
+    x, samples = B.to_numpy(x, samples)
     return collect(x=B.to_numpy(x),
                    mean=B.mean(samples, axis=0),
                    err_68_lower=np.percentile(samples, 32, axis=0),
@@ -57,6 +57,9 @@ def estimate_psd(t, k, n_zero=1000):
     Returns:
         vector: PSD, correctly scaled.
     """
+    # Convert to NumPy for compatibility with frameworks.
+    t, k = B.to_numpy(t, k)
+
     if t[0] != 0:
         raise ValueError('Time points must start at zero.')
 
@@ -131,26 +134,31 @@ def collect(name='Quantities', **kw_args):
     return namedtuple(name, kw_args)(**kw_args)
 
 
-def autocorr(x, lags, normalise=True):
+def autocorr(x, lags=None, normalise=True):
     """Estimate the autocorrelation.
 
     Args:
         x (vector): Time series to estimate autocorrelation of.
-        lags (int): Number of lags.
-        normalise (bool): Normalise estimation.
+        lags (int, optional): Number of lags. Defaults to all lags.
+        normalise (bool, optional): Normalise estimation. Defaults to `True`.
 
     Returns:
         vector: Autocorrelation.
     """
-    if lags < 0:
-        raise ValueError('The number of lags must be positive.')
+    # Convert to NumPy for compatibility with frameworks.
+    x = B.to_numpy(x)
+
+    # Compute autocorrelation.
     x = np.reshape(x, -1)  # Flatten the input.
     x = x - np.mean(x)
     k = np.correlate(x, x, mode='full')[:x.size][::-1]
     k /= np.arange(x.size, 0, -1)  # Divide by the number of estimates.
-    k = k[:lags + 1]  # Get the right number of lags.
 
-    # Normalise, if required.
+    # Get the right number of lags.
+    if lags is not None:
+        k = k[:lags + 1]
+
+    # Normalise by the variance.
     if normalise:
         k = k/max(k)
 
