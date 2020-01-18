@@ -1,10 +1,9 @@
 import lab as B
-import tensorflow as tf
 import wbml.out
 import wbml.out
 from matrix import Dense
 from stheno import Normal
-from varz.tensorflow import minimise_l_bfgs_b, minimise_adam
+from varz.torch import minimise_l_bfgs_b, minimise_adam
 
 from .util import summarise_samples, pd_inv, estimate_psd
 
@@ -143,7 +142,6 @@ class Model:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
-
         # Construct optimal q(z).
         mu_z = B.trisolve(B.transpose(self.L_inv_cov_z),
                           self.root, lower_a=False)
@@ -167,7 +165,7 @@ class Model:
         var = B.sum(B.sum(A*self.q_u.m2[None, :, :], axis=1), axis=1) + \
               B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c
 
-        return B.to_numpy(mu), B.to_numpy(B.sqrt(var))
+        return mu, B.sqrt(var)
 
     def predict_kernel(self, samples=False):
         """Predict kernel and normalise prediction.
@@ -191,7 +189,7 @@ class Model:
             k = self.kernel_approx(t_k, B.zeros(self.dtype, 1),
                                    u=B.flatten(q_u.sample()))
             ks.append(B.flatten(k))
-        ks = B.to_numpy(B.stack(*ks, axis=0))
+        ks = B.stack(*ks, axis=0)
 
         # Normalise predicted kernel.
         var_mean = B.mean(ks[:, 0])
@@ -228,7 +226,7 @@ class Model:
                           lower_a=False)
         cov_z = B.cholsolve(self.L_inv_cov_z, B.eye(self.L_inv_cov_z))
         q_z = Normal(cov_z, mu_z)
-        return [B.to_numpy(x) for x in q_z.marginals()]
+        return [x for x in q_z.marginals()]
 
     def kernel_approx(self, t1, t2, u):
         """Kernel approximation using inducing variables :math:`u` for the
@@ -279,9 +277,9 @@ class Model:
 def train(construct_model,
           vs,
           iters_var=50,
-          iters_var_power=100,
-          iters_no_noise=100,
-          iters_all=100):
+          iters_var_power=50,
+          iters_no_noise=50,
+          iters_all=200):
     """Train a model.
 
     Args:
@@ -300,8 +298,10 @@ def train(construct_model,
     Returns:
         scalar: Final ELBO value.
     """
-    objective = tf.function(lambda vs_: -construct_model(vs_).elbo(),
-                            autograph=False)
+
+    def objective(vs_):
+        return -construct_model(vs_).elbo()
+
     with wbml.out.Section('Training variational parameters'):
         minimise_l_bfgs_b(objective, vs, iters=iters_var, trace=True,
                           names=['mu_u', 'cov_u'])
