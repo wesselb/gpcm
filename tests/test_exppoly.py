@@ -33,8 +33,9 @@ def t3():
 
 
 def test_safe_sqrt():
-    assert safe_sqrt(4) == 2
-    assert safe_sqrt(0) == 1e-15
+    assert safe_sqrt(4.0) == 2
+    assert safe_sqrt(0.0) == 1e-15
+    assert safe_sqrt(0) == 0
 
 
 def test_is_inf():
