@@ -20,3 +20,6 @@ cover
 .DS_Store
 *.swp
 *.pdf
+
+# Experimentation
+_experiments
