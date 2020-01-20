@@ -330,5 +330,5 @@ def train(construct_model,
     with wbml.out.Section('Training all parameters'):
         minimise_adam(objective, vs, iters=iters_all, trace=True,
                       rate=2e-2)
-       
+
     return -objective(vs)
