@@ -33,5 +33,9 @@ PYTHONPATH=. python experiments/sample.py
 ## Learn a GP With a Known Kernel
 
 ```bash
-PYTHONPATH=. python experiments/learn_gp.py
+PYTHONPATH=. python experiments/learn_eq.py
+```
+
+```bash
+PYTHONPATH=. python experiments/learn_eq_cos.py
 ```

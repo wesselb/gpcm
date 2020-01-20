@@ -1,5 +1,6 @@
+import sys
+
 import lab.torch as B
-import matplotlib.pyplot as plt
 import torch
 import wbml.out
 from stheno.torch import GP, Delta, EQ
@@ -10,7 +11,7 @@ from gpcm.experiment import build_models, train_models, plot_compare
 wbml.out.report_time = True
 
 # Setup working directory.
-wd = WorkingDirectory('_experiments', 'eq')
+wd = WorkingDirectory('_experiments', 'eq', *sys.argv[1:])
 
 # Setup experiment.
 n = 800
@@ -44,7 +45,7 @@ train_models(models,
              y=y,
              comparative_kernel=comparative_kernel,
              iters_var=0,
-             iters_var_power=2,
+             iters_var_power=200,
              iters_no_noise=0,
              iters_all=0)
 
@@ -53,4 +54,3 @@ plot_compare(models,
              y=y,
              wd=wd,
              true_kernel=kernel)
-plt.show()
