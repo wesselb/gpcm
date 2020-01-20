@@ -171,7 +171,7 @@ class GPCM(Model):
         self.omega = vs.positive(omega, name='omega')
 
         # Initialise variational parameters.
-        mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
+        mu_u = vs.unbounded(shape=(self.n_u, 1), name='mu_u')
         cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
         self.q_u = Normal(cov_u, mu_u)
 
