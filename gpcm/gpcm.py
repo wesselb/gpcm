@@ -95,7 +95,10 @@ class GPCM(Model):
 
         # First initialise optimisable model parameters.
         if alpha is None:
-            alpha = scale_to_factor(window)
+            if causal:
+                alpha = scale_to_factor(2*window)
+            else:
+                alpha = scale_to_factor(window)
 
         if alpha_t is None:
             if causal:
@@ -116,7 +119,13 @@ class GPCM(Model):
 
         # Then initialise fixed variables.
         if t_u is None:
-            t_u_max = 2*factor_to_scale(self.alpha)
+            # For the causal case, decay is less quick.
+            if causal:
+                t_u_max = factor_to_scale(self.alpha)
+            else:
+                t_u_max = 2*factor_to_scale(self.alpha)
+
+            # For the causal case, only need inducing points on the right side.
             if causal:
                 d_t_u = t_u_max/(n_u - 1)
                 n_u += 2
@@ -139,10 +148,17 @@ class GPCM(Model):
                                   category=UserWarning)
                     n_z = n_z_cap
 
-            t_z_extra = 2*factor_to_scale(self.alpha)
+            # Again, decay is less quick for the causal case.
+            if causal:
+                t_z_extra = factor_to_scale(self.alpha)
+            else:
+                t_z_extra = 2*factor_to_scale(self.alpha)
+
             d_t_u = (max(t) - min(t))/(n_z - 1)
             n_z_extra = int(np.ceil(t_z_extra/d_t_u))
             t_z_extra = n_z_extra*d_t_u  # Make it align exactly.
+
+            # For the causal case, only need inducing points on the left side.
             if causal:
                 n_z += n_z_extra
                 t_z = B.linspace(self.dtype,
@@ -171,7 +187,7 @@ class GPCM(Model):
         self.omega = vs.positive(omega, name='omega')
 
         # Initialise variational parameters.
-        mu_u = vs.unbounded(shape=(self.n_u, 1), name='mu_u')
+        mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
         cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
         self.q_u = Normal(cov_u, mu_u)
 
