@@ -11,6 +11,8 @@ __all__ = ['Model', 'train']
 
 
 class Model:
+    """GPCM model."""
+
     def __init__(self):
         # Initialise quantities to compute.
         self.n = None
@@ -46,6 +48,15 @@ class Model:
         self.q_u = None
 
     def construct(self, t, y):
+        """Construct quantities for the model.
+
+        Args:
+            t (vector): Locations of observations.
+            y (vector): Observations.
+
+        Returns:
+            :class:`model.Model`: Itself.
+        """
         # Construct integrals.
         I_hx = self.compute_i_hx(t, t)
         I_ux = self.compute_I_ux()
@@ -119,6 +130,8 @@ class Model:
         self.root = root
 
         self.p_u = p_u
+
+        return self
 
     def elbo(self):
         """Compute the ELBO.
@@ -305,13 +318,17 @@ def train(construct_model,
     with wbml.out.Section('Training variational parameters'):
         minimise_l_bfgs_b(objective, vs, iters=iters_var, trace=True,
                           names=['mu_u', 'cov_u'])
+
     with wbml.out.Section('Training variational parameters and model power'):
         minimise_l_bfgs_b(objective, vs, iters=iters_var_power, trace=True,
                           names=['mu_u', 'cov_u', 'alpha_t'])
+
     with wbml.out.Section('Training all parameters except for the noise'):
         minimise_l_bfgs_b(objective, vs, iters=iters_no_noise, trace=True,
                           names=list(set(vs.names) - {'noise'}))
+
     with wbml.out.Section('Training all parameters'):
         minimise_adam(objective, vs, iters=iters_all, trace=True,
-                      rate=5e-2)
+                      rate=2e-2)
+       
     return -objective(vs)
