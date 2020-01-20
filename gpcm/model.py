@@ -315,20 +315,36 @@ def train(construct_model,
     def objective(vs_):
         return -construct_model(vs_).elbo()
 
-    with wbml.out.Section('Training variational parameters'):
-        minimise_l_bfgs_b(objective, vs, iters=iters_var, trace=True,
-                          names=['mu_u', 'cov_u'])
+    if iters_var > 0:
+        with wbml.out.Section('Training variational parameters'):
+            minimise_l_bfgs_b(objective,
+                              vs,
+                              iters=iters_var,
+                              trace=True,
+                              names=['mu_u', 'cov_u'])
 
-    with wbml.out.Section('Training variational parameters and model power'):
-        minimise_l_bfgs_b(objective, vs, iters=iters_var_power, trace=True,
-                          names=['mu_u', 'cov_u', 'alpha_t'])
+    if iters_var_power > 0:
+        with wbml.out.Section('Training variational parameters and model power'):
+            minimise_l_bfgs_b(objective,
+                              vs,
+                              iters=iters_var_power,
+                              trace=True,
+                              names=['mu_u', 'cov_u', 'alpha_t'])
 
-    with wbml.out.Section('Training all parameters except for the noise'):
-        minimise_l_bfgs_b(objective, vs, iters=iters_no_noise, trace=True,
-                          names=list(set(vs.names) - {'noise'}))
+    if iters_no_noise > 0:
+        with wbml.out.Section('Training all parameters except for the noise'):
+            minimise_l_bfgs_b(objective,
+                              vs,
+                              iters=iters_no_noise,
+                              trace=True,
+                              names=list(set(vs.names) - {'noise'}))
 
-    with wbml.out.Section('Training all parameters'):
-        minimise_adam(objective, vs, iters=iters_all, trace=True,
-                      rate=2e-2)
+    if iters_all > 0:
+        with wbml.out.Section('Training all parameters'):
+            minimise_adam(objective,
+                          vs,
+                          iters=iters_all,
+                          trace=True,
+                          rate=2e-2)
 
     return -objective(vs)
