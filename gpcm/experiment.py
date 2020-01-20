@@ -65,7 +65,7 @@ def build_models(window,
                               scale=scale,
                               t=t,
                               n_u=n_u,
-                              m_max=int(n_z/2)).construct(t, y))]
+                              m_max=int(np.ceil(n_z/2))).construct(t, y))]
 
 
 def train_models(models,
@@ -216,7 +216,6 @@ def plot_compare(models,
 
         # Set limits and format.
         plt.xlim(0, max(pred.x))
-        plt.ylim(-0.5, 1.5)
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
