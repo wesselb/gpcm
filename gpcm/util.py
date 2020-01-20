@@ -45,14 +45,15 @@ def summarise_samples(x, samples):
                    samples=B.transpose(samples)[:, :3])
 
 
-def estimate_psd(t, k, n_zero=1000):
+def estimate_psd(t, k, n_zero=2_000, db=False):
     """Estimate the PSD from samples of the kernel.
 
     Args:
         t (vector): Time points of the kernel, which should be a linear space
             starting from the origin.
         k (vector): Kernel.
-        n_zero (int, optional): Zero padding. Defaults to `1000`.
+        n_zero (int, optional): Zero padding. Defaults to `2_000`.
+        db (bool, optional): Convert to decibel. Defaults to `False`.
 
     Returns:
         vector: PSD, correctly scaled.
@@ -79,7 +80,8 @@ def estimate_psd(t, k, n_zero=1000):
     psd /= total_power/k[0]
 
     # Convert to dB.
-    psd = 10*np.log10(psd)
+    if db:
+        psd = 10*np.log10(psd)
 
     # Only return non-negative frequencies.
     inds = freqs >= 0
