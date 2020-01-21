@@ -3,25 +3,24 @@ import sys
 import lab.torch as B
 import torch
 import wbml.out
-from stheno.torch import GP, Delta, EQ
-from wbml.experiment import WorkingDirectory
-
 from gpcm.experiment import build_models, train_models, plot_compare
+from stheno.torch import GP, Delta, Matern32
+from wbml.experiment import WorkingDirectory
 
 wbml.out.report_time = True
 
 # Setup working directory.
-wd = WorkingDirectory('_experiments', 'eq-cos', *sys.argv[1:])
+wd = WorkingDirectory('_experiments', 'smk', *sys.argv[1:])
 
 # Setup experiment.
-n = 800
+n = 300
 noise = 0.1
-t = B.linspace(torch.float64, 0, 40, n)
+t = B.linspace(torch.float64, 0, 20, n)
 
 # Setup true model and GPCM models.
-kernel = EQ().stretch(2)*(lambda x: B.cos(2*B.pi*x*0.3))
+kernel = Matern32().stretch(2)*(lambda x: B.cos(2*B.pi*x*0.5))
 window = 4
-scale = 0.5
+scale = 0.25
 
 # Sample data.
 gp = GP(kernel + noise*Delta())
@@ -29,9 +28,8 @@ y = B.flatten(gp(t).sample())
 
 
 def comparative_kernel(vs_):
-    return (vs_.pos(1)*EQ().stretch(vs_.pos(2))*
-            (lambda x: B.cos(2*B.pi*x*0.3)) +
-            vs_.pos(0.1)*Delta())
+    k = vs_.pos(1)*Matern32().stretch(vs_.pos(2))
+    return k*(lambda x: B.cos(2*B.pi*x*0.5)) + vs_.pos(0.1)*Delta()
 
 
 # Build and train models.
@@ -41,15 +39,14 @@ models = build_models(noise=noise,
                       t=t,
                       y=y,
                       n_u=50,
-                      n_z=80)
+                      n_z=50)
 train_models(models,
              t=t,
              y=y,
              comparative_kernel=comparative_kernel,
-             iters_var=0,
-             iters_var_power=200,
-             iters_no_noise=0,
-             iters_all=0)
+             iters_pre=100,
+             iters_fixed_noise=500,
+             iters=500)
 
 plot_compare(models,
              t=t,

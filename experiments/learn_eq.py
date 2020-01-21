@@ -15,13 +15,13 @@ wd = WorkingDirectory('_experiments', 'eq', *sys.argv[1:])
 
 # Setup experiment.
 n = 800
-noise = 1
+noise = 1.0
 t = B.linspace(torch.float64, 0, 40, n)
 
 # Setup true model and GPCM models.
 kernel = EQ().stretch(0.5)
 window = 1.5
-scale = 0.75
+scale = 0.5
 
 # Sample data.
 gp = GP(kernel + noise*Delta())
@@ -44,10 +44,9 @@ train_models(models,
              t=t,
              y=y,
              comparative_kernel=comparative_kernel,
-             iters_var=0,
-             iters_var_power=200,
-             iters_no_noise=0,
-             iters_all=0)
+             iters_pre=100,
+             iters_fixed_noise=200,
+             iters=200)
 
 plot_compare(models,
              t=t,
