@@ -197,7 +197,7 @@ class Model:
 
         # Sample kernels.
         ks = []
-        t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 100)
+        t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 300)
         for i in range(100):
             k = self.kernel_approx(t_k, B.zeros(self.dtype, 1),
                                    u=B.flatten(q_u.sample()))
@@ -289,24 +289,19 @@ class Model:
 
 def train(construct_model,
           vs,
-          iters_var=50,
-          iters_var_power=50,
-          iters_no_noise=50,
-          iters_all=200):
+          iters_pre=50,
+          iters_fixed_noise=100,
+          iters=100):
     """Train a model.
 
     Args:
         construct_model (function): Function that takes in a variable container
             and gives back the model.
         vs (:class:`varz.Vars`): Variable container.
-        iters_var (int, optional): Iterations to train just the variational
-            parameters. Defaults to `50`.
-        iters_var_power (int, optional): Iterations to train the variational
-            parameters and the power of the model. Defaults to `50`.
-        iters_no_noise (int, optional): Iterations to train all parameters
-            except for the noise. Defaults to `50`.
-        iters_all (int, optional): Iterations to train all parameters.
-            Defaults to `200`.
+        iters_pre (int, optional): Pretraining iterations. Defaults to `50`.
+        iters_fixed_noise (int, optional): Pretraining iterations. Defaults to
+            `100`.
+        iters (int, optional): Training iterations. Defaults to `100`.
 
     Returns:
         scalar: Final ELBO value.
@@ -315,36 +310,24 @@ def train(construct_model,
     def objective(vs_):
         return -construct_model(vs_).elbo()
 
-    if iters_var > 0:
-        with wbml.out.Section('Training variational parameters'):
-            minimise_l_bfgs_b(objective,
-                              vs,
-                              iters=iters_var,
-                              trace=True,
-                              names=['mu_u', 'cov_u'])
-
-    if iters_var_power > 0:
-        with wbml.out.Section('Training variational parameters and model power'):
-            minimise_l_bfgs_b(objective,
-                              vs,
-                              iters=iters_var_power,
-                              trace=True,
-                              names=['mu_u', 'cov_u', 'alpha_t'])
-
-    if iters_no_noise > 0:
-        with wbml.out.Section('Training all parameters except for the noise'):
-            minimise_l_bfgs_b(objective,
-                              vs,
-                              iters=iters_no_noise,
-                              trace=True,
-                              names=list(set(vs.names) - {'noise'}))
-
-    if iters_all > 0:
-        with wbml.out.Section('Training all parameters'):
-            minimise_adam(objective,
+    with wbml.out.Section('Pretraining'):
+        minimise_l_bfgs_b(objective,
                           vs,
-                          iters=iters_all,
+                          iters=iters_pre,
                           trace=True,
-                          rate=2e-2)
+                          names=['mu_u', 'cov_u', 'alpha_t'])
+
+    with wbml.out.Section('Training with fixed noise'):
+        minimise_l_bfgs_b(objective,
+                          vs,
+                          iters=iters_fixed_noise,
+                          trace=True,
+                          names=list(set(vs.names) - {'noise'}))
+
+    with wbml.out.Section('Training'):
+        minimise_l_bfgs_b(objective,
+                          vs,
+                          iters=iters,
+                          trace=True)
 
     return -objective(vs)
