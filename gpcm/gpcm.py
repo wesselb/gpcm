@@ -184,7 +184,8 @@ class GPCM(Model):
         if omega is None:
             omega = scale_to_factor(2*(self.t_z[1] - self.t_z[0]))
 
-        self.omega = vs.positive(omega, name='omega')
+        # The optimiser tends to go wild with `omega`, so we do not learn it.
+        self.omega = omega
 
         # Initialise variational parameters.
         mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
