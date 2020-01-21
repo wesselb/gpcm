@@ -145,7 +145,7 @@ def plot_compare(models,
         mu, std = model.predict()
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(name)
+        plt.title(f'Function ({name})')
 
         # Plot data.
         plt.scatter(t, y, c='black', label='Data')
@@ -162,8 +162,9 @@ def plot_compare(models,
                          facecolor='tab:green', alpha=0.15)
         plt.fill_between(t, mu - 3*std, mu + 3*std,
                          facecolor='tab:green', alpha=0.15)
-        plt.plot(t, mu + 3*std + vs['noise'], c='tab:green', ls='--')
-        plt.plot(t, mu - 3*std - vs['noise'], c='tab:green', ls='--')
+        error = 2*B.sqrt(vs['noise'] + std**2)  # Model and noise error.
+        plt.plot(t, mu + error, c='tab:green', ls='--')
+        plt.plot(t, mu - error, c='tab:green', ls='--')
 
         # Set limit and format.
         plt.xlim(min(t), max(t))
@@ -192,7 +193,7 @@ def plot_compare(models,
         k_ac = autocorr(y, normalise=False)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(name)
+        plt.title(f'Kernel ({name})')
 
         # Plot inducing points, if the model has them.
         plt.scatter(model.t_u, 0*model.t_u, s=5, c='black')
@@ -212,7 +213,8 @@ def plot_compare(models,
             plt.plot(pred.x, k_true, c='black', label='True')
 
         # Plot the autocorrelation of the data.
-        plt.plot(t_ac, k_ac, c='tab:blue', label='Autocorrelation')
+        inds = t_ac <= max(pred.x)  # Only plot visible bit.
+        plt.plot(t_ac[inds], k_ac[inds], c='tab:blue', label='Autocorrelation')
 
         # Set limits and format.
         plt.xlim(0, max(pred.x))
@@ -243,7 +245,7 @@ def plot_compare(models,
         freqs_ac, psd_ac = estimate_psd(t_ac, k_ac)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(name)
+        plt.title(f'PSD ({name})')
 
         # Plot predictions.
         plt.plot(pred.x, pred.mean, c='tab:green', label='Prediction')
@@ -285,7 +287,7 @@ def plot_compare(models,
             continue
 
         plt.subplot(3, 2, 1 + 2*i)
-        plt.title('Cosine Features')
+        plt.title(f'Cosine Features ({name})')
         freqs = model.ms/(model.b - model.a)
         inds = np.concatenate(np.where(model.ms == 0) +
                               np.where(model.ms <= model.m_max))
@@ -296,7 +298,7 @@ def plot_compare(models,
         wbml.plot.tweak(legend=False)
 
         plt.subplot(3, 2, 2 + 2*i)
-        plt.title('Sine Features')
+        plt.title(f'Sine Features ({name})')
         freqs = np.maximum(model.ms - model.m_max, 0)/(model.b - model.a)
         inds = np.concatenate(np.where(model.ms == 0) +
                               np.where(model.ms > model.m_max))
