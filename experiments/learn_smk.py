@@ -44,7 +44,7 @@ train_models(models,
              t=t,
              y=y,
              comparative_kernel=comparative_kernel,
-             iters_pre=100,
+             iters_pre=500,
              iters_fixed_noise=500,
              iters=500)
 
