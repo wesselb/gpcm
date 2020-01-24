@@ -13,7 +13,7 @@ from varz.torch import minimise_l_bfgs_b
 
 from .gpcm import GPCM, CGPCM
 from .gprv import GPRV
-from .model import train
+from .model import train_smf
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action='ignore')
@@ -90,7 +90,7 @@ def train_models(models,
     for name, vs, construct_model in models:
         with wbml.out.Section(f'Training {name}'):
             construct_model(vs)
-            train(construct_model, vs, **kw_args)
+            train_smf(construct_model, vs, **kw_args)
 
     # Print the learned variables.
     with wbml.out.Section('Variables after optimisation'):
@@ -218,6 +218,7 @@ def plot_compare(models,
 
         # Set limits and format.
         plt.xlim(0, max(pred.x))
+        plt.ylim(-1, 1)
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
