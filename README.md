@@ -37,5 +37,5 @@ PYTHONPATH=. python experiments/learn_eq.py
 ```
 
 ```bash
-PYTHONPATH=. python experiments/learn_eq_cos.py
+PYTHONPATH=. python experiments/learn_smk.py
 ```
