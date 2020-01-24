@@ -4,6 +4,12 @@ import lab as B
 import numpy.random as rng
 import wbml.out
 
+__all__ = ['ESS']
+
+
+class SampleFailedException(Exception):
+    """Exception raised in the case that a sample failed."""
+
 
 class ESS:
     """Elliptical slice sampling algorithm.
@@ -50,7 +56,7 @@ class ESS:
         theta = rng.uniform(0, 2*B.pi)
         return theta - 2*B.pi, theta
 
-    def _draw(self, lower, upper, u, attempts=1):
+    def _draw(self, lower, upper, u, attempts=1, max_attempts=30):
         """Draw new state given a bracket for :math:`\\theta`.
 
         Args:
@@ -64,6 +70,9 @@ class ESS:
             tuple[scalar]: Tuple containing the proposed state, the
                 corresponding log-likelihood, and the number of attempts.
         """
+        if attempts > max_attempts:
+            raise SampleFailedException('Exceeded maximum number of attempts.')
+
         self._draw_proposal(lower, upper)
         if self.log_lik_x_proposed > u:
             # Proposal is accepted.
@@ -90,21 +99,36 @@ class ESS:
                                total=num,
                                filter={'Attempts': None}) as progress:
             for i in range(num):
-                # Draw a slice height.
-                u = self.log_lik_x - rng.exponential(1.0)
+                success = False
 
-                # Establish ellipse.
-                self._establish_ellipse()
+                # Keep trying until a sample succeeds.
+                while not success:
+                    try:
+                        # Draw a slice height.
+                        u = self.log_lik_x - rng.exponential(1.0)
 
-                # Draw a bracket.
-                lower, upper = self._draw_bracket()
+                        # Establish ellipse.
+                        self._establish_ellipse()
 
-                # Draw a sample.
-                start = time.time()
-                self.x, self.log_lik_x, attempts = self._draw(lower, upper, u)
+                        # Draw a bracket.
+                        lower, upper = self._draw_bracket()
 
-                # Record sample and time per attempt.
-                ms_per_attempt = (time.time() - start)/attempts*1000
+                        # Draw a sample.
+                        start = time.time()
+                        self.x, self.log_lik_x, attempts = \
+                            self._draw(lower, upper, u)
+
+                        # Record sample and time per attempt.
+                        ms_per_attempt = (time.time() - start)/attempts*1000
+
+                        # Sample succeeded.
+                        success = True
+
+                    except SampleFailedException as e:
+                        # Sample failed. Report failure and try again.
+                        with wbml.out.Section('Sample failed'):
+                            wbml.out.out(str(e))
+
                 samples.append(self.x)
 
                 # Report.
