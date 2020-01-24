@@ -4,7 +4,7 @@ import lab.torch as B
 import torch
 import wbml.out
 from gpcm.experiment import build_models, train_models, plot_compare
-from stheno.torch import GP, Delta, Matern32
+from stheno.torch import GP, Delta, EQ
 from wbml.experiment import WorkingDirectory
 
 wbml.out.report_time = True
@@ -18,8 +18,8 @@ noise = 0.1
 t = B.linspace(torch.float64, 0, 20, n)
 
 # Setup true model and GPCM models.
-kernel = Matern32().stretch(2)*(lambda x: B.cos(2*B.pi*x*0.5))
-window = 4
+kernel = EQ().stretch(1.5)*(lambda x: B.cos(2*B.pi*x*0.5))
+window = 3
 scale = 0.25
 
 # Sample data.
@@ -28,7 +28,7 @@ y = B.flatten(gp(t).sample())
 
 
 def comparative_kernel(vs_):
-    k = vs_.pos(1)*Matern32().stretch(vs_.pos(2))
+    k = vs_.pos(1)*EQ().stretch(vs_.pos(2))
     return k*(lambda x: B.cos(2*B.pi*x*0.5)) + vs_.pos(0.1)*Delta()
 
 
@@ -44,9 +44,7 @@ train_models(models,
              t=t,
              y=y,
              comparative_kernel=comparative_kernel,
-             iters_pre=500,
-             iters_fixed_noise=500,
-             iters=500)
+             iters=50)
 
 plot_compare(models,
              t=t,
