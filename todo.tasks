@@ -1,4 +1,12 @@
 TODO:
+    ☐ Use flag `smf` for SMF approximation in training and prediction
+    ☐ Estimate ELBO value from many samples in SMF approximation
+    ☐ Reduce amount of output
+    ☐ Reuse samplers and samples whenever possible
+    ☐ Can omega now be trained?
+
+Test:
+    ☐ ESS: retry until sample succeeds
 
 
 ＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
