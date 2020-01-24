@@ -1,17 +1,41 @@
 import lab as B
+import torch
 import wbml.out
 import wbml.out
 from matrix import Dense
 from stheno import Normal
 from varz.torch import minimise_l_bfgs_b, minimise_adam
 
+from gpcm.sample import ESS
 from .util import summarise_samples, pd_inv, estimate_psd
 
-__all__ = ['Model', 'train']
+__all__ = ['Model', 'train', 'train_smf']
+
+
+class GradientControl:
+    """Context manager to potentially disallow gradient computation.
+
+    Args:
+        gradient (bool): Allow gradient computation.
+    """
+
+    def __init__(self, gradient):
+        self.gradient = gradient
+        self.context = torch.no_grad()
+
+    def __enter__(self):
+        if not self.gradient:
+            self.context.__enter__()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if not self.gradient:
+            self.context.__exit__(exc_type, exc_val, exc_tb)
 
 
 class Model:
     """GPCM model."""
+
+    sampler = None
 
     def __init__(self):
         # Initialise quantities to compute.
@@ -30,6 +54,8 @@ class Model:
         self.I_hz = None
         self.I_uz = None
 
+        self.I_uz_sum = None
+
         self.I_zu_inv_K_u_I_uz = None
 
         self.A_sum = None
@@ -40,6 +66,7 @@ class Model:
         self.root = None
 
         self.p_u = None
+        self.p_u_detached = None
 
         # Initialise quantities that the particular model should populate.
         self.noise = None
@@ -92,17 +119,9 @@ class Model:
                 B.sum(K_z_inv*I_hz_sum) + \
                 B.sum(K_z_inv*I_zu_inv_K_u_I_uz_sum)
 
-        # Compute optimal q(z).
-        inv_cov_z = \
-            K_z + 1/self.noise* \
-            B.sum(B_sum + B.mm(I_uz, B.dense(self.q_u.m2), I_uz, tr_a=True),
-                  axis=0)
-        inv_cov_z_mu_z = 1/self.noise*B.mm(I_uz_sum, self.q_u.mean, tr_a=True)
-        L_inv_cov_z = B.chol(Dense(inv_cov_z))
-        root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
-
         # Construct prior p(u).
         p_u = Normal(K_u_inv)
+        p_u_detached = Normal(B.dense(K_u_inv).detach())
 
         # Store computed quantities.
         self.n = n
@@ -120,33 +139,128 @@ class Model:
         self.I_hz = I_hz
         self.I_uz = I_uz
 
+        self.I_uz_sum = I_uz_sum
+
         self.I_zu_inv_K_u_I_uz = I_zu_inv_K_u_I_uz
 
         self.A_sum = A_sum
         self.B_sum = B_sum
         self.c_sum = c_sum
 
-        self.L_inv_cov_z = L_inv_cov_z
-        self.root = root
-
         self.p_u = p_u
+        self.p_u_detached = p_u_detached
 
         return self
 
-    def elbo(self):
-        """Compute the ELBO.
+    def _compute_q_z_related(self, u=None, gradient=True):
+        """Compute quantities related to the optimal q(z).
+
+        Args:
+            u (tensor, optional): Sample to use. If not given, the variational
+                approximation will be used.
+            gradient (bool, optional): Allow gradient computation. Defaults
+                to `True`.
+
+        Returns:
+            tuple: Two-tuple.
+        """
+        with GradientControl(gradient=gradient):
+            # Either use the variational quantities or the sample for the
+            # "first and second moment".
+            if u is None:
+                m1 = self.q_u.mean
+                m2 = self.q_u.m2
+            else:
+                m1 = u
+                m2 = B.outer(u)
+
+            inv_cov_z = self.K_z + 1/self.noise* \
+                        B.sum(self.B_sum +
+                              B.mm(self.I_uz, B.dense(m2), self.I_uz,
+                                   tr_a=True), axis=0)
+            inv_cov_z_mu_z = 1/self.noise*B.mm(self.I_uz_sum, m1, tr_a=True)
+            L_inv_cov_z = B.chol(Dense(inv_cov_z))
+            root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
+
+            return L_inv_cov_z, root
+
+    def elbo(self, u=None, kl=True, gradient=True):
+        """Compute the collapsed ELBO.
+
+        Args:
+            u (tensor, optional): Sample to use. If not given, the variational
+                approximation will be used.
+            kl (bool, optional): Subtract the KL. Defaults to `True`.
+            gradient (bool, optional): Allow gradient computation. Defaults
+                to `True`.
 
         Returns:
             scalar: ELBO.
         """
-        return -0.5*self.n*B.log(2*B.pi*self.noise) + \
-               -0.5/self.noise*(B.sum(self.y**2) +
-                                B.sum(self.q_u.m2*self.A_sum) +
-                                self.c_sum) + \
-               -0.5*B.logdet(self.K_z) + \
-               -0.5*2*B.sum(B.log(B.diag(self.L_inv_cov_z))) + \
-               0.5*B.sum(self.root**2) + \
-               -self.q_u.kl(self.p_u)
+        with GradientControl(gradient=gradient):
+            # Either use the variational quantities or the sample for the
+            # "second moment".
+            if u is None:
+                m2 = self.q_u.m2
+            else:
+                m2 = B.outer(u)
+
+            L_inv_cov_z, root = \
+                self._compute_q_z_related(u=u, gradient=gradient)
+
+            elbo = -0.5*self.n*B.log(2*B.pi*self.noise) + \
+                   -0.5/self.noise*(B.sum(self.y**2) +
+                                    B.sum(m2*self.A_sum) +
+                                    self.c_sum) + \
+                   -0.5*B.logdet(self.K_z) + \
+                   -0.5*2*B.sum(B.log(B.diag(L_inv_cov_z))) + \
+                   0.5*B.sum(root**2)
+
+            if kl:
+                elbo = elbo - self.q_u.kl(self.p_u)
+
+            return elbo
+
+    def elbo_smf(self, sampler, burn=5):
+        """Compute an estimate of the doubly collapsed ELBO.
+
+        Args:
+            sampler (:class:`.sample.ESS`): Sampler that samples from the
+                optimal q(u).
+            burn (int, optional): Number of samples to use for burning in the
+                sampler. Defaults to `5`.
+
+        Returns:
+            scalar: ELBO.
+        """
+        u = sampler.sample(num=burn + 1)[-1]
+        return self.elbo(u=u, kl=False) + self.p_u.logpdf(u)
+
+    def construct_sampler(self, burn=50):
+        """Construct a sampler that samples from the optimal q(u).
+
+        Args:
+            burn (int, optional): Number of samples to use to burn in the
+                sampler. Defaults to `50`.
+
+        Returns:
+            :class:`.sample.ESS`: Sampler.
+        """
+
+        def log_lik(u):
+            return self.elbo(u=u, kl=False, gradient=False)
+
+        def sample_prior():
+            return self.p_u_detached.sample()
+
+        sampler = ESS(log_lik, sample_prior)
+
+        # Burn in sampler.
+        if burn and burn > 0:
+            with wbml.out.Section('Burning sampler'):
+                sampler.sample(num=burn)
+
+        return sampler
 
     def predict(self):
         """Predict at the data.
@@ -155,30 +269,49 @@ class Model:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
-        # Construct optimal q(z).
-        mu_z = B.trisolve(B.transpose(self.L_inv_cov_z),
-                          self.root, lower_a=False)
-        cov_z = B.cholsolve(self.L_inv_cov_z, B.eye(self.L_inv_cov_z))
-        q_z = Normal(cov_z, mu_z)
+        # Obtain samples.
+        sampler = self.construct_sampler()
+        u_samples = sampler.sample(num=100)
 
-        # Compute mean.
-        mu = B.flatten(B.mm(self.q_u.mean, self.I_uz, B.dense(mu_z),
-                            tr_a=True))
+        means = []
+        stds = []
 
-        # Compute variance.
-        A = self.I_ux[None, :, :] - \
-            B.mm(self.I_uz, B.dense(self.K_z_inv), self.I_uz, tr_c=True)
-        B_ = self.I_hz - self.I_zu_inv_K_u_I_uz
-        c = self.I_hx - \
-            B.sum(self.K_u_inv*self.I_ux) - \
-            B.sum(B.sum(self.K_z_inv[None, :, :]*self.I_hz, axis=1),
-                  axis=1) + \
-            B.sum(B.sum(self.K_z_inv[None, :, :]*self.I_zu_inv_K_u_I_uz,
-                        axis=1), axis=1)
-        var = B.sum(B.sum(A*self.q_u.m2[None, :, :], axis=1), axis=1) + \
-              B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c
+        for u in u_samples:
+            L_inv_cov_z, root = self._compute_q_z_related(u=u)
 
-        return mu, B.sqrt(var)
+            # Use sample for "first and second moment".
+            m1 = u
+            m2 = B.outer(u)
+
+            # Construct optimal q(z).
+            mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
+            cov_z = B.cholsolve(L_inv_cov_z, B.eye(L_inv_cov_z))
+            q_z = Normal(cov_z, mu_z)
+
+            # Compute mean.
+            mean = B.flatten(B.mm(m1, self.I_uz, B.dense(mu_z), tr_a=True))
+
+            # Compute variance.
+            A = self.I_ux[None, :, :] - \
+                B.mm(self.I_uz, B.dense(self.K_z_inv), self.I_uz, tr_c=True)
+            B_ = self.I_hz - self.I_zu_inv_K_u_I_uz
+            c = self.I_hx - \
+                B.sum(self.K_u_inv*self.I_ux) - \
+                B.sum(B.sum(self.K_z_inv[None, :, :]*self.I_hz, axis=1),
+                      axis=1) + \
+                B.sum(B.sum(self.K_z_inv[None, :, :]*self.I_zu_inv_K_u_I_uz,
+                            axis=1), axis=1)
+            var = B.sum(B.sum(A*m2[None, :, :], axis=1), axis=1) + \
+                  B.sum(B.sum(B_*q_z.m2[None, :, :], axis=1), axis=1) + c
+
+            means.append(mean)
+            stds.append(B.sqrt(var))
+
+        # Estimate mean and standard deviation.
+        mean = B.mean(B.stack(*means, axis=0), axis=0)
+        std = B.mean(B.stack(*stds, axis=0), axis=0)
+
+        return mean, std
 
     def predict_kernel(self, samples=False):
         """Predict kernel and normalise prediction.
@@ -192,15 +325,16 @@ class Model:
                 the prediction, or a tuple containing the time points of the
                 samples and the samples.
         """
-        # Transform back to normal space.
-        q_u = self.q_u.lmatmul(self.K_u)
+        # Obtain samples.
+        sampler = self.construct_sampler()
+        u_samples = sampler.sample(num=100)
 
         # Sample kernels.
         ks = []
         t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 300)
-        for i in range(100):
+        for u in u_samples:
             k = self.kernel_approx(t_k, B.zeros(self.dtype, 1),
-                                   u=B.flatten(q_u.sample()))
+                                   u=B.flatten(B.dense(B.matmul(self.K_u, u))))
             ks.append(B.flatten(k))
         ks = B.stack(*ks, axis=0)
 
@@ -235,11 +369,27 @@ class Model:
         Returns:
             tuple: Marginals of the predictions.
         """
-        mu_z = B.trisolve(B.transpose(self.L_inv_cov_z), self.root,
-                          lower_a=False)
-        cov_z = B.cholsolve(self.L_inv_cov_z, B.eye(self.L_inv_cov_z))
-        q_z = Normal(cov_z, mu_z)
-        return [x for x in q_z.marginals()]
+        # Obtain samples.
+        sampler = self.construct_sampler()
+        u_samples = sampler.sample(num=100)
+
+        means = []
+        stds = []
+
+        for u in u_samples:
+            L_inv_cov_z, root = self._compute_q_z_related(u=u)
+
+            mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
+            cov_z = B.cholsolve(L_inv_cov_z, B.eye(L_inv_cov_z))
+
+            means.append(B.flatten(B.dense(mu_z)))
+            stds.append(B.sqrt(B.diag(cov_z)))
+
+        # Estimate mean and standard deviation.
+        mean = B.mean(B.stack(*means, axis=0), axis=0)
+        std = B.mean(B.stack(*stds, axis=0), axis=0)
+
+        return mean, mean - 2*std, mean + 2*std
 
     def kernel_approx(self, t1, t2, u):
         """Kernel approximation using inducing variables :math:`u` for the
@@ -310,7 +460,8 @@ def train(construct_model,
     def objective(vs_):
         return -construct_model(vs_).elbo()
 
-    with wbml.out.Section('Pretraining'):
+    with wbml.out.Section('Pretraining variational parameters and '
+                          'model variance'):
         minimise_l_bfgs_b(objective,
                           vs,
                           iters=iters_pre,
@@ -329,5 +480,47 @@ def train(construct_model,
                           vs,
                           iters=iters,
                           trace=True)
+    return -objective(vs)
+
+
+def train_smf(construct_model,
+              vs,
+              iters=100):
+    """Train a model with the SMF approximation.
+
+    Args:
+        construct_model (function): Function that takes in a variable container
+            and gives back the model.
+        vs (:class:`varz.Vars`): Variable container.
+        iters (int, optional): Training iterations. Defaults to `100`.
+
+    Returns:
+        scalar: Final ELBO value.
+    """
+    state = {'sampler': None}  # Persisting state.
+
+    def objective(vs_):
+        model = construct_model(vs_)
+
+        def log_lik(u):
+            return model.elbo(u=u, kl=False, gradient=False)
+
+        def sample_prior():
+            return model.p_u_detached.sample()
+
+        # Ensure that the sampler is initialised.
+        if state['sampler'] is None:
+            state['sampler'] = ESS(log_lik, sample_prior)
+
+            # Burn the sampler to get it into a good position.
+            with wbml.out.Section('Burning sampler'):
+                state['sampler'].sample(num=50)
+        else:
+            state['sampler'].log_lik = log_lik
+            state['sampler'].sample_prior = sample_prior
+
+        return -model.elbo_smf(state['sampler'])
+
+    minimise_adam(objective, vs, iters=iters, trace=True, rate=5e-2)
 
     return -objective(vs)
