@@ -4,12 +4,12 @@ import wbml.out
 import wbml.out
 from matrix import Dense
 from stheno import Normal
-from varz.torch import minimise_l_bfgs_b, minimise_adam
+from varz.torch import minimise_adam
 
 from gpcm.sample import ESS
 from .util import summarise_samples, pd_inv, estimate_psd
 
-__all__ = ['Model', 'train', 'train_smf']
+__all__ = ['Model', 'train']
 
 
 class GradientControl:
@@ -66,13 +66,11 @@ class Model:
         self.root = None
 
         self.p_u = None
-        self.p_u_detached = None
 
         # Initialise quantities that the particular model should populate.
         self.noise = None
         self.dtype = None
         self.t_u = None
-        self.q_u = None
 
     def construct(self, t, y):
         """Construct quantities for the model.
@@ -121,7 +119,6 @@ class Model:
 
         # Construct prior p(u).
         p_u = Normal(K_u_inv)
-        p_u_detached = Normal(B.dense(K_u_inv).detach())
 
         # Store computed quantities.
         self.n = n
@@ -148,142 +145,100 @@ class Model:
         self.c_sum = c_sum
 
         self.p_u = p_u
-        self.p_u_detached = p_u_detached
 
         return self
 
-    def _compute_q_z_related(self, u=None, gradient=True):
-        """Compute quantities related to the optimal q(z).
+    def _compute_q_z_related(self, u):
+        """Compute quantities related to the optimal :math:`q(z)`.
 
         Args:
-            u (tensor, optional): Sample to use. If not given, the variational
-                approximation will be used.
-            gradient (bool, optional): Allow gradient computation. Defaults
-                to `True`.
+            u (tensor): Sample for :math:`u` to use.
 
         Returns:
             tuple: Two-tuple.
         """
-        with GradientControl(gradient=gradient):
-            # Either use the variational quantities or the sample for the
-            # "first and second moment".
-            if u is None:
-                m1 = self.q_u.mean
-                m2 = self.q_u.m2
-            else:
-                m1 = u
-                m2 = B.outer(u)
+        inv_cov_z = self.K_z + 1/self.noise* \
+                    B.sum(self.B_sum +
+                          B.mm(self.I_uz, B.dense(B.outer(u)), self.I_uz,
+                               tr_a=True), axis=0)
+        inv_cov_z_mu_z = 1/self.noise*B.mm(self.I_uz_sum, u, tr_a=True)
+        L_inv_cov_z = B.chol(Dense(inv_cov_z))
+        root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
 
-            inv_cov_z = self.K_z + 1/self.noise* \
-                        B.sum(self.B_sum +
-                              B.mm(self.I_uz, B.dense(m2), self.I_uz,
-                                   tr_a=True), axis=0)
-            inv_cov_z_mu_z = 1/self.noise*B.mm(self.I_uz_sum, m1, tr_a=True)
-            L_inv_cov_z = B.chol(Dense(inv_cov_z))
-            root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
+        return L_inv_cov_z, root
 
-            return L_inv_cov_z, root
-
-    def elbo(self, u=None, kl=True, gradient=True):
-        """Compute the collapsed ELBO.
+    def _compute_log_Z(self, u):
+        """Compute the normalising constant term.
 
         Args:
-            u (tensor, optional): Sample to use. If not given, the variational
-                approximation will be used.
-            kl (bool, optional): Subtract the KL. Defaults to `True`.
-            gradient (bool, optional): Allow gradient computation. Defaults
-                to `True`.
+            u (tensor): Sample for :math:`u` to use.
 
         Returns:
-            scalar: ELBO.
+            scalar: Normalising constant term.
         """
-        with GradientControl(gradient=gradient):
-            # Either use the variational quantities or the sample for the
-            # "second moment".
-            if u is None:
-                m2 = self.q_u.m2
-            else:
-                m2 = B.outer(u)
+        L_inv_cov_z, root = self._compute_q_z_related(u)
 
-            L_inv_cov_z, root = \
-                self._compute_q_z_related(u=u, gradient=gradient)
+        return -0.5*self.n*B.log(2*B.pi*self.noise) + \
+               -0.5/self.noise*(B.sum(self.y**2) +
+                                B.sum(B.outer(u)*self.A_sum) +
+                                self.c_sum) + \
+               -0.5*B.logdet(self.K_z) + \
+               -0.5*2*B.sum(B.log(B.diag(L_inv_cov_z))) + \
+               0.5*B.sum(root**2)
 
-            elbo = -0.5*self.n*B.log(2*B.pi*self.noise) + \
-                   -0.5/self.noise*(B.sum(self.y**2) +
-                                    B.sum(m2*self.A_sum) +
-                                    self.c_sum) + \
-                   -0.5*B.logdet(self.K_z) + \
-                   -0.5*2*B.sum(B.log(B.diag(L_inv_cov_z))) + \
-                   0.5*B.sum(root**2)
-
-            if kl:
-                elbo = elbo - self.q_u.kl(self.p_u)
-
-            return elbo
-
-    def elbo_smf(self, sampler, burn=5):
+    def elbo(self, samples, entropy=True):
         """Compute an estimate of the doubly collapsed ELBO.
 
         Args:
-            sampler (:class:`.sample.ESS`): Sampler that samples from the
-                optimal q(u).
-            burn (int, optional): Number of samples to use for burning in the
-                sampler. Defaults to `5`.
+            samples (list[tensor]): Samples for :math:`u`.
+            entropy (bool, optional): Also estimate entropy by fitting a
+                Gaussian. Defaults to `True`.
 
         Returns:
             scalar: ELBO.
         """
-        u = sampler.sample(num=burn + 1)[-1]
-        return self.elbo(u=u, kl=False) + self.p_u.logpdf(u)
+        num_samples = len(samples)
 
-    def construct_sampler(self, burn=50):
-        """Construct a sampler that samples from the optimal q(u).
+        # Estimate ELBO without the entropy term.
+        elbo = 0
+        for u in samples:
+            elbo = elbo + self._compute_log_Z(u) + self.p_u.logpdf(u)
+        elbo = elbo/num_samples
+
+        # Add in the entropy term.
+        if entropy:
+            # Estimate :math:`q(u)` by fitting a Gaussian.
+            samples = B.concat(*samples, axis=1)
+            mean = B.mean(samples, axis=1)[:, None]
+            cov = B.matmul(samples - mean, samples - mean,
+                           tr_b=True)/num_samples
+            q_u = Normal(cov, mean)
+
+            elbo = elbo + q_u.entropy()
+
+        return elbo
+
+    def predict(self, samples):
+        """Predict at the data.
 
         Args:
-            burn (int, optional): Number of samples to use to burn in the
-                sampler. Defaults to `50`.
-
-        Returns:
-            :class:`.sample.ESS`: Sampler.
-        """
-
-        def log_lik(u):
-            return self.elbo(u=u, kl=False, gradient=False)
-
-        def sample_prior():
-            return self.p_u_detached.sample()
-
-        sampler = ESS(log_lik, sample_prior)
-
-        # Burn in sampler.
-        if burn and burn > 0:
-            with wbml.out.Section('Burning sampler'):
-                sampler.sample(num=burn)
-
-        return sampler
-
-    def predict(self):
-        """Predict at the data.
+            samples (list[tensor]): Samples for :math:`u`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
-        # Obtain samples.
-        sampler = self.construct_sampler()
-        u_samples = sampler.sample(num=100)
-
         means = []
         stds = []
 
-        for u in u_samples:
+        for u in samples:
             L_inv_cov_z, root = self._compute_q_z_related(u=u)
 
             # Use sample for "first and second moment".
             m1 = u
             m2 = B.outer(u)
 
-            # Construct optimal q(z).
+            # Construct optimal :math:`q(z)`.
             mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
             cov_z = B.cholsolve(L_inv_cov_z, B.eye(L_inv_cov_z))
             q_z = Normal(cov_z, mu_z)
@@ -313,26 +268,23 @@ class Model:
 
         return mean, std
 
-    def predict_kernel(self, samples=False):
+    def predict_kernel(self, samples, return_samples=False):
         """Predict kernel and normalise prediction.
 
         Args:
-            samples (bool, optional): Return samples instead of prediction.
-                Defaults to `False`.
+            samples (list[tensor]): Samples for :math:`u`.
+            return_samples (bool, optional): Return samples instead of
+                prediction. Defaults to `False`.
 
         Returns:
             :class:`collections.namedtuple` or tuple: Named tuple containing
                 the prediction, or a tuple containing the time points of the
                 samples and the samples.
         """
-        # Obtain samples.
-        sampler = self.construct_sampler()
-        u_samples = sampler.sample(num=100)
-
         # Sample kernels.
         ks = []
         t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 300)
-        for u in u_samples:
+        for u in samples:
             k = self.kernel_approx(t_k, B.zeros(self.dtype, 1),
                                    u=B.flatten(B.dense(B.matmul(self.K_u, u))))
             ks.append(B.flatten(k))
@@ -343,18 +295,21 @@ class Model:
         ks = ks/var_mean
         wbml.out.kv('Mean variance of kernel prediction', var_mean)
 
-        if samples:
+        if return_samples:
             return t_k, ks
         else:
             return summarise_samples(t_k, ks)
 
-    def predict_psd(self):
+    def predict_psd(self, samples):
         """Predict the PSD in dB.
+
+        Args:
+            samples (list[tensor]): Samples for :math:`u`.
 
         Returns:
             :class:`collections.namedtuple`: Predictions.
         """
-        t_k, ks = self.predict_kernel(samples=True)
+        t_k, ks = self.predict_kernel(samples, return_samples=True)
 
         # Estimate PSDs.
         freqs, psds = zip(*[estimate_psd(t_k, k) for k in ks])
@@ -363,20 +318,19 @@ class Model:
 
         return summarise_samples(freqs, psds)
 
-    def predict_fourier(self):
+    def predict_fourier(self, samples):
         """Predict Fourier features.
+
+        Args:
+            samples (list[tensor]): Samples for :math:`u`.
 
         Returns:
             tuple: Marginals of the predictions.
         """
-        # Obtain samples.
-        sampler = self.construct_sampler()
-        u_samples = sampler.sample(num=100)
-
         means = []
         stds = []
 
-        for u in u_samples:
+        for u in samples:
             L_inv_cov_z, root = self._compute_q_z_related(u=u)
 
             mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
@@ -439,63 +393,27 @@ class Model:
 
 def train(construct_model,
           vs,
-          iters_pre=50,
-          iters_fixed_noise=100,
-          iters=100):
-    """Train a model.
-
-    Args:
-        construct_model (function): Function that takes in a variable container
-            and gives back the model.
-        vs (:class:`varz.Vars`): Variable container.
-        iters_pre (int, optional): Pretraining iterations. Defaults to `50`.
-        iters_fixed_noise (int, optional): Pretraining iterations. Defaults to
-            `100`.
-        iters (int, optional): Training iterations. Defaults to `100`.
-
-    Returns:
-        scalar: Final ELBO value.
-    """
-
-    def objective(vs_):
-        return -construct_model(vs_).elbo()
-
-    with wbml.out.Section('Pretraining variational parameters and '
-                          'model variance'):
-        minimise_l_bfgs_b(objective,
-                          vs,
-                          iters=iters_pre,
-                          trace=True,
-                          names=['mu_u', 'cov_u', 'alpha_t'])
-
-    with wbml.out.Section('Training with fixed noise'):
-        minimise_l_bfgs_b(objective,
-                          vs,
-                          iters=iters_fixed_noise,
-                          trace=True,
-                          names=list(set(vs.names) - {'noise'}))
-
-    with wbml.out.Section('Training'):
-        minimise_l_bfgs_b(objective,
-                          vs,
-                          iters=iters,
-                          trace=True)
-    return -objective(vs)
-
-
-def train_smf(construct_model,
-              vs,
-              iters=100):
+          burn=300,
+          iters=100,
+          elbo_burn=20,
+          elbo_num_samples=5):
     """Train a model with the SMF approximation.
 
     Args:
         construct_model (function): Function that takes in a variable container
             and gives back the model.
         vs (:class:`varz.Vars`): Variable container.
+        burn (int, optional): Number of samples to burn before training.
+            Defaults to `300`.
         iters (int, optional): Training iterations. Defaults to `100`.
+        elbo_burn (int, optional): Number of samples to burn for convergence
+            of the sampler to adjust to new hyperparameters. Defaults
+            to `20`.
+        elbo_num_samples (int, optional): Number of samples to use to estimate
+            the ELBO. Defaults to `5`.
 
     Returns:
-        scalar: Final ELBO value.
+        :class:`.sample.ESS`: Sampler.
     """
     state = {'sampler': None}  # Persisting state.
 
@@ -503,10 +421,12 @@ def train_smf(construct_model,
         model = construct_model(vs_)
 
         def log_lik(u):
-            return model.elbo(u=u, kl=False, gradient=False)
+            with GradientControl(gradient=False):
+                return model._compute_log_Z(u)
 
         def sample_prior():
-            return model.p_u_detached.sample()
+            with GradientControl(gradient=False):
+                return model.p_u.sample()
 
         # Ensure that the sampler is initialised.
         if state['sampler'] is None:
@@ -514,13 +434,17 @@ def train_smf(construct_model,
 
             # Burn the sampler to get it into a good position.
             with wbml.out.Section('Burning sampler'):
-                state['sampler'].sample(num=50)
+                state['sampler'].sample(num=burn, trace=True)
         else:
             state['sampler'].log_lik = log_lik
             state['sampler'].sample_prior = sample_prior
 
-        return -model.elbo_smf(state['sampler'])
+        # Obtain samples.
+        state['sampler'].sample(num=elbo_burn)
+        samples = state['sampler'].sample(num=elbo_num_samples)
+
+        return -model.elbo(samples, entropy=False)
 
     minimise_adam(objective, vs, iters=iters, trace=True, rate=5e-2)
 
-    return -objective(vs)
+    return state['sampler']
