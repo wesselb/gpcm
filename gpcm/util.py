@@ -34,6 +34,7 @@ def summarise_samples(x, samples):
             statistics of the samples.
     """
     x, samples = B.to_numpy(x, samples)
+    random_inds = np.random.permutation(B.shape(samples)[0])[:3]
     return collect(x=B.to_numpy(x),
                    mean=B.mean(samples, axis=0),
                    err_68_lower=np.percentile(samples, 32, axis=0),
@@ -42,7 +43,7 @@ def summarise_samples(x, samples):
                    err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
                    err_99_lower=np.percentile(samples, 0.15, axis=0),
                    err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
-                   samples=B.transpose(samples)[:, :3])
+                   samples=B.transpose(samples)[..., random_inds])
 
 
 def estimate_psd(t, k, n_zero=2_000, db=False):
