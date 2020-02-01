@@ -131,11 +131,6 @@ class GPRV(Model):
         self.gamma = vs.positive(gamma, name='gamma')
         self.gamma_t = gamma_t  # Don't learn `gamma_t`: overparametrised.
 
-        # Finally initialise variational parameters.
-        mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
-        cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
-        self.q_u = Normal(cov_u, mu_u)
-
 
 @method(GPRV)
 def compute_K_u(model):

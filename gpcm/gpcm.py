@@ -187,11 +187,6 @@ class GPCM(Model):
         # The optimiser tends to go wild with `omega`, so we do not learn it.
         self.omega = omega
 
-        # Initialise variational parameters.
-        mu_u = vs.unbounded(B.ones(self.n_u, 1), name='mu_u')
-        cov_u = vs.positive_definite(B.eye(self.n_u), name='cov_u')
-        self.q_u = Normal(cov_u, mu_u)
-
         # And finally initialise kernels.
         def k_h(t1, t2):
             return ExpPoly(self.alpha_t**2,
