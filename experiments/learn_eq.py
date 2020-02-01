@@ -48,13 +48,14 @@ models = build_models(noise=noise,
 
 if args.quick:
     samples = train_models(models,
+                           wd=wd,
                            burn=200,
                            iters=20,
                            elbo_burn=5,
                            elbo_num_samples=1,
                            num_samples=100)
 else:
-    samples = train_models(models)
+    samples = train_models(models, wd=wd)
 
 analyse_models(models,
                samples,

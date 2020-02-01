@@ -71,6 +71,7 @@ def build_models(window,
 
 
 def train_models(models,
+                 wd=None,
                  num_samples=1000,
                  **kw_args):
     """Train models.
@@ -79,6 +80,8 @@ def train_models(models,
 
     Args:
         models (list): Models to train.
+        wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
+            directory to save samples to.
         num_samples (int, optional): Number of samples to take.
 
     Returns:
@@ -93,6 +96,12 @@ def train_models(models,
 
         with wbml.out.Section(f'Sampling {name}'):
             samples.append(sampler.sample(num=num_samples, trace=True))
+
+    # Save results.
+    if wd:
+        wd.save(samples, 'samples.pickle')
+        wd.save([{name: vs[name] for name in vs.names}
+                 for _, vs, _ in models], 'variables.pickle')
 
     return samples
 
@@ -113,7 +122,7 @@ def analyse_models(models,
         t (vector): Time points of data.
         y (vector): Observations.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
-            directory to save the plots to.
+            directory to save results to.
         true_kernel (:class:`stheno.Kernel`, optional): True kernel that
             generated the data, not including noise.
         true_noisy_kernel (:class:`stheno.Kernel`, optional): True kernel that
