@@ -1,16 +1,22 @@
-import sys
+import argparse
 
 import lab.torch as B
 import torch
 import wbml.out
-from gpcm.experiment import build_models, train_models, plot_compare
+from gpcm.experiment import build_models, train_models, analyse_models
 from stheno.torch import GP, Delta, EQ
 from wbml.experiment import WorkingDirectory
 
 wbml.out.report_time = True
 
+# Parse arguments.
+parser = argparse.ArgumentParser()
+parser.add_argument('path', nargs='*')
+parser.add_argument('--quick', action='store_true')
+args = parser.parse_args()
+
 # Setup working directory.
-wd = WorkingDirectory('_experiments', 'smk', *sys.argv[1:])
+wd = WorkingDirectory('_experiments', 'smk', *args.path)
 
 # Setup experiment.
 n = 300
@@ -32,22 +38,29 @@ def comparative_kernel(vs_):
     return k*(lambda x: B.cos(2*B.pi*x*0.5)) + vs_.pos(0.1)*Delta()
 
 
-# Build and train models.
 models = build_models(noise=noise,
                       window=window,
                       scale=scale,
                       t=t,
                       y=y,
-                      n_u=50,
-                      n_z=50)
-train_models(models,
-             t=t,
-             y=y,
-             comparative_kernel=comparative_kernel,
-             iters=50)
+                      n_u=40,
+                      n_z=40)
 
-plot_compare(models,
-             t=t,
-             y=y,
-             wd=wd,
-             true_kernel=kernel)
+if args.quick:
+    samples = train_models(models,
+                           burn=200,
+                           iters=20,
+                           elbo_burn=5,
+                           elbo_num_samples=1,
+                           num_samples=100)
+else:
+    samples = train_models(models)
+
+analyse_models(models,
+               samples,
+               t=t,
+               y=y,
+               wd=wd,
+               true_kernel=kernel,
+               true_noisy_kernel=kernel + noise*Delta(),
+               comparative_kernel=comparative_kernel)

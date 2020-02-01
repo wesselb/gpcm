@@ -1,22 +1,28 @@
-import sys
+import argparse
 
 import lab.torch as B
 import torch
 import wbml.out
+from gpcm.experiment import build_models, train_models, analyse_models
 from stheno.torch import GP, Delta, EQ
 from wbml.experiment import WorkingDirectory
 
-from gpcm.experiment import build_models, train_models, plot_compare
-
 wbml.out.report_time = True
+B.epsilon = 1e-6
+
+# Parse arguments.
+parser = argparse.ArgumentParser()
+parser.add_argument('path', nargs='*')
+parser.add_argument('--quick', action='store_true')
+args = parser.parse_args()
 
 # Setup working directory.
-wd = WorkingDirectory('_experiments', 'eq', *sys.argv[1:])
+wd = WorkingDirectory('_experiments', 'eq', *args.path)
 
 # Setup experiment.
-n = 800
-noise = 1.0
-t = B.linspace(torch.float64, 0, 40, n)
+n = 300
+noise = 0.5
+t = B.linspace(torch.float64, 0, 20, n)
 
 # Setup true model and GPCM models.
 kernel = EQ().stretch(0.5)
@@ -29,25 +35,32 @@ y = B.flatten(gp(t).sample())
 
 
 def comparative_kernel(vs_):
-    return vs_.pos(1)*EQ().stretch(vs_.pos(0.5)) + vs_.pos(1)*Delta()
+    return vs_.pos(1)*EQ().stretch(vs_.pos(0.5)) + vs_.pos(noise)*Delta()
 
 
-# Build and train models.
 models = build_models(noise=noise,
                       window=window,
                       scale=scale,
                       t=t,
                       y=y,
                       n_u=40,
-                      n_z=80)
-train_models(models,
-             t=t,
-             y=y,
-             comparative_kernel=comparative_kernel,
-             iters=50)
+                      n_z=40)
 
-plot_compare(models,
-             t=t,
-             y=y,
-             wd=wd,
-             true_kernel=kernel)
+if args.quick:
+    samples = train_models(models,
+                           burn=200,
+                           iters=20,
+                           elbo_burn=5,
+                           elbo_num_samples=1,
+                           num_samples=100)
+else:
+    samples = train_models(models)
+
+analyse_models(models,
+               samples,
+               t=t,
+               y=y,
+               wd=wd,
+               true_kernel=kernel,
+               true_noisy_kernel=kernel + noise*Delta(),
+               comparative_kernel=comparative_kernel)
