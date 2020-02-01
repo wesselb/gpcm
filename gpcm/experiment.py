@@ -13,11 +13,13 @@ from varz.torch import minimise_l_bfgs_b
 
 from .gpcm import GPCM, CGPCM
 from .gprv import GPRV
-from .model import train_smf
+from .model import train
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action='ignore')
 B.epsilon = 1e-8
+
+__all__ = ['build_models', 'train_models', 'analyse_models']
 
 
 def build_models(window,
@@ -69,28 +71,58 @@ def build_models(window,
 
 
 def train_models(models,
-                 t,
-                 y,
-                 comparative_kernel=None,
+                 num_samples=1000,
                  **kw_args):
-    """Construct the GPCM, CGPCM, and GP-RV.
+    """Train models.
 
     Further takes in keyword arguments for :func:`.model.train`.
 
     Args:
         models (list): Models to train.
+        num_samples (int, optional): Number of samples to take.
+
+    Returns:
+        list[list[tensor]]: Posterior samples for each of the models.
+    """
+    samples = []
+
+    for name, vs, construct_model in models:
+        with wbml.out.Section(f'Training {name}'):
+            construct_model(vs)
+            sampler = train(construct_model, vs, **kw_args)
+
+        with wbml.out.Section(f'Sampling {name}'):
+            samples.append(sampler.sample(num=num_samples, trace=True))
+
+    return samples
+
+
+def analyse_models(models,
+                   samples,
+                   t,
+                   y,
+                   wd=None,
+                   true_kernel=None,
+                   true_noisy_kernel=None,
+                   comparative_kernel=None):
+    """Analyse models.
+
+    Args:
+        models (list): Models.
+        samples (list[list[tensor]]): Posterior samples for each of the models.
         t (vector): Time points of data.
         y (vector): Observations.
+        wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
+            directory to save the plots to.
+        true_kernel (:class:`stheno.Kernel`, optional): True kernel that
+            generated the data, not including noise.
+        true_noisy_kernel (:class:`stheno.Kernel`, optional): True kernel that
+            generated the data, including noise.
         comparative_kernel (function, optional): A function that takes in a
             variable container and gives back a kernel. A GP with this
             kernel will be trained on the data to compute a likelihood that
             will be compared to the ELBOs.
     """
-    # Train models.
-    for name, vs, construct_model in models:
-        with wbml.out.Section(f'Training {name}'):
-            construct_model(vs)
-            train_smf(construct_model, vs, **kw_args)
 
     # Print the learned variables.
     with wbml.out.Section('Variables after optimisation'):
@@ -98,7 +130,46 @@ def train_models(models,
             with wbml.out.Section(name):
                 vs.print()
 
-    # Train a GP if a comparative kernel is given.
+    analyse_elbos(models,
+                  samples,
+                  t=t,
+                  y=y,
+                  true_noisy_kernel=true_noisy_kernel,
+                  comparative_kernel=comparative_kernel)
+    analyse_plots(models,
+                  samples,
+                  t=t,
+                  y=y,
+                  wd=wd,
+                  true_kernel=true_kernel)
+
+
+def analyse_elbos(models,
+                  samples,
+                  t,
+                  y,
+                  true_noisy_kernel=None,
+                  comparative_kernel=None):
+    """Compare ELBOs of models.
+
+    Args:
+        models (list): Models to train.
+        samples (list[list[tensor]]): Posterior samples for each of the models.
+        t (vector): Time points of data.
+        y (vector): Observations.
+        true_noisy_kernel (:class:`stheno.Kernel`, optional): True kernel that
+            generated the data, including noise.
+        comparative_kernel (function, optional): A function that takes in a
+            variable container and gives back a kernel. A GP with this
+            kernel will be trained on the data to compute a likelihood that
+            will be compared to the ELBOs.
+    """
+
+    # Print LML under true GP if the true kernel is given.
+    if true_noisy_kernel:
+        wbml.out.kv('LML under true GP', GP(true_noisy_kernel)(t).logpdf(y))
+
+    # Print LML under a trained GP if a comparative kernel is given.
     if comparative_kernel:
         def objective(vs_):
             gp = GP(sequential(comparative_kernel)(vs_))
@@ -106,34 +177,34 @@ def train_models(models,
 
         # Fit the GP.
         vs = Vars(torch.float64)
-        lml_gp_opt = -minimise_l_bfgs_b(objective, vs, iters=1000, trace=True)
+        lml_gp_opt = -minimise_l_bfgs_b(objective, vs, iters=1000)
 
         # Print likelihood.
-        wbml.out.kv('LML of GP', lml_gp_opt)
+        wbml.out.kv('LML under optimised GP', lml_gp_opt)
 
-    # Print ELBO values.
+    # Estimate ELBOs.
     with wbml.out.Section('ELBOs'):
-        for name, vs, construct_model in models:
+        for i, (name, vs, construct_model) in enumerate(models):
             model = construct_model(vs)
-            wbml.out.kv(name, model.elbo())
+            wbml.out.kv(name, model.elbo(samples[i]))
 
 
-def plot_compare(models,
-                 t,
-                 y,
-                 true_kernel=None,
-                 wd=None):
-    """Construct the GPCM, CGPCM, and GP-RV.
-
-    Further takes in keyword arguments for :func:`.model.train`.
+def analyse_plots(models,
+                  samples,
+                  t,
+                  y,
+                  true_kernel=None,
+                  wd=None):
+    """Analyse models in plots.
 
     Args:
         models (list): Models to train.
+        samples (list[list[tensor]]): Posterior samples for each of the models.
         t (vector): Time points of data.
         y (vector): Observations.
         true_kernel (:class:`stheno.Kernel`, optional): True kernel that
             generates the data for comparison.
-        wd (:class:`wbml.experiment.WorkingDirectory`): Working directory
+        wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working directory
             to save the plots to.
     """
     # Plot predictions.
@@ -142,7 +213,7 @@ def plot_compare(models,
     for i, (name, vs, construct_model) in enumerate(models):
         # Construct model and make predictions.
         model = construct_model(vs)
-        mu, std = model.predict()
+        mu, std = model.predict(samples[i])
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f'Function ({name})')
@@ -182,7 +253,7 @@ def plot_compare(models,
         # Construct model and predict the kernel.
         model = construct_model(vs)
         with wbml.out.Section(f'Predicting kernel for {name}'):
-            pred = model.predict_kernel()
+            pred = model.predict_kernel(samples[i])
 
         # Compute true kernel.
         if true_kernel:
@@ -232,7 +303,7 @@ def plot_compare(models,
         # Construct compute and predict PSD.
         model = construct_model(vs)
         with wbml.out.Section(f'Predicting PSD for {name}'):
-            pred = model.predict_psd()
+            pred = model.predict_psd(samples[i])
 
         # Compute true PSD.
         if true_kernel:
@@ -283,7 +354,7 @@ def plot_compare(models,
 
         # Predict Fourier features if it is a GP-RV.
         if isinstance(model, GPRV):
-            mean, lower, upper = model.predict_fourier()
+            mean, lower, upper = model.predict_fourier(samples[i])
         else:
             continue
 
