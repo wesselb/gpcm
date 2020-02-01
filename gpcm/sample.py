@@ -56,15 +56,17 @@ class ESS:
         theta = rng.uniform(0, 2*B.pi)
         return theta - 2*B.pi, theta
 
-    def _draw(self, lower, upper, u, attempts=1, max_attempts=30):
+    def _draw(self, lower, upper, u, attempts=1, max_attempts=100):
         """Draw new state given a bracket for :math:`\\theta`.
 
         Args:
             lower (scalar): Lower bound of bracket.
             upper (scalar): Upper bound of bracket.
             u (scalar): Slice height.
-            attempts (attempt, optional): Number of attempts so far. Defaults
+            attempts (int, optional): Number of attempts so far. Defaults
                 to one.
+            max_attempts(int, optional): Maximum number of attempts. Defaults
+                to hundred.
 
         Returns:
             tuple[scalar]: Tuple containing the proposed state, the
@@ -84,56 +86,65 @@ class ESS:
             else:
                 return self._draw(self.theta, upper, u, attempts + 1)
 
-    def sample(self, num=1):
+    def sample(self, num=1, trace=False):
         """Generate samples from the target distribution.
 
         Args:
             num (int, optional): Number of samples. Defaults to one.
+            trace (bool, optional): Show progress. Defaults to `False`.
 
         Returns:
             list[tensor]: Samples.
         """
         samples = []
 
-        with wbml.out.Progress(name='Sampling (ESS)',
-                               total=num,
-                               filter={'Attempts': None}) as progress:
+        if trace:
+            with wbml.out.Progress(name='Sampling (ESS)',
+                                   total=num,
+                                   filter={'Attempts': None}) as progress:
+                for i in range(num):
+                    attempts, ms_per_attempt = self._sample()
+                    samples.append(self.x)
+                    progress({'Pseudo-log-likelihood': self.log_lik_x,
+                              'Attempts': attempts,
+                              'Milliseconds per attempt': ms_per_attempt})
+
+        else:
             for i in range(num):
-                success = False
-
-                # Keep trying until a sample succeeds.
-                while not success:
-                    try:
-                        # Draw a slice height.
-                        u = self.log_lik_x - rng.exponential(1.0)
-
-                        # Establish ellipse.
-                        self._establish_ellipse()
-
-                        # Draw a bracket.
-                        lower, upper = self._draw_bracket()
-
-                        # Draw a sample.
-                        start = time.time()
-                        self.x, self.log_lik_x, attempts = \
-                            self._draw(lower, upper, u)
-
-                        # Record sample and time per attempt.
-                        ms_per_attempt = (time.time() - start)/attempts*1000
-
-                        # Sample succeeded.
-                        success = True
-
-                    except SampleFailedException as e:
-                        # Sample failed. Report failure and try again.
-                        with wbml.out.Section('Sample failed'):
-                            wbml.out.out(str(e))
-
+                self._sample()
                 samples.append(self.x)
 
-                # Report.
-                progress({'Pseudo-log-likelihood': self.log_lik_x,
-                          'Attempts': attempts,
-                          'Milliseconds per attempt': ms_per_attempt})
-
         return samples
+
+    def _sample(self):
+        """Perform one sample.
+
+        Returns:
+            tuple[int, float]: Number of attempts and milliseconds per attempt.
+        """
+        # Keep trying until a sample succeeds.
+        while True:
+            try:
+                # Draw a slice height.
+                u = self.log_lik_x - rng.exponential(1.0)
+
+                # Establish ellipse.
+                self._establish_ellipse()
+
+                # Draw a bracket.
+                lower, upper = self._draw_bracket()
+
+                # Draw a sample.
+                start = time.time()
+                self.x, self.log_lik_x, attempts = \
+                    self._draw(lower, upper, u)
+
+                # Record sample and time per attempt.
+                ms_per_attempt = (time.time() - start)/attempts*1000
+
+                return attempts, ms_per_attempt
+
+            except SampleFailedException as e:
+                # Sample failed. Report failure and try again.
+                with wbml.out.Section('Sample failed'):
+                    wbml.out.out(str(e))
