@@ -1,32 +1,20 @@
-import argparse
-
 import lab.torch as B
 import torch
-import wbml.out
-from gpcm.experiment import build_models, train_models, analyse_models
 from stheno.torch import GP, Delta, EQ
-from wbml.experiment import WorkingDirectory
 
-wbml.out.report_time = True
-B.epsilon = 1e-6
+from gpcm.experiment import setup, run
 
-# Parse arguments.
-parser = argparse.ArgumentParser()
-parser.add_argument('path', nargs='*')
-parser.add_argument('--quick', action='store_true')
-args = parser.parse_args()
-
-# Setup working directory.
-wd = WorkingDirectory('_experiments', 'smk', *args.path)
+args, wd = setup('smk')
 
 # Setup experiment.
 n = 300
-noise = 0.1
+noise = 0.05
 t = B.linspace(torch.float64, 0, 20, n)
 
 # Setup true model and GPCM models.
-kernel = EQ().stretch(1.5)*(lambda x: B.cos(2*B.pi*x*0.5))
-window = 3
+kernel = EQ().stretch(1.5)*(lambda x: B.cos(2*B.pi*x*0.5)) + \
+         EQ().stretch(1.5)*(lambda x: B.sin(2*B.pi*x*0.5))
+window = 2
 scale = 0.25
 
 # Sample data.
@@ -36,33 +24,20 @@ y = B.flatten(gp(t).sample())
 
 def comparative_kernel(vs_):
     k = vs_.pos(1)*EQ().stretch(vs_.pos(2))
-    return k*(lambda x: B.cos(2*B.pi*x*0.5)) + vs_.pos(0.1)*Delta()
+    return k*(lambda x: B.cos(2*B.pi*x*0.5)) + \
+           k*(lambda x: B.sin(2*B.pi*x*0.5)) + \
+           vs_.pos(0.1)*Delta()
 
 
-models = build_models(noise=noise,
-                      window=window,
-                      scale=scale,
-                      t=t,
-                      y=y,
-                      n_u=40,
-                      n_z=40)
-
-if args.quick:
-    samples = train_models(models,
-                           wd=wd,
-                           burn=200,
-                           iters=20,
-                           elbo_burn=5,
-                           elbo_num_samples=1,
-                           num_samples=100)
-else:
-    samples = train_models(models, wd=wd)
-
-analyse_models(models,
-               samples,
-               t=t,
-               y=y,
-               wd=wd,
-               true_kernel=kernel,
-               true_noisy_kernel=kernel + noise*Delta(),
-               comparative_kernel=comparative_kernel)
+run(args=args,
+    wd=wd,
+    noise=noise,
+    window=window,
+    scale=scale,
+    t=t,
+    y=y,
+    n_u=50,
+    n_z=50,
+    true_kernel=kernel,
+    true_noisy_kernel=kernel + noise*Delta(),
+    comparative_kernel=comparative_kernel)

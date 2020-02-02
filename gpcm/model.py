@@ -396,7 +396,8 @@ def train(construct_model,
           burn=300,
           iters=100,
           elbo_burn=20,
-          elbo_num_samples=5):
+          elbo_num_samples=5,
+          fix_noise=False):
     """Train a model with the SMF approximation.
 
     Args:
@@ -411,6 +412,8 @@ def train(construct_model,
             to `20`.
         elbo_num_samples (int, optional): Number of samples to use to estimate
             the ELBO. Defaults to `5`.
+        fix_noise (bool, optional): Fix the noise during training. Defaults
+            to `False`.
 
     Returns:
         :class:`.sample.ESS`: Sampler.
@@ -445,6 +448,17 @@ def train(construct_model,
 
         return -model.elbo(samples, entropy=False)
 
-    minimise_adam(objective, vs, iters=iters, trace=True, rate=5e-2)
+    # Determine the names of the variables to optimise.
+    names = vs.names
+    if fix_noise:
+        names = list(set(names) - {'noise'})
+
+    # Perform optimisation.
+    minimise_adam(objective,
+                  vs,
+                  iters=iters,
+                  trace=True,
+                  rate=5e-2,
+                  names=names)
 
     return state['sampler']

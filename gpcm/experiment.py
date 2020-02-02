@@ -1,10 +1,13 @@
 import warnings
+import argparse
 
 import lab.torch as B
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import wbml.plot
+import wbml.out
+from wbml.experiment import WorkingDirectory
 from matplotlib.ticker import FormatStrFormatter
 from matrix.util import ToDenseWarning
 from stheno.torch import GP
@@ -18,11 +21,101 @@ from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action='ignore')
 B.epsilon = 1e-8
+wbml.out.report_time = True
 
-__all__ = ['build_models', 'train_models', 'analyse_models']
+__all__ = ['setup',
+           'run',
+           'build_models',
+           'train_models',
+           'analyse_models']
 
 
-def build_models(window,
+def setup(name):
+    """Setup an experiment.
+
+    Args:
+        name (str): Name of the experiment.
+
+    Returns:
+        tuple[:class:`argparse.Namespace`,
+              :class:`wbml.experiment.WorkingDirectory`]: Tuple containing
+            the parsed arguments and the working directory.
+    """
+    # Parse arguments.
+    parser = argparse.ArgumentParser()
+    parser.add_argument('path', nargs='*')
+    parser.add_argument('--quick', action='store_true')
+    parser.add_argument('--fix-noise', action='store_true')
+    parser.add_argument('--model',
+                        choices=['gpcm', 'gprv', 'cgpcm'],
+                        default=['gpcm', 'gprv', 'cgpcm'],
+                        nargs='+')
+    args = parser.parse_args()
+
+    # Setup working directory.
+    wd = WorkingDirectory('_experiments', name, *args.path)
+
+    return args, wd
+
+
+def run(args,
+        wd,
+        noise,
+        window,
+        scale,
+        t,
+        y,
+        n_u,
+        n_z,
+        **kw_args):
+    """Run an experiment.
+
+    Further takes in keyword arguments for :func:`.experiment.analyse_models`.
+
+    Args:
+        args (:class:`.argparse.Namespace`): Parser arguments.
+        wd (:class:`wbml.experiment.WorkingDirectory`): Working directory.
+        noise (scalar): Noise variance.
+        window (scalar): Window length.
+        scale (scalar): Length scale of the function.
+        t (vector): Time points of data.
+        y (vector): Observations.
+        n_u (int): Number of inducing points for :math:`h`.
+        n_z (int): Number of inducing points for :math:`s` or equivalent.
+    """
+    models = build_models(args.model,
+                          noise=noise,
+                          window=window,
+                          scale=scale,
+                          t=t,
+                          y=y,
+                          n_u=n_u,
+                          n_z=n_z)
+
+    if args.quick:
+        samples = train_models(models,
+                               wd=wd,
+                               burn=200,
+                               iters=20,
+                               elbo_burn=5,
+                               elbo_num_samples=1,
+                               num_samples=100,
+                               fix_noise=args.fix_noise)
+    else:
+        samples = train_models(models,
+                               wd=wd,
+                               fix_noise=args.fix_noise)
+
+    analyse_models(models,
+                   samples,
+                   t=t,
+                   y=y,
+                   wd=wd,
+                   **kw_args)
+
+
+def build_models(names,
+                 window,
                  scale,
                  noise,
                  t,
@@ -32,6 +125,7 @@ def build_models(window,
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
+        names (list[str]): Names of models to build.
         window (scalar): Window length.
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
@@ -41,33 +135,49 @@ def build_models(window,
         n_z (int, optional): Number of inducing points for :math:`s` or
             equivalent.
     """
-    return [('GPCM',
-             Vars(torch.float64),
-             lambda vs_: GPCM(vs=vs_,
-                              noise=noise,
-                              window=window,
-                              scale=scale,
-                              t=t,
-                              n_u=n_u,
-                              n_z=n_z).construct(t, y)),
-            ('CGPCM',
-             Vars(torch.float64),
-             lambda vs_: CGPCM(vs=vs_,
-                               noise=noise,
-                               window=window,
-                               scale=scale,
-                               t=t,
-                               n_u=n_u,
-                               n_z=n_z).construct(t, y)),
-            ('GP-RV',
-             Vars(torch.float64),
-             lambda vs_: GPRV(vs=vs_,
-                              noise=noise,
-                              window=window,
-                              scale=scale,
-                              t=t,
-                              n_u=n_u,
-                              m_max=int(np.ceil(n_z/2))).construct(t, y))]
+    models = []
+
+    if 'gpcm' in names:
+        names = set(names) - {'gpcm'}
+        models.append(('GPCM',
+                       Vars(torch.float64),
+                       lambda vs_: GPCM(vs=vs_,
+                                        noise=noise,
+                                        window=window,
+                                        scale=scale,
+                                        t=t,
+                                        n_u=n_u,
+                                        n_z=n_z).construct(t, y)))
+
+    if 'cgpcm' in names:
+        names = set(names) - {'cgpcm'}
+        models.append(('CGPCM',
+                       Vars(torch.float64),
+                       lambda vs_: CGPCM(vs=vs_,
+                                         noise=noise,
+                                         window=window,
+                                         scale=scale,
+                                         t=t,
+                                         n_u=n_u,
+                                         n_z=n_z).construct(t, y)))
+    if 'gprv' in names:
+        names = set(names) - {'gprv'}
+        models.append(('GP-RV',
+                       Vars(torch.float64),
+                       lambda vs_: (GPRV(vs=vs_,
+                                         noise=noise,
+                                         window=window,
+                                         scale=scale,
+                                         t=t,
+                                         n_u=n_u,
+                                         m_max=int(np.ceil(n_z/2)))
+                                    .construct(t, y))))
+
+    if len(names) > 0:
+        names_str = ', '.join(f'"{name}"' for name in names)
+        raise ValueError(f'Unknown names {names_str}.')
+
+    return models
 
 
 def train_models(models,
