@@ -3,7 +3,6 @@ import warnings
 import lab as B
 import numpy as np
 from matrix import Dense
-from stheno import Normal
 from varz import Vars
 
 from gpcm.exppoly import ExpPoly, const, var

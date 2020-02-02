@@ -149,7 +149,7 @@ class Model:
         return self
 
     def _compute_q_z_related(self, u):
-        """Compute quantities related to the optimal :math:`q(z)`.
+        """Compute quantities related to the optimal :math:`q(z|u)`.
 
         Args:
             u (tensor): Sample for :math:`u` to use.
@@ -157,10 +157,9 @@ class Model:
         Returns:
             tuple: Two-tuple.
         """
+        part = B.mm(self.I_uz, u, tr_a=True)
         inv_cov_z = self.K_z + 1/self.noise* \
-                    B.sum(self.B_sum +
-                          B.mm(self.I_uz, B.dense(B.outer(u)), self.I_uz,
-                               tr_a=True), axis=0)
+                    B.sum(self.B_sum + B.mm(part, part, tr_b=True), axis=0)
         inv_cov_z_mu_z = 1/self.noise*B.mm(self.I_uz_sum, u, tr_a=True)
         L_inv_cov_z = B.chol(Dense(inv_cov_z))
         root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
@@ -180,7 +179,7 @@ class Model:
 
         return -0.5*self.n*B.log(2*B.pi*self.noise) + \
                -0.5/self.noise*(B.sum(self.y**2) +
-                                B.sum(B.outer(u)*self.A_sum) +
+                                B.sum(u*B.mm(self.A_sum, u)) +
                                 self.c_sum) + \
                -0.5*B.logdet(self.K_z) + \
                -0.5*2*B.sum(B.log(B.diag(L_inv_cov_z))) + \
