@@ -14,8 +14,10 @@ t = B.linspace(torch.float64, 0, 20, n)
 # Setup true model and GPCM models.
 kernel = EQ().stretch(1.5)*(lambda x: B.cos(2*B.pi*x*0.5)) + \
          EQ().stretch(1.5)*(lambda x: B.sin(2*B.pi*x*0.5))
-window = 2
+window = 3
 scale = 0.25
+n_u = 50
+n_z = 50
 
 # Sample data.
 gp = GP(kernel + noise*Delta())
@@ -36,8 +38,8 @@ run(args=args,
     scale=scale,
     t=t,
     y=y,
-    n_u=50,
-    n_z=50,
+    n_u=n_u,
+    n_z=n_z,
     true_kernel=kernel,
     true_noisy_kernel=kernel + noise*Delta(),
     comparative_kernel=comparative_kernel)

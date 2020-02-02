@@ -15,6 +15,8 @@ t = B.linspace(torch.float64, 0, 20, n)
 kernel = EQ().stretch(0.5)
 window = 1.5
 scale = 0.5
+n_u = 40
+n_z = 40
 
 # Sample data.
 gp = GP(kernel + noise*Delta())
@@ -32,8 +34,8 @@ run(args=args,
     scale=scale,
     t=t,
     y=y,
-    n_u=40,
-    n_z=40,
+    n_u=n_u,
+    n_z=n_z,
     true_kernel=kernel,
     true_noisy_kernel=kernel + noise*Delta(),
     comparative_kernel=comparative_kernel)
