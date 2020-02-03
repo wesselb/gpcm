@@ -4,7 +4,8 @@ import wbml.out
 import wbml.out
 from matrix import Dense
 from stheno import Normal
-from varz.torch import minimise_adam
+from varz.torch import minimise_adam, minimise_l_bfgs_b
+from varz import Vars
 
 from gpcm.sample import ESS
 from .util import summarise_samples, pd_inv, estimate_psd
@@ -165,6 +166,18 @@ class Model:
         root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
 
         return L_inv_cov_z, root
+
+    def _logpdf_optimal_u(self, u):
+        """Compute the log-pdf of the optimal :math:`q(u)` up to a normalising
+        constant.
+
+        Args:
+            u (tensor): Value of :math:`u`.
+
+        Returns:
+            scalar: Log-pdf.
+        """
+        return self._compute_log_Z(u) + self.p_u.logpdf(u)
 
     def _compute_log_Z(self, u):
         """Compute the normalising constant term.
@@ -392,7 +405,6 @@ class Model:
 
 def train(construct_model,
           vs,
-          burn=300,
           iters=100,
           elbo_burn=20,
           elbo_num_samples=5,
@@ -403,8 +415,6 @@ def train(construct_model,
         construct_model (function): Function that takes in a variable container
             and gives back the model.
         vs (:class:`varz.Vars`): Variable container.
-        burn (int, optional): Number of samples to burn before training.
-            Defaults to `300`.
         iters (int, optional): Training iterations. Defaults to `100`.
         elbo_burn (int, optional): Number of samples to burn for convergence
             of the sampler to adjust to new hyperparameters. Defaults
@@ -418,6 +428,21 @@ def train(construct_model,
         :class:`.sample.ESS`: Sampler.
     """
     state = {'sampler': None}  # Persisting state.
+
+    def move_to_map(vs_, iters_map):
+        # We don't need gradient information, so detach.
+        model_u = construct_model(vs_.copy(detach=True))
+
+        def objective_u(vs_u):
+            return -model_u._logpdf_optimal_u(vs_u['u'])
+
+        # Perform optimisation from current position
+        vs_u = Vars(torch.float64)
+        vs_u.get(state['sampler'].x, name='u')
+        minimise_l_bfgs_b(objective_u, vs_u, iters=iters_map)
+
+        # Move sampler.
+        state['sampler'].move(vs_u['u'])
 
     def objective(vs_):
         model = construct_model(vs_)
@@ -433,16 +458,16 @@ def train(construct_model,
         # Ensure that the sampler is initialised.
         if state['sampler'] is None:
             state['sampler'] = ESS(log_lik, sample_prior)
-
-            # Burn the sampler to get it into a good position.
-            with wbml.out.Section('Burning sampler'):
-                state['sampler'].sample(num=burn, trace=True)
+            move_to_map(vs_, iters_map=200)  # Set good initial state.
         else:
             state['sampler'].log_lik = log_lik
             state['sampler'].sample_prior = sample_prior
 
-        # Obtain samples.
+        # Mix: optimise to MAP and burn samples.
+        move_to_map(vs_, iters_map=20)
         state['sampler'].sample(num=elbo_burn)
+
+        # Obtain samples.
         samples = state['sampler'].sample(num=elbo_num_samples)
 
         return -model.elbo(samples, entropy=False)
