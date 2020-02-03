@@ -8,7 +8,7 @@ args, wd = setup('eq')
 
 # Setup experiment.
 n = 300
-noise = 0.5
+noise = 0.2
 t = B.linspace(torch.float64, 0, 20, n)
 
 # Setup true model and GPCM models.
