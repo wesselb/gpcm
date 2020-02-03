@@ -26,9 +26,20 @@ class ESS:
         self.log_lik = log_lik
         self.sample_prior = sample_prior
 
+        self.x = None
+        self.log_lik_x = None
+
         # Sample the initial state from the prior and compute log-likelihood.
-        self.x = sample_prior()
-        self.log_lik_x = log_lik(self.x)
+        self.move(sample_prior())
+
+    def move(self, x):
+        """Move to a particular state.
+
+        Args:
+            x (tensor): State to move to.
+        """
+        self.x = x
+        self.log_lik_x = self.log_lik(self.x)
 
     def _establish_ellipse(self):
         """Establish an ellipse, which is required to draw the new state."""
