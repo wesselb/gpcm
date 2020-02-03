@@ -20,7 +20,7 @@ from .model import train
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action='ignore')
-B.epsilon = 1e-5
+B.epsilon = 1e-8
 wbml.out.report_time = True
 
 __all__ = ['setup',
@@ -45,6 +45,7 @@ def setup(name):
     parser = argparse.ArgumentParser()
     parser.add_argument('path', nargs='*')
     parser.add_argument('--quick', action='store_true')
+    parser.add_argument('--instant', action='store_true')
     parser.add_argument('--fix-noise', action='store_true')
     parser.add_argument('--model',
                         choices=['gpcm', 'gprv', 'cgpcm'],
@@ -92,18 +93,32 @@ def run(args,
                           n_u=n_u,
                           n_z=n_z)
 
-    if args.quick:
+    if args.instant:
         samples = train_models(models,
                                wd=wd,
-                               burn=200,
-                               elbo_burn=5,
-                               elbo_num_samples=3,
-                               num_samples=200,
+                               iters=0,
+                               num_samples=10,
                                fix_noise=args.fix_noise)
     else:
-        samples = train_models(models,
-                               wd=wd,
-                               fix_noise=args.fix_noise)
+        if args.quick:
+            samples = train_models(models,
+                                   wd=wd,
+                                   iters=20,
+                                   elbo_burn=20,
+                                   elbo_num_samples=5,
+                                   num_samples=200,
+                                   fix_noise=args.fix_noise)
+        else:
+            samples = train_models(models,
+                                   wd=wd,
+                                   iters=100,
+                                   elbo_burn=20,
+                                   elbo_num_samples=5,
+                                   num_samples=1000,
+                                   fix_noise=args.fix_noise)
+
+            # Subsample: 1000 is not necessary.
+            samples = samples[::5]
 
     analyse_models(models,
                    samples,
@@ -399,15 +414,14 @@ def analyse_plots(models,
 
         # Plot the true kernel.
         if true_kernel:
-            plt.plot(pred.x, k_true, c='black', label='True')
+            plt.plot(pred.x, k_true, c='black', label='True', scaley=False)
 
         # Plot the autocorrelation of the data.
-        inds = t_ac <= max(pred.x)  # Only plot visible bit.
-        plt.plot(t_ac[inds], k_ac[inds], c='tab:blue', label='Autocorrelation')
+        plt.plot(t_ac, k_ac,
+                 c='tab:blue', label='Autocorrelation', scaley=False)
 
         # Set limits and format.
         plt.xlim(0, max(pred.x))
-        plt.ylim(-1, 1)
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
@@ -439,6 +453,7 @@ def analyse_plots(models,
 
         # Plot predictions.
         plt.plot(pred.x, pred.mean, c='tab:green', label='Prediction')
+        # TODO: `scalex` doesn't work with `fill_between`. Fix?
         plt.fill_between(pred.x, pred.err_68_lower, pred.err_68_upper,
                          facecolor='tab:green', alpha=0.15)
         plt.fill_between(pred.x, pred.err_95_lower, pred.err_95_upper,
@@ -449,14 +464,15 @@ def analyse_plots(models,
 
         # Plot true PSD.
         if true_kernel:
-            plt.plot(freqs_true, psd_true, c='black', label='True')
+            plt.plot(freqs_true, psd_true,
+                     c='black', label='True', scaley=False)
 
         # Plot PSD derived from the autocorrelation.
-        plt.plot(freqs_ac, psd_ac, c='tab:blue', label='Autocorrelation')
+        plt.plot(freqs_ac, psd_ac,
+                 c='tab:blue', label='Autocorrelation', scaley=False)
 
         # Set limits and format.
-        plt.xlim(0, 2)
-        plt.ylim(0, 3)
+        plt.xlim(0, max(freqs_ac))
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
