@@ -139,8 +139,8 @@ class GPCM(Model):
 
         if t_z is None:
             if n_z is None:
-                # Use three inducing points per wiggle.
-                n_z = int(np.ceil(3*(max(t) - min(t))/scale))
+                # Use two inducing points per wiggle.
+                n_z = int(np.ceil(2*(max(t) - min(t))/scale))
                 if n_z > 150:
                     warnings.warn(f'Using {n_z} inducing points, which is too '
                                   f'many. It is capped to {n_z_cap}.',
