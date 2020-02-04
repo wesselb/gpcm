@@ -1,11 +1,13 @@
 import lab as B
+import numpy as np
 import torch
+import torch.autograd
 import wbml.out
 import wbml.out
 from matrix import Dense
 from stheno import Normal
-from varz.torch import minimise_adam, minimise_l_bfgs_b
 from varz import Vars
+from varz.torch import minimise_adam, minimise_l_bfgs_b
 
 from gpcm.sample import ESS
 from .util import summarise_samples, pd_inv, estimate_psd
@@ -13,24 +15,9 @@ from .util import summarise_samples, pd_inv, estimate_psd
 __all__ = ['Model', 'train']
 
 
-class GradientControl:
-    """Context manager to potentially disallow gradient computation.
-
-    Args:
-        gradient (bool): Allow gradient computation.
-    """
-
-    def __init__(self, gradient):
-        self.gradient = gradient
-        self.context = torch.no_grad()
-
-    def __enter__(self):
-        if not self.gradient:
-            self.context.__enter__()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if not self.gradient:
-            self.context.__exit__(exc_type, exc_val, exc_tb)
+def _sample(dist, num):
+    samples = dist.sample(num=num)
+    return [samples[:, i:i + 1] for i in range(num)]
 
 
 class Model:
@@ -167,7 +154,7 @@ class Model:
 
         return L_inv_cov_z, root
 
-    def _logpdf_optimal_u(self, u):
+    def logpdf_optimal_u(self, u):
         """Compute the log-pdf of the optimal :math:`q(u)` up to a normalising
         constant.
 
@@ -198,43 +185,39 @@ class Model:
                -0.5*2*B.sum(B.log(B.diag(L_inv_cov_z))) + \
                0.5*B.sum(root**2)
 
-    def elbo(self, samples, entropy=True):
+    def elbo(self, q_u, num_samples=200, entropy=True):
         """Compute an estimate of the doubly collapsed ELBO.
 
         Args:
-            samples (list[tensor]): Samples for :math:`u`.
+            q_u (distribution): Distribution :math:`q(u)`.
+            num_samples (int, optional): Number of samples to use. Defaults
+                to `200`.
             entropy (bool, optional): Also estimate entropy by fitting a
                 Gaussian. Defaults to `True`.
 
         Returns:
             scalar: ELBO.
         """
-        num_samples = len(samples)
 
         # Estimate ELBO without the entropy term.
         elbo = 0
-        for u in samples:
+        for u in _sample(q_u, num_samples):
             elbo = elbo + self._compute_log_Z(u) + self.p_u.logpdf(u)
         elbo = elbo/num_samples
 
         # Add in the entropy term.
         if entropy:
-            # Estimate :math:`q(u)` by fitting a Gaussian.
-            samples = B.concat(*samples, axis=1)
-            mean = B.mean(samples, axis=1)[:, None]
-            cov = B.matmul(samples - mean, samples - mean,
-                           tr_b=True)/num_samples
-            q_u = Normal(cov, mean)
-
             elbo = elbo + q_u.entropy()
 
         return elbo
 
-    def predict(self, samples):
+    def predict(self, q_u, num_samples=200):
         """Predict at the data.
 
         Args:
-            samples (list[tensor]): Samples for :math:`u`.
+            q_u (distribution): Distribution :math:`q(u)`.
+            num_samples (int, optional): Number of samples to use. Defaults
+                to `200`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
@@ -243,7 +226,7 @@ class Model:
         means = []
         stds = []
 
-        for u in samples:
+        for u in _sample(q_u, num_samples):
             L_inv_cov_z, root = self._compute_q_z_related(u=u)
 
             # Use sample for "first and second moment".
@@ -280,11 +263,13 @@ class Model:
 
         return mean, std
 
-    def predict_kernel(self, samples, return_samples=False):
+    def predict_kernel(self, q_u, num_samples=200, return_samples=False):
         """Predict kernel and normalise prediction.
 
         Args:
-            samples (list[tensor]): Samples for :math:`u`.
+            q_u (distribution): Distribution :math:`q(u)`.
+            num_samples (int, optional): Number of samples to use. Defaults
+                to `200`.
             return_samples (bool, optional): Return samples instead of
                 prediction. Defaults to `False`.
 
@@ -296,7 +281,7 @@ class Model:
         # Sample kernels.
         ks = []
         t_k = B.linspace(self.dtype, 0, 1.2*B.max(self.t_u), 300)
-        for u in samples:
+        for u in _sample(q_u, num_samples):
             k = self.kernel_approx(t_k, B.zeros(self.dtype, 1),
                                    u=B.flatten(B.dense(B.matmul(self.K_u, u))))
             ks.append(B.flatten(k))
@@ -312,16 +297,20 @@ class Model:
         else:
             return summarise_samples(t_k, ks)
 
-    def predict_psd(self, samples):
+    def predict_psd(self, q_u, num_samples=200):
         """Predict the PSD in dB.
 
         Args:
-            samples (list[tensor]): Samples for :math:`u`.
+            q_u (distribution): Distribution :math:`q(u)`.
+            num_samples (int, optional): Number of samples to use. Defaults
+                to `200`.
 
         Returns:
             :class:`collections.namedtuple`: Predictions.
         """
-        t_k, ks = self.predict_kernel(samples, return_samples=True)
+        t_k, ks = self.predict_kernel(q_u,
+                                      num_samples=num_samples,
+                                      return_samples=True)
 
         # Estimate PSDs.
         freqs, psds = zip(*[estimate_psd(t_k, k) for k in ks])
@@ -330,11 +319,13 @@ class Model:
 
         return summarise_samples(freqs, psds)
 
-    def predict_fourier(self, samples):
+    def predict_fourier(self, q_u, num_samples=200):
         """Predict Fourier features.
 
         Args:
-            samples (list[tensor]): Samples for :math:`u`.
+            q_u (distribution): Distribution :math:`q(u)`.
+            num_samples (int, optional): Number of samples to use. Defaults
+                to `200`.
 
         Returns:
             tuple: Marginals of the predictions.
@@ -342,7 +333,7 @@ class Model:
         means = []
         stds = []
 
-        for u in samples:
+        for u in _sample(q_u, num_samples):
             L_inv_cov_z, root = self._compute_q_z_related(u=u)
 
             mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
@@ -403,74 +394,113 @@ class Model:
         return K, f
 
 
+def hessian(f, x):
+    """Compute the Hessian of a function at a certain input.
+
+    Args:
+        f (function): Function to compute Hessian of.
+        x (column vector): Input to compute Hessian at.
+
+    Returns:
+        matrix: Hessian.
+    """
+    if B.rank(x) != 2 or B.shape(x)[1] != 1:
+        raise ValueError('Input must be a column vector.')
+
+    rows = []
+    for i in range(B.shape(x)[0]):
+        x_clone = x.detach().requires_grad_(True)
+        grad = torch.autograd.grad(f(x_clone), x_clone, create_graph=True)[0]
+        grad[i].backward()
+        rows.append(x_clone.grad)
+
+    # Assemble and symmetrise.
+    hess = B.concat(*rows, axis=1)
+    return (hess + B.transpose(hess))/2
+
+
+def is_pd(x):
+    """Check if a matrix is positive definite.
+
+    Args:
+        x (matrix): Matrix to check definiteness of.
+
+    Returns:
+        bool: `True` if `x` is positive definite and `False` otherwise.
+    """
+    x = B.to_numpy(x)
+    try:
+        np.linalg.cholesky(x)
+        return True
+    except np.linalg.LinAlgError:
+        return False
+
+
+def laplace_approximation(f, x_init):
+    """Perform a Laplace approximation of a density.
+
+    Args:
+        f (function): Possibly unnormalised log-density.
+        x_init (column vector): Starting point to start the optimisation.
+
+    Returns:
+        tuple[:class:`stheno.Normal`, column vector]: Laplace approximation
+            and end point of the optimisation.
+    """
+    vs = Vars(torch.float64)
+    vs.get(init=x_init, name='x')
+
+    while True:
+        minimise_l_bfgs_b(lambda vs_: -f(vs_['x']), vs, iters=2000)
+        x = vs['x']
+        precision = -2*hessian(f, x)
+
+        # Regularise the precision to improve stability and inaccuracy due to
+        # the gradient not entirely being zero.
+        precision = B.reg(precision, diag=1e-6)
+
+        if is_pd(precision):
+            return Normal(pd_inv(precision), x), x
+        else:
+            wbml.out.out('Laplace approximation failed... '
+                         'Rerunning optimisation.')
+
+
 def train(construct_model,
           vs,
           iters=100,
-          elbo_burn=20,
-          elbo_num_samples=5,
           fix_noise=False):
-    """Train a model with the SMF approximation.
+    """Train a model.
 
     Args:
         construct_model (function): Function that takes in a variable container
             and gives back the model.
         vs (:class:`varz.Vars`): Variable container.
         iters (int, optional): Training iterations. Defaults to `100`.
-        elbo_burn (int, optional): Number of samples to burn for convergence
-            of the sampler to adjust to new hyperparameters. Defaults
-            to `20`.
-        elbo_num_samples (int, optional): Number of samples to use to estimate
-            the ELBO. Defaults to `5`.
         fix_noise (bool, optional): Fix the noise during training. Defaults
             to `False`.
 
     Returns:
-        :class:`.sample.ESS`: Sampler.
+        :class:`stheno.Normal`: Approximate posterior.
     """
-    state = {'sampler': None}  # Persisting state.
-
-    def move_to_map(vs_, iters_map):
-        # We don't need gradient information, so detach.
-        model_u = construct_model(vs_.copy(detach=True))
-
-        def objective_u(vs_u):
-            return -model_u._logpdf_optimal_u(vs_u['u'])
-
-        # Perform optimisation from current position
-        vs_u = Vars(torch.float64)
-        vs_u.get(state['sampler'].x, name='u')
-        minimise_l_bfgs_b(objective_u, vs_u, iters=iters_map)
-
-        # Move sampler.
-        state['sampler'].move(vs_u['u'])
+    # Persistent state during optimisation.
+    state = {'sampler': None, 'u': None}
 
     def objective(vs_):
         model = construct_model(vs_)
 
-        def log_lik(u):
-            with GradientControl(gradient=False):
-                return model._compute_log_Z(u)
+        # Create a detached model for efficiency.
+        model_detached = construct_model(vs_.copy(detach=True))
 
-        def sample_prior():
-            with GradientControl(gradient=False):
-                return model.p_u.sample()
+        # Initialise starting point.
+        if state['u'] is None:
+            state['u'] = B.randn(torch.float64, model_detached.n_u, 1)
 
-        # Ensure that the sampler is initialised.
-        if state['sampler'] is None:
-            state['sampler'] = ESS(log_lik, sample_prior)
-            move_to_map(vs_, iters_map=200)  # Set good initial state.
-        else:
-            state['sampler'].log_lik = log_lik
-            state['sampler'].sample_prior = sample_prior
+        # Perform Laplace approximation..
+        dist, state['u'] = \
+            laplace_approximation(model_detached.logpdf_optimal_u, state['u'])
 
-        # Mix: optimise to MAP and burn samples.
-        move_to_map(vs_, iters_map=20)
-        state['sampler'].sample(num=elbo_burn)
-
-        # Obtain samples.
-        samples = state['sampler'].sample(num=elbo_num_samples)
-
-        return -model.elbo(samples, entropy=False)
+        return -model.elbo(dist, entropy=False, num_samples=20)
 
     # Determine the names of the variables to optimise.
     names = vs.names
@@ -485,4 +515,9 @@ def train(construct_model,
                   rate=5e-2,
                   names=names)
 
-    return state['sampler']
+    # Create final Laplace approximation to return.
+    model_detached = construct_model(vs.copy(detach=True))
+    dist, _ = laplace_approximation(model_detached.logpdf_optimal_u,
+                                    state['u'])
+
+    return dist

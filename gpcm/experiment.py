@@ -20,7 +20,7 @@ from .model import train
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action='ignore')
-B.epsilon = 1e-8
+B.epsilon = 1e-6
 wbml.out.report_time = True
 
 __all__ = ['setup',
@@ -94,34 +94,24 @@ def run(args,
                           n_z=n_z)
 
     if args.instant:
-        samples = train_models(models,
-                               wd=wd,
-                               iters=0,
-                               num_samples=10,
-                               fix_noise=args.fix_noise)
+        dists = train_models(models,
+                             wd=wd,
+                             iters=0,
+                             fix_noise=args.fix_noise)
     else:
         if args.quick:
-            samples = train_models(models,
-                                   wd=wd,
-                                   iters=20,
-                                   elbo_burn=20,
-                                   elbo_num_samples=5,
-                                   num_samples=200,
-                                   fix_noise=args.fix_noise)
+            dists = train_models(models,
+                                 wd=wd,
+                                 iters=20,
+                                 fix_noise=args.fix_noise)
         else:
-            samples = train_models(models,
-                                   wd=wd,
-                                   iters=100,
-                                   elbo_burn=20,
-                                   elbo_num_samples=5,
-                                   num_samples=1000,
-                                   fix_noise=args.fix_noise)
-
-            # Subsample: 1000 is not necessary.
-            samples = samples[::5]
+            dists = train_models(models,
+                                 wd=wd,
+                                 iters=50,
+                                 fix_noise=args.fix_noise)
 
     analyse_models(models,
-                   samples,
+                   dists,
                    t=t,
                    y=y,
                    wd=wd,
@@ -196,7 +186,6 @@ def build_models(names,
 
 def train_models(models,
                  wd=None,
-                 num_samples=1000,
                  **kw_args):
     """Train models.
 
@@ -206,32 +195,29 @@ def train_models(models,
         models (list): Models to train.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
             directory to save samples to.
-        num_samples (int, optional): Number of samples to take.
 
     Returns:
-        list[list[tensor]]: Posterior samples for each of the models.
+        list[:class:`stheno.Normal`]: Approximate posteriors.
     """
-    samples = []
+    dists = []
 
     for name, vs, construct_model in models:
         with wbml.out.Section(f'Training {name}'):
             construct_model(vs)
-            sampler = train(construct_model, vs, **kw_args)
-
-        with wbml.out.Section(f'Sampling {name}'):
-            samples.append(sampler.sample(num=num_samples, trace=True))
+            dist = train(construct_model, vs, **kw_args)
+            dists.append(dist)
 
     # Save results.
     if wd:
-        wd.save(samples, 'samples.pickle')
+        wd.save([(q.mean, q.var) for q in dists], 'dists.pickle')
         wd.save([{name: vs[name] for name in vs.names}
                  for _, vs, _ in models], 'variables.pickle')
 
-    return samples
+    return dists
 
 
 def analyse_models(models,
-                   samples,
+                   dists,
                    t,
                    y,
                    wd=None,
@@ -242,7 +228,7 @@ def analyse_models(models,
 
     Args:
         models (list): Models.
-        samples (list[list[tensor]]): Posterior samples for each of the models.
+        dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
@@ -264,13 +250,13 @@ def analyse_models(models,
                 vs.print()
 
     analyse_elbos(models,
-                  samples,
+                  dists,
                   t=t,
                   y=y,
                   true_noisy_kernel=true_noisy_kernel,
                   comparative_kernel=comparative_kernel)
     analyse_plots(models,
-                  samples,
+                  dists,
                   t=t,
                   y=y,
                   wd=wd,
@@ -278,7 +264,7 @@ def analyse_models(models,
 
 
 def analyse_elbos(models,
-                  samples,
+                  dists,
                   t,
                   y,
                   true_noisy_kernel=None,
@@ -287,7 +273,7 @@ def analyse_elbos(models,
 
     Args:
         models (list): Models to train.
-        samples (list[list[tensor]]): Posterior samples for each of the models.
+        dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
         true_noisy_kernel (:class:`stheno.Kernel`, optional): True kernel that
@@ -319,11 +305,11 @@ def analyse_elbos(models,
     with wbml.out.Section('ELBOs'):
         for i, (name, vs, construct_model) in enumerate(models):
             model = construct_model(vs)
-            wbml.out.kv(name, model.elbo(samples[i]))
+            wbml.out.kv(name, model.elbo(dists[i]))
 
 
 def analyse_plots(models,
-                  samples,
+                  dists,
                   t,
                   y,
                   true_kernel=None,
@@ -332,7 +318,7 @@ def analyse_plots(models,
 
     Args:
         models (list): Models to train.
-        samples (list[list[tensor]]): Posterior samples for each of the models.
+        dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
         true_kernel (:class:`stheno.Kernel`, optional): True kernel that
@@ -346,7 +332,7 @@ def analyse_plots(models,
     for i, (name, vs, construct_model) in enumerate(models):
         # Construct model and make predictions.
         model = construct_model(vs)
-        mu, std = model.predict(samples[i])
+        mu, std = model.predict(dists[i])
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f'Function ({name})')
@@ -386,7 +372,7 @@ def analyse_plots(models,
         # Construct model and predict the kernel.
         model = construct_model(vs)
         with wbml.out.Section(f'Predicting kernel for {name}'):
-            pred = model.predict_kernel(samples[i])
+            pred = model.predict_kernel(dists[i])
 
         # Compute true kernel.
         if true_kernel:
@@ -435,7 +421,7 @@ def analyse_plots(models,
         # Construct compute and predict PSD.
         model = construct_model(vs)
         with wbml.out.Section(f'Predicting PSD for {name}'):
-            pred = model.predict_psd(samples[i])
+            pred = model.predict_psd(dists[i])
 
         # Compute true PSD.
         if true_kernel:
@@ -488,7 +474,7 @@ def analyse_plots(models,
 
         # Predict Fourier features if it is a GP-RV.
         if isinstance(model, GPRV):
-            mean, lower, upper = model.predict_fourier(samples[i])
+            mean, lower, upper = model.predict_fourier(dists[i])
         else:
             continue
 
