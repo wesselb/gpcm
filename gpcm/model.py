@@ -9,7 +9,6 @@ from stheno import Normal
 from varz import Vars
 from varz.torch import minimise_adam, minimise_l_bfgs_b
 
-from gpcm.sample import ESS
 from .util import summarise_samples, pd_inv, estimate_psd
 
 __all__ = ['Model', 'train']
