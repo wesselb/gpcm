@@ -184,15 +184,13 @@ class Model:
                -0.5*2*B.sum(B.log(B.diag(L_inv_cov_z))) + \
                0.5*B.sum(root**2)
 
-    def elbo(self, q_u, num_samples=200, entropy=True):
+    def elbo(self, q_u, num_samples=200):
         """Compute an estimate of the doubly collapsed ELBO.
 
         Args:
             q_u (distribution): Distribution :math:`q(u)`.
             num_samples (int, optional): Number of samples to use. Defaults
                 to `200`.
-            entropy (bool, optional): Also estimate entropy by fitting a
-                Gaussian. Defaults to `True`.
 
         Returns:
             scalar: ELBO.
@@ -205,8 +203,7 @@ class Model:
         elbo = elbo/num_samples
 
         # Add in the entropy term.
-        if entropy:
-            elbo = elbo + q_u.entropy()
+        elbo = elbo + q_u.entropy()
 
         return elbo
 
@@ -393,12 +390,14 @@ class Model:
         return K, f
 
 
-def hessian(f, x):
+def hessian(f, x, differentiable=False):
     """Compute the Hessian of a function at a certain input.
 
     Args:
         f (function): Function to compute Hessian of.
         x (column vector): Input to compute Hessian at.
+        differentiable (bool, optional): Make the computation of the Hessian
+            differentiable. Defaults to `False`.
 
     Returns:
         matrix: Hessian.
@@ -406,12 +405,37 @@ def hessian(f, x):
     if B.rank(x) != 2 or B.shape(x)[1] != 1:
         raise ValueError('Input must be a column vector.')
 
+    dim = B.shape(x)[0]
+
+    # Detach `x` from graph in case we do not need the operation to be
+    # differentiable.
+    if not differentiable:
+        x = x.detach().requires_grad_(True)
+    else:
+        x = x.clone().requires_grad_(True)
+
+    # Compute gradient.
+    grad = torch.autograd.grad(f(x), x, create_graph=True)[0]
+
+    # Compute Hessian.
     rows = []
-    for i in range(B.shape(x)[0]):
-        x_clone = x.detach().requires_grad_(True)
-        grad = torch.autograd.grad(f(x_clone), x_clone, create_graph=True)[0]
-        grad[i].backward()
-        rows.append(x_clone.grad)
+    for i in range(dim):
+        # It can occur that there is no `grad_fn`, in which case there is also
+        # no gradient.
+        if differentiable and grad[i, 0].grad_fn:
+            # Create graph.
+            rows.append(torch.autograd.grad(
+                grad[i, 0],
+                x,
+                create_graph=True
+            )[0])
+        else:
+            # Retain graph if it is not the last row of the Hessian.
+            rows.append(torch.autograd.grad(
+                grad[i, 0],
+                x,
+                retain_graph=i < dim - 1
+            )[0])
 
     # Assemble and symmetrise.
     hess = B.concat(*rows, axis=1)
@@ -435,12 +459,19 @@ def is_pd(x):
         return False
 
 
-def laplace_approximation(f, x_init):
+def laplace_approximation(f,
+                          x_init,
+                          differentiable=False,
+                          f_differentiable=None):
     """Perform a Laplace approximation of a density.
 
     Args:
         f (function): Possibly unnormalised log-density.
         x_init (column vector): Starting point to start the optimisation.
+        differentiable (bool, optional): Make Laplace approximation
+            differentiable. Defaults to `False`.
+        f_differentiable (optional): For the differentiable approximation,
+            use this log-density instead.
 
     Returns:
         tuple[:class:`stheno.Normal`, column vector]: Laplace approximation
@@ -449,20 +480,38 @@ def laplace_approximation(f, x_init):
     vs = Vars(torch.float64)
     vs.get(init=x_init, name='x')
 
-    while True:
-        minimise_l_bfgs_b(lambda vs_: -f(vs_['x']), vs, iters=2000)
-        x = vs['x']
-        precision = -2*hessian(f, x)
+    # Perform optimisation. Note that we can discard the gradient w.r.t. the
+    # mean of the Laplace approximation, because it is a maximiser.
+    minimise_l_bfgs_b(lambda vs_: -f(vs_['x']), vs, iters=2000)
+    x = vs['x']
 
-        # Regularise the precision to improve stability and inaccuracy due to
-        # the gradient not entirely being zero.
-        precision = B.reg(precision, diag=1e-6)
+    # Do not yet make the operation differentiable, because we check for
+    # positive definiteness first and we don't want to be computing gradients
+    # yet.
+    precision = -hessian(f, x)
 
-        if is_pd(precision):
-            return Normal(pd_inv(precision), x), x
-        else:
-            wbml.out.out('Laplace approximation failed... '
-                         'Rerunning optimisation.')
+    # Determine the appropriate regularisation to force the result to be
+    # positive definite.
+    if is_pd(precision):
+        reg = 0
+    else:
+        with wbml.out.Section('Laplace approximation failed'):
+            reg = 1e-8
+            while not is_pd(B.reg(precision, diag=reg)):
+                reg = reg*10
+            precision = B.reg(precision, diag=reg)
+            wbml.out.out(f'Diagonal of {reg} was required.')
+
+    # Make differentiable, if required. Also apply any determined
+    # regularisation.
+    if differentiable:
+        precision = -hessian(f_differentiable if f_differentiable else f,
+                             x,
+                             differentiable=True)
+        if reg > 0:
+            precision = B.reg(precision, diag=reg)
+
+    return Normal(pd_inv(precision), x), x
 
 
 def train(construct_model,
@@ -488,30 +537,34 @@ def train(construct_model,
     def objective(vs_):
         model = construct_model(vs_)
 
-        # Create a detached model for efficiency.
+        # Create a detached model for computational efficiency.
         model_detached = construct_model(vs_.copy(detach=True))
 
         # Initialise starting point.
         if state['u'] is None:
             state['u'] = B.randn(torch.float64, model_detached.n_u, 1)
 
-        # Perform Laplace approximation..
-        dist, state['u'] = \
-            laplace_approximation(model_detached.logpdf_optimal_u, state['u'])
+        # Perform Laplace approximation.
+        dist, state['u'] = laplace_approximation(
+            model_detached.logpdf_optimal_u,
+            state['u'],
+            differentiable=True,
+            f_differentiable=model.logpdf_optimal_u
+        )
 
-        return -model.elbo(dist, entropy=False, num_samples=20)
+        return -model.elbo(dist, num_samples=50)
 
     # Determine the names of the variables to optimise.
     names = vs.names
     if fix_noise:
-        names = list(set(names) - {'noise'})
+        names = list(set(names) - {'noise', 'gamma'})
 
     # Perform optimisation.
     minimise_adam(objective,
                   vs,
                   iters=iters,
                   trace=True,
-                  rate=5e-2,
+                  rate=1e-2,
                   names=names)
 
     # Create final Laplace approximation to return.

@@ -110,7 +110,7 @@ class GPCM(Model):
 
         self.noise = vs.positive(noise, name='noise')
         self.alpha = alpha  # Don't learn the window length.
-        self.alpha_t = vs.positive(alpha_t, name='alpha_t')
+        self.alpha_t = vs.positive(alpha_t/10, name='alpha_t')
         self.gamma = vs.positive(gamma, name='gamma')
 
         self.vs = vs

@@ -20,7 +20,7 @@ from .model import train
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action='ignore')
-B.epsilon = 1e-6
+B.epsilon = 1e-8
 wbml.out.report_time = True
 
 __all__ = ['setup',
@@ -107,7 +107,7 @@ def run(args,
         else:
             dists = train_models(models,
                                  wd=wd,
-                                 iters=50,
+                                 iters=200,
                                  fix_noise=args.fix_noise)
 
     analyse_models(models,
