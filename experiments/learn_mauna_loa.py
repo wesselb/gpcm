@@ -28,7 +28,7 @@ y /= B.std(y)
 # Setup GPCM models.
 noise = 0.01
 window = 4
-scale = 0.05
+scale = 0.1
 n_u = 75
 n_z = 100
 

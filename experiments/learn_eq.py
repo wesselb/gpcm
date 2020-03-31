@@ -8,13 +8,13 @@ args, wd = setup('eq')
 
 # Setup experiment.
 n = 300
-noise = 0.2
+noise = 0.5
 t = B.linspace(torch.float64, 0, 20, n)
 
 # Setup true model and GPCM models.
 kernel = EQ().stretch(0.5)
 window = 1.5
-scale = 0.5
+scale = 0.25
 n_u = 40
 n_z = 40
 
