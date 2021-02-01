@@ -49,7 +49,7 @@ def test_integral_abcd():
 
     for a, b, c, d in product(*signed_pairs(4)):
         approx(
-            gprv.integral_abcd(a, b, c, d), integral_quadrature(a, b, c, d), decimal=5
+            gprv.integral_abcd(a, b, c, d), integral_quadrature(a, b, c, d), atol=1e-5
         )
 
 
@@ -67,7 +67,7 @@ def test_integral_abcd_lu():
         approx(
             gprv.integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d),
             integral_quadrature(a_lb, a_ub, b_lb, b_ub, c, d),
-            decimal=5,
+            atol=1e-5,
         )
 
 
@@ -96,7 +96,7 @@ def test_I_ux(model, t):
                     approx(
                         integral_quadrature(t[i], t[j], model.t_u[k], model.t_u[l]),
                         I_ux[i, j, k, l],
-                        decimal=5,
+                        atol=1e-5,
                     )
 
 
@@ -142,7 +142,7 @@ def test_I_hz(model, t):
                 approx(
                     I_hz[i, j, k],
                     integral_quadrature(t[i], model.ms[j], model.ms[k]),
-                    decimal=5,
+                    atol=1e-5,
                 )
 
 
@@ -166,5 +166,5 @@ def test_I_uz(model, t):
                 approx(
                     I_uz[i, j, k],
                     integral_quadrature(t[i], model.t_u[j], model.ms[k]),
-                    decimal=5,
+                    atol=1e-5,
                 )

@@ -5,6 +5,8 @@ import pytest
 import gpcm.gpcm as gpcm
 import gpcm.gprv as gprv
 
+from .util import approx
+
 
 @pytest.mark.parametrize(
     "Model",
@@ -27,4 +29,4 @@ def test_prior_power(Model):
         powers.append(model.kernel_approx(t_u, t_u, u)[0, 0])
     power = np.mean(powers)
 
-    assert B.abs(power - 1) < 5e-2
+    approx(power, 1, atol=5e-2)

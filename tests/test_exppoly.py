@@ -384,13 +384,13 @@ def ep2(t1, t2, t3):
 def test_exppoly_case1(ep1):
     ref = 103.0140042
     res = ep1.integrate("t1")
-    approx(res, ref, decimal=6)  # TODO: fix!
+    approx(res, ref, atol=1e-6)
 
 
 def test_exppoly_case2(ep1):
     ref = 65.73974603
     res = ep1.integrate_half("t1")
-    approx(res, ref, decimal=6)
+    approx(res, ref, atol=1e-6)
 
 
 def test_exppoly_case3(ep2):
@@ -398,16 +398,16 @@ def test_exppoly_case3(ep2):
     res = ep2.integrate_box(
         ("t1", -np.inf, np.inf), ("t2", -np.inf, np.inf), t3=np.eye(2)
     )
-    approx(res, ref, decimal=4)
+    approx(res, ref, atol=1e-4)
 
 
 def test_exppoly_case4(ep2):
     ref = np.array([[55.81808295, 11.76773162], [11.76773162, 55.81808295]])
     res = ep2.integrate_box(("t1", -np.inf, 0), ("t2", -np.inf, 0), t3=np.eye(2))
-    approx(res, ref, decimal=6)
+    approx(res, ref, atol=1e-6)
 
 
 def test_exppoly_case5(ep2, t3):
     ref = np.array([[217.3921457, 318.3540954], [318.3540954, 217.3921457]])
     res = ep2.integrate_box(("t1", -1, 2), ("t2", t3, 3), t3=np.eye(2))
-    approx(res, ref, decimal=5)
+    approx(res, ref, atol=1e-5)
