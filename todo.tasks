@@ -1,9 +1,10 @@
 TODO:
-    ☐ Use flag `smf` for SMF approximation in training and prediction
-    ☐ Estimate ELBO value from many samples in SMF approximation
-    ☐ Reduce amount of output
-    ☐ Reuse samplers and samples whenever possible
-    ☐ Can omega now be trained?
+    Experiments:
+        ☐ Flag to use existing samples and reproduce results @critical
+
+        ☐ Plot true function
+        ☐ Compute SMSE and MLL
+        ☐ Fix plot of VFFs coefficients: bars
 
 Test:
     ☐ ESS: retry until sample succeeds
@@ -11,6 +12,20 @@ Test:
 
 ＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
 Archive:
+ x Simple estimates of ESS @cancelled (20-02-04 15:09) @project(TODO / MCMC diagnostic plots)
+ x Plot traces of dimensions @cancelled (20-02-04 15:09) @project(TODO / MCMC diagnostic plots)
+ x Improve mixing of MCMC by incorporating more into the prior in ESS @cancelled (20-02-04 15:09) @project(TODO)
+ ✓ --model flag option @done (20-02-02 17:54) @project(TODO)
+ ✓ --fix-noise flag option @done (20-02-02 17:20) @project(TODO)
+ ✓ Save samples @critical @done (20-02-01 22:07) @project(TODO)
+ ✓ --quick flag option @done (20-02-01 21:38) @project(TODO)
+ ✓ Take samples at random positions in summarise_samples @done (20-02-01 21:24) @project(TODO)
+ ✓ Separate printing ELBO and variables from training @done (20-02-01 21:24) @project(TODO)
+ ✓ Strip out mean-field approximation @done (20-02-01 21:16) @project(TODO)
+ ✓ Reuse samplers and samples whenever possible @done (20-02-01 20:30) @project(TODO)
+ ✓ Reduce amount of output @done (20-02-01 20:30) @project(TODO)
+ ✓ Estimate ELBO value from many samples in SMF approximation @done (20-02-01 20:29) @project(TODO)
+ ✓ Can omega now be trained? @done (20-01-24 21:40) @project(TODO)
  ✓ Thoroughly test `expq`. @done (20-01-17 21:54) @project(TODO)
  ✓ Double check argument names. @done (20-01-17 21:54) @project(TODO)
  ✓ Port over tests from GP-RV. @done (20-01-11 20:27) @project(TODO)

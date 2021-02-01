@@ -232,7 +232,7 @@ class Model:
             # Construct optimal :math:`q(z)`.
             mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
             cov_z = B.cholsolve(L_inv_cov_z, B.eye(L_inv_cov_z))
-            q_z = Normal(cov_z, mu_z)
+            q_z = Normal(mu_z, cov_z)
 
             # Compute mean.
             mean = B.flatten(B.mm(m1, self.I_uz, B.dense(mu_z), tr_a=True))
@@ -511,7 +511,7 @@ def laplace_approximation(f,
         if reg > 0:
             precision = B.reg(precision, diag=reg)
 
-    return Normal(pd_inv(precision), x), x
+    return Normal(x, pd_inv(precision)), x
 
 
 def train(construct_model,
