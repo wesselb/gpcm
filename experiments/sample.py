@@ -8,7 +8,7 @@ from gpcm.gpcm import GPCM
 from gpcm.gprv import GPRV
 from gpcm.util import estimate_psd
 
-B.epsilon = 1e-6
+B.epsilon = 1e-8
 
 
 def sample(model, t, noise_f):
@@ -46,7 +46,7 @@ def sample(model, t, noise_f):
                     f = B.matmul(B.cholesky(K), noise_f)[:, 0]
                 except np.linalg.LinAlgError as e:
                     wbml.out.out(
-                        f'Sampling failed with exception "{e}". ' f"Trying again..."
+                        f'Sampling failed with exception "{e}". Trying again...'
                     )
                     continue
 
@@ -91,7 +91,7 @@ for i, ((name, model), ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     wbml.plot.tweak(legend=False)
 
     # Estimate PSD.
-    freqs, psds = zip(*[estimate_psd(t, k) for k in ks])
+    freqs, psds = zip(*[estimate_psd(t, k, db=True) for k in ks])
     freqs = freqs[0]
     psds = np.stack(psds).T
 
