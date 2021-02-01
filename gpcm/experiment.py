@@ -1,33 +1,29 @@
-import warnings
 import argparse
+import warnings
 
 import lab.torch as B
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import wbml.plot
 import wbml.out
-from wbml.experiment import WorkingDirectory
+import wbml.plot
 from matplotlib.ticker import FormatStrFormatter
 from matrix.util import ToDenseWarning
 from stheno.torch import GP
 from varz import Vars, sequential
 from varz.torch import minimise_l_bfgs_b
+from wbml.experiment import WorkingDirectory
 
 from .gpcm import GPCM, CGPCM
 from .gprv import GPRV
 from .model import train
 from .util import autocorr, estimate_psd
 
-warnings.simplefilter(category=ToDenseWarning, action='ignore')
+warnings.simplefilter(category=ToDenseWarning, action="ignore")
 B.epsilon = 1e-8
 wbml.out.report_time = True
 
-__all__ = ['setup',
-           'run',
-           'build_models',
-           'train_models',
-           'analyse_models']
+__all__ = ["setup", "run", "build_models", "train_models", "analyse_models"]
 
 
 def setup(name):
@@ -43,32 +39,25 @@ def setup(name):
     """
     # Parse arguments.
     parser = argparse.ArgumentParser()
-    parser.add_argument('path', nargs='*')
-    parser.add_argument('--quick', action='store_true')
-    parser.add_argument('--instant', action='store_true')
-    parser.add_argument('--fix-noise', action='store_true')
-    parser.add_argument('--model',
-                        choices=['gpcm', 'gprv', 'cgpcm'],
-                        default=['gpcm', 'gprv', 'cgpcm'],
-                        nargs='+')
+    parser.add_argument("path", nargs="*")
+    parser.add_argument("--quick", action="store_true")
+    parser.add_argument("--instant", action="store_true")
+    parser.add_argument("--fix-noise", action="store_true")
+    parser.add_argument(
+        "--model",
+        choices=["gpcm", "gprv", "cgpcm"],
+        default=["gpcm", "gprv", "cgpcm"],
+        nargs="+",
+    )
     args = parser.parse_args()
 
     # Setup working directory.
-    wd = WorkingDirectory('_experiments', name, *args.path)
+    wd = WorkingDirectory("_experiments", name, *args.path)
 
     return args, wd
 
 
-def run(args,
-        wd,
-        noise,
-        window,
-        scale,
-        t,
-        y,
-        n_u,
-        n_z,
-        **kw_args):
+def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
     """Run an experiment.
 
     Further takes in keyword arguments for :func:`.experiment.analyse_models`.
@@ -84,48 +73,22 @@ def run(args,
         n_u (int): Number of inducing points for :math:`h`.
         n_z (int): Number of inducing points for :math:`s` or equivalent.
     """
-    models = build_models(args.model,
-                          noise=noise,
-                          window=window,
-                          scale=scale,
-                          t=t,
-                          y=y,
-                          n_u=n_u,
-                          n_z=n_z)
+    models = build_models(
+        args.model, noise=noise, window=window, scale=scale, t=t, y=y, n_u=n_u, n_z=n_z
+    )
 
     if args.instant:
-        dists = train_models(models,
-                             wd=wd,
-                             iters=0,
-                             fix_noise=args.fix_noise)
+        dists = train_models(models, wd=wd, iters=0, fix_noise=args.fix_noise)
     else:
         if args.quick:
-            dists = train_models(models,
-                                 wd=wd,
-                                 iters=20,
-                                 fix_noise=args.fix_noise)
+            dists = train_models(models, wd=wd, iters=20, fix_noise=args.fix_noise)
         else:
-            dists = train_models(models,
-                                 wd=wd,
-                                 iters=200,
-                                 fix_noise=args.fix_noise)
+            dists = train_models(models, wd=wd, iters=200, fix_noise=args.fix_noise)
 
-    analyse_models(models,
-                   dists,
-                   t=t,
-                   y=y,
-                   wd=wd,
-                   **kw_args)
+    analyse_models(models, dists, t=t, y=y, wd=wd, **kw_args)
 
 
-def build_models(names,
-                 window,
-                 scale,
-                 noise,
-                 t,
-                 y,
-                 n_u=40,
-                 n_z=None):
+def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
@@ -141,52 +104,69 @@ def build_models(names,
     """
     models = []
 
-    if 'gpcm' in names:
-        names = set(names) - {'gpcm'}
-        models.append(('GPCM',
-                       Vars(torch.float64),
-                       lambda vs_: GPCM(vs=vs_,
-                                        noise=noise,
-                                        window=window,
-                                        scale=scale,
-                                        t=t,
-                                        n_u=n_u,
-                                        n_z=n_z).construct(t, y)))
+    if "gpcm" in names:
+        names = set(names) - {"gpcm"}
+        models.append(
+            (
+                "GPCM",
+                Vars(torch.float64),
+                lambda vs_: GPCM(
+                    vs=vs_,
+                    noise=noise,
+                    window=window,
+                    scale=scale,
+                    t=t,
+                    n_u=n_u,
+                    n_z=n_z,
+                ).construct(t, y),
+            )
+        )
 
-    if 'cgpcm' in names:
-        names = set(names) - {'cgpcm'}
-        models.append(('CGPCM',
-                       Vars(torch.float64),
-                       lambda vs_: CGPCM(vs=vs_,
-                                         noise=noise,
-                                         window=window,
-                                         scale=scale,
-                                         t=t,
-                                         n_u=n_u,
-                                         n_z=n_z).construct(t, y)))
-    if 'gprv' in names:
-        names = set(names) - {'gprv'}
-        models.append(('GP-RV',
-                       Vars(torch.float64),
-                       lambda vs_: (GPRV(vs=vs_,
-                                         noise=noise,
-                                         window=window,
-                                         scale=scale,
-                                         t=t,
-                                         n_u=n_u,
-                                         m_max=int(np.ceil(n_z/2)))
-                                    .construct(t, y))))
+    if "cgpcm" in names:
+        names = set(names) - {"cgpcm"}
+        models.append(
+            (
+                "CGPCM",
+                Vars(torch.float64),
+                lambda vs_: CGPCM(
+                    vs=vs_,
+                    noise=noise,
+                    window=window,
+                    scale=scale,
+                    t=t,
+                    n_u=n_u,
+                    n_z=n_z,
+                ).construct(t, y),
+            )
+        )
+    if "gprv" in names:
+        names = set(names) - {"gprv"}
+        models.append(
+            (
+                "GP-RV",
+                Vars(torch.float64),
+                lambda vs_: (
+                    GPRV(
+                        vs=vs_,
+                        noise=noise,
+                        window=window,
+                        scale=scale,
+                        t=t,
+                        n_u=n_u,
+                        m_max=int(np.ceil(n_z / 2)),
+                    ).construct(t, y)
+                ),
+            )
+        )
 
     if len(names) > 0:
-        names_str = ', '.join(f'"{name}"' for name in names)
-        raise ValueError(f'Unknown names {names_str}.')
+        names_str = ", ".join(f'"{name}"' for name in names)
+        raise ValueError(f"Unknown names {names_str}.")
 
     return models
 
 
-def train_models(models,
-                 wd=None,
-                 **kw_args):
+def train_models(models, wd=None, **kw_args):
     """Train models.
 
     Further takes in keyword arguments for :func:`.model.train`.
@@ -202,28 +182,32 @@ def train_models(models,
     dists = []
 
     for name, vs, construct_model in models:
-        with wbml.out.Section(f'Training {name}'):
+        with wbml.out.Section(f"Training {name}"):
             construct_model(vs)
             dist = train(construct_model, vs, **kw_args)
             dists.append(dist)
 
     # Save results.
     if wd:
-        wd.save([(q.mean, q.var) for q in dists], 'dists.pickle')
-        wd.save([{name: vs[name] for name in vs.names}
-                 for _, vs, _ in models], 'variables.pickle')
+        wd.save([(q.mean, q.var) for q in dists], "dists.pickle")
+        wd.save(
+            [{name: vs[name] for name in vs.names} for _, vs, _ in models],
+            "variables.pickle",
+        )
 
     return dists
 
 
-def analyse_models(models,
-                   dists,
-                   t,
-                   y,
-                   wd=None,
-                   true_kernel=None,
-                   true_noisy_kernel=None,
-                   comparative_kernel=None):
+def analyse_models(
+    models,
+    dists,
+    t,
+    y,
+    wd=None,
+    true_kernel=None,
+    true_noisy_kernel=None,
+    comparative_kernel=None,
+):
     """Analyse models.
 
     Args:
@@ -244,31 +228,23 @@ def analyse_models(models,
     """
 
     # Print the learned variables.
-    with wbml.out.Section('Variables after optimisation'):
+    with wbml.out.Section("Variables after optimisation"):
         for name, vs, construct_model in models:
             with wbml.out.Section(name):
                 vs.print()
 
-    analyse_elbos(models,
-                  dists,
-                  t=t,
-                  y=y,
-                  true_noisy_kernel=true_noisy_kernel,
-                  comparative_kernel=comparative_kernel)
-    analyse_plots(models,
-                  dists,
-                  t=t,
-                  y=y,
-                  wd=wd,
-                  true_kernel=true_kernel)
+    analyse_elbos(
+        models,
+        dists,
+        t=t,
+        y=y,
+        true_noisy_kernel=true_noisy_kernel,
+        comparative_kernel=comparative_kernel,
+    )
+    analyse_plots(models, dists, t=t, y=y, wd=wd, true_kernel=true_kernel)
 
 
-def analyse_elbos(models,
-                  dists,
-                  t,
-                  y,
-                  true_noisy_kernel=None,
-                  comparative_kernel=None):
+def analyse_elbos(models, dists, t, y, true_noisy_kernel=None, comparative_kernel=None):
     """Compare ELBOs of models.
 
     Args:
@@ -286,10 +262,11 @@ def analyse_elbos(models,
 
     # Print LML under true GP if the true kernel is given.
     if true_noisy_kernel:
-        wbml.out.kv('LML under true GP', GP(true_noisy_kernel)(t).logpdf(y))
+        wbml.out.kv("LML under true GP", GP(true_noisy_kernel)(t).logpdf(y))
 
     # Print LML under a trained GP if a comparative kernel is given.
     if comparative_kernel:
+
         def objective(vs_):
             gp = GP(sequential(comparative_kernel)(vs_))
             return -gp(t).logpdf(y)
@@ -299,21 +276,16 @@ def analyse_elbos(models,
         lml_gp_opt = -minimise_l_bfgs_b(objective, vs, iters=1000)
 
         # Print likelihood.
-        wbml.out.kv('LML under optimised GP', lml_gp_opt)
+        wbml.out.kv("LML under optimised GP", lml_gp_opt)
 
     # Estimate ELBOs.
-    with wbml.out.Section('ELBOs'):
+    with wbml.out.Section("ELBOs"):
         for i, (name, vs, construct_model) in enumerate(models):
             model = construct_model(vs)
             wbml.out.kv(name, model.elbo(dists[i]))
 
 
-def analyse_plots(models,
-                  dists,
-                  t,
-                  y,
-                  true_kernel=None,
-                  wd=None):
+def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
     """Analyse models in plots.
 
     Args:
@@ -335,35 +307,36 @@ def analyse_plots(models,
         mu, std = model.predict(dists[i])
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(f'Function ({name})')
+        plt.title(f"Function ({name})")
 
         # Plot data.
-        plt.scatter(t, y, c='black', label='Data')
+        plt.scatter(t, y, c="black", label="Data")
 
         # Plot inducing models, if the model has them.
-        if hasattr(model, 't_z'):
-            plt.scatter(model.t_z, model.t_z*0, s=5, marker='o', c='black')
+        if hasattr(model, "t_z"):
+            plt.scatter(model.t_z, model.t_z * 0, s=5, marker="o", c="black")
 
         # Plot the predictions.
-        plt.plot(t, mu, c='tab:green', label='Prediction')
-        plt.fill_between(t, mu - std, mu + std,
-                         facecolor='tab:green', alpha=0.15)
-        plt.fill_between(t, mu - 2*std, mu + 2*std,
-                         facecolor='tab:green', alpha=0.15)
-        plt.fill_between(t, mu - 3*std, mu + 3*std,
-                         facecolor='tab:green', alpha=0.15)
-        error = 2*B.sqrt(vs['noise'] + std**2)  # Model and noise error.
-        plt.plot(t, mu + error, c='tab:green', ls='--')
-        plt.plot(t, mu - error, c='tab:green', ls='--')
+        plt.plot(t, mu, c="tab:green", label="Prediction")
+        plt.fill_between(t, mu - std, mu + std, facecolor="tab:green", alpha=0.15)
+        plt.fill_between(
+            t, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.15
+        )
+        plt.fill_between(
+            t, mu - 3 * std, mu + 3 * std, facecolor="tab:green", alpha=0.15
+        )
+        error = 2 * B.sqrt(vs["noise"] + std ** 2)  # Model and noise error.
+        plt.plot(t, mu + error, c="tab:green", ls="--")
+        plt.plot(t, mu - error, c="tab:green", ls="--")
 
         # Set limit and format.
         plt.xlim(min(t), max(t))
-        plt.gca().xaxis.set_major_formatter(FormatStrFormatter('$%.1f$'))
+        plt.gca().xaxis.set_major_formatter(FormatStrFormatter("$%.1f$"))
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
     if wd:
-        plt.savefig(wd.file('prediction_function.pdf'))
+        plt.savefig(wd.file("prediction_function.pdf"))
 
     # Plot kernels.
     plt.figure(figsize=(12, 8))
@@ -371,7 +344,7 @@ def analyse_plots(models,
     for i, (name, vs, construct_model) in enumerate(models):
         # Construct model and predict the kernel.
         model = construct_model(vs)
-        with wbml.out.Section(f'Predicting kernel for {name}'):
+        with wbml.out.Section(f"Predicting kernel for {name}"):
             pred = model.predict_kernel(dists[i])
 
         # Compute true kernel.
@@ -383,28 +356,42 @@ def analyse_plots(models,
         k_ac = autocorr(y, normalise=False)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(f'Kernel ({name})')
+        plt.title(f"Kernel ({name})")
 
         # Plot inducing points, if the model has them.
-        plt.scatter(model.t_u, 0*model.t_u, s=5, c='black')
+        plt.scatter(model.t_u, 0 * model.t_u, s=5, c="black")
 
         # Plot predictions.
-        plt.plot(pred.x, pred.mean, c='tab:green', label='Prediction')
-        plt.fill_between(pred.x, pred.err_68_lower, pred.err_68_upper,
-                         facecolor='tab:green', alpha=0.15)
-        plt.fill_between(pred.x, pred.err_95_lower, pred.err_95_upper,
-                         facecolor='tab:green', alpha=0.15)
-        plt.fill_between(pred.x, pred.err_99_lower, pred.err_99_upper,
-                         facecolor='tab:green', alpha=0.15)
-        plt.plot(pred.x, pred.samples, c='tab:red', lw=1)
+        plt.plot(pred.x, pred.mean, c="tab:green", label="Prediction")
+        plt.fill_between(
+            pred.x,
+            pred.err_68_lower,
+            pred.err_68_upper,
+            facecolor="tab:green",
+            alpha=0.15,
+        )
+        plt.fill_between(
+            pred.x,
+            pred.err_95_lower,
+            pred.err_95_upper,
+            facecolor="tab:green",
+            alpha=0.15,
+        )
+        plt.fill_between(
+            pred.x,
+            pred.err_99_lower,
+            pred.err_99_upper,
+            facecolor="tab:green",
+            alpha=0.15,
+        )
+        plt.plot(pred.x, pred.samples, c="tab:red", lw=1)
 
         # Plot the true kernel.
         if true_kernel:
-            plt.plot(pred.x, k_true, c='black', label='True', scaley=False)
+            plt.plot(pred.x, k_true, c="black", label="True", scaley=False)
 
         # Plot the autocorrelation of the data.
-        plt.plot(t_ac, k_ac,
-                 c='tab:blue', label='Autocorrelation', scaley=False)
+        plt.plot(t_ac, k_ac, c="tab:blue", label="Autocorrelation", scaley=False)
 
         # Set limits and format.
         plt.xlim(0, max(pred.x))
@@ -412,7 +399,7 @@ def analyse_plots(models,
 
     plt.tight_layout()
     if wd:
-        plt.savefig(wd.file('prediction_kernel.pdf'))
+        plt.savefig(wd.file("prediction_kernel.pdf"))
 
     # Plot PSDs.
     plt.figure(figsize=(12, 8))
@@ -420,14 +407,13 @@ def analyse_plots(models,
     for i, (name, vs, construct_model) in enumerate(models):
         # Construct compute and predict PSD.
         model = construct_model(vs)
-        with wbml.out.Section(f'Predicting PSD for {name}'):
+        with wbml.out.Section(f"Predicting PSD for {name}"):
             pred = model.predict_psd(dists[i])
 
         # Compute true PSD.
         if true_kernel:
             # TODO: Is `pred.x` okay, or should it be longer?
-            freqs_true, psd_true = \
-                estimate_psd(pred.x, true_kernel(pred.x).mat[0, :])
+            freqs_true, psd_true = estimate_psd(pred.x, true_kernel(pred.x).mat[0, :])
 
         # Estimate PSD.
         t_ac = t - t[0]
@@ -435,27 +421,40 @@ def analyse_plots(models,
         freqs_ac, psd_ac = estimate_psd(t_ac, k_ac)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(f'PSD ({name})')
+        plt.title(f"PSD ({name})")
 
         # Plot predictions.
-        plt.plot(pred.x, pred.mean, c='tab:green', label='Prediction')
+        plt.plot(pred.x, pred.mean, c="tab:green", label="Prediction")
         # TODO: `scalex` doesn't work with `fill_between`. Fix?
-        plt.fill_between(pred.x, pred.err_68_lower, pred.err_68_upper,
-                         facecolor='tab:green', alpha=0.15)
-        plt.fill_between(pred.x, pred.err_95_lower, pred.err_95_upper,
-                         facecolor='tab:green', alpha=0.15)
-        plt.fill_between(pred.x, pred.err_99_lower, pred.err_99_upper,
-                         facecolor='tab:green', alpha=0.15)
-        plt.plot(pred.x, pred.samples, c='tab:red', lw=1)
+        plt.fill_between(
+            pred.x,
+            pred.err_68_lower,
+            pred.err_68_upper,
+            facecolor="tab:green",
+            alpha=0.15,
+        )
+        plt.fill_between(
+            pred.x,
+            pred.err_95_lower,
+            pred.err_95_upper,
+            facecolor="tab:green",
+            alpha=0.15,
+        )
+        plt.fill_between(
+            pred.x,
+            pred.err_99_lower,
+            pred.err_99_upper,
+            facecolor="tab:green",
+            alpha=0.15,
+        )
+        plt.plot(pred.x, pred.samples, c="tab:red", lw=1)
 
         # Plot true PSD.
         if true_kernel:
-            plt.plot(freqs_true, psd_true,
-                     c='black', label='True', scaley=False)
+            plt.plot(freqs_true, psd_true, c="black", label="True", scaley=False)
 
         # Plot PSD derived from the autocorrelation.
-        plt.plot(freqs_ac, psd_ac,
-                 c='tab:blue', label='Autocorrelation', scaley=False)
+        plt.plot(freqs_ac, psd_ac, c="tab:blue", label="Autocorrelation", scaley=False)
 
         # Set limits and format.
         plt.xlim(0, max(freqs_ac))
@@ -463,7 +462,7 @@ def analyse_plots(models,
 
     plt.tight_layout()
     if wd:
-        plt.savefig(wd.file('prediction_psd.pdf'))
+        plt.savefig(wd.file("prediction_psd.pdf"))
 
     # Plot Fourier features for GP-RV.
     plt.figure(figsize=(12, 8))
@@ -478,28 +477,40 @@ def analyse_plots(models,
         else:
             continue
 
-        plt.subplot(3, 2, 1 + 2*i)
-        plt.title(f'Cosine Features ({name})')
-        freqs = model.ms/(model.b - model.a)
-        inds = np.concatenate(np.where(model.ms == 0) +
-                              np.where(model.ms <= model.m_max))
-        plt.errorbar(freqs[inds], mean[inds], (mean[inds] - lower[inds],
-                                               upper[inds] - mean[inds]),
-                     ls='none', marker='o', capsize=3)
-        plt.xlabel('Frequency (Hz)')
+        plt.subplot(3, 2, 1 + 2 * i)
+        plt.title(f"Cosine Features ({name})")
+        freqs = model.ms / (model.b - model.a)
+        inds = np.concatenate(
+            np.where(model.ms == 0) + np.where(model.ms <= model.m_max)
+        )
+        plt.errorbar(
+            freqs[inds],
+            mean[inds],
+            (mean[inds] - lower[inds], upper[inds] - mean[inds]),
+            ls="none",
+            marker="o",
+            capsize=3,
+        )
+        plt.xlabel("Frequency (Hz)")
         wbml.plot.tweak(legend=False)
 
-        plt.subplot(3, 2, 2 + 2*i)
-        plt.title(f'Sine Features ({name})')
-        freqs = np.maximum(model.ms - model.m_max, 0)/(model.b - model.a)
-        inds = np.concatenate(np.where(model.ms == 0) +
-                              np.where(model.ms > model.m_max))
-        plt.errorbar(freqs[inds], mean[inds], (mean[inds] - lower[inds],
-                                               upper[inds] - mean[inds]),
-                     ls='none', marker='o', capsize=3)
-        plt.xlabel('Frequency (Hz)')
+        plt.subplot(3, 2, 2 + 2 * i)
+        plt.title(f"Sine Features ({name})")
+        freqs = np.maximum(model.ms - model.m_max, 0) / (model.b - model.a)
+        inds = np.concatenate(
+            np.where(model.ms == 0) + np.where(model.ms > model.m_max)
+        )
+        plt.errorbar(
+            freqs[inds],
+            mean[inds],
+            (mean[inds] - lower[inds], upper[inds] - mean[inds]),
+            ls="none",
+            marker="o",
+            capsize=3,
+        )
+        plt.xlabel("Frequency (Hz)")
         wbml.plot.tweak(legend=False)
 
     plt.tight_layout()
     if wd:
-        plt.savefig(wd.file('prediction_fourier.pdf'))
+        plt.savefig(wd.file("prediction_fourier.pdf"))

@@ -5,13 +5,15 @@ import numpy as np
 from matrix import AbstractMatrix, Woodbury
 from plum import Dispatcher
 
-__all__ = ['summarise_samples',
-           'estimate_psd',
-           'invert_perm',
-           'pd_inv',
-           'collect',
-           'autocorr',
-           'method']
+__all__ = [
+    "summarise_samples",
+    "estimate_psd",
+    "invert_perm",
+    "pd_inv",
+    "collect",
+    "autocorr",
+    "method",
+]
 
 _dispatch = Dispatcher()
 
@@ -35,15 +37,17 @@ def summarise_samples(x, samples):
     """
     x, samples = B.to_numpy(x, samples)
     random_inds = np.random.permutation(B.shape(samples)[0])[:3]
-    return collect(x=B.to_numpy(x),
-                   mean=B.mean(samples, axis=0),
-                   err_68_lower=np.percentile(samples, 32, axis=0),
-                   err_68_upper=np.percentile(samples, 100 - 32, axis=0),
-                   err_95_lower=np.percentile(samples, 2.5, axis=0),
-                   err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
-                   err_99_lower=np.percentile(samples, 0.15, axis=0),
-                   err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
-                   samples=B.transpose(samples)[..., random_inds])
+    return collect(
+        x=B.to_numpy(x),
+        mean=B.mean(samples, axis=0),
+        err_68_lower=np.percentile(samples, 32, axis=0),
+        err_68_upper=np.percentile(samples, 100 - 32, axis=0),
+        err_95_lower=np.percentile(samples, 2.5, axis=0),
+        err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
+        err_99_lower=np.percentile(samples, 0.15, axis=0),
+        err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
+        samples=B.transpose(samples)[..., random_inds],
+    )
 
 
 def estimate_psd(t, k, n_zero=2_000, db=False):
@@ -63,7 +67,7 @@ def estimate_psd(t, k, n_zero=2_000, db=False):
     t, k = B.to_numpy(t, k)
 
     if t[0] != 0:
-        raise ValueError('Time points must start at zero.')
+        raise ValueError("Time points must start at zero.")
 
     # Perform zero padding.
     k = B.concat(k, B.zeros(n_zero))
@@ -71,18 +75,18 @@ def estimate_psd(t, k, n_zero=2_000, db=False):
     # Symmetrise and Fourier transform.
     k_symmetric = B.concat(k, k[1:-1][::-1])
     psd = np.fft.fft(k_symmetric)
-    freqs = np.fft.fftfreq(len(psd))/(t[1] - t[0])
+    freqs = np.fft.fftfreq(len(psd)) / (t[1] - t[0])
 
     # Should be real and positive, but the numerics may not be in our favour.
     psd = np.abs(np.real(psd))
 
     # Now scale appropriately: the total power should equal `k[0]`.
     total_power = np.trapz(y=psd, x=freqs)
-    psd /= total_power/k[0]
+    psd /= total_power / k[0]
 
     # Convert to dB.
     if db:
-        psd = 10*np.log10(psd)
+        psd = 10 * np.log10(psd)
 
     # Only return non-negative frequencies.
     inds = freqs >= 0
@@ -98,7 +102,7 @@ def invert_perm(perm):
     Args:
         perm (list): Permutation to invert.
     """
-    inverse_perm = np.array([-1]*len(perm), dtype=int)
+    inverse_perm = np.array([-1] * len(perm), dtype=int)
     for i, p in enumerate(perm):
         inverse_perm[p] = i
     return inverse_perm
@@ -123,7 +127,7 @@ def pd_inv(a):
     return B.inv(a)
 
 
-def collect(name='Quantities', **kw_args):
+def collect(name="Quantities", **kw_args):
     """Construct a named tuple with certain attributes.
 
     Args:
@@ -154,16 +158,16 @@ def autocorr(x, lags=None, normalise=True):
     # Compute autocorrelation.
     x = np.reshape(x, -1)  # Flatten the input.
     x = x - np.mean(x)
-    k = np.correlate(x, x, mode='full')[:x.size][::-1]
+    k = np.correlate(x, x, mode="full")[: x.size][::-1]
     k /= np.arange(x.size, 0, -1)  # Divide by the number of estimates.
 
     # Get the right number of lags.
     if lags is not None:
-        k = k[:lags + 1]
+        k = k[: lags + 1]
 
     # Normalise by the variance.
     if normalise:
-        k = k/max(k)
+        k = k / max(k)
 
     return k
 

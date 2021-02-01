@@ -4,7 +4,7 @@ import lab as B
 import numpy.random as rng
 import wbml.out
 
-__all__ = ['ESS']
+__all__ = ["ESS"]
 
 
 class SampleFailedException(Exception):
@@ -54,8 +54,7 @@ class ESS:
             upper (scalar): Upper bound of bracket.
         """
         self.theta = rng.uniform(lower, upper)
-        self.x_proposed = B.cos(self.theta)*self.x \
-                          + B.sin(self.theta)*self.y
+        self.x_proposed = B.cos(self.theta) * self.x + B.sin(self.theta) * self.y
         self.log_lik_x_proposed = self.log_lik(self.x_proposed)
 
     def _draw_bracket(self):
@@ -64,8 +63,8 @@ class ESS:
         Returns:
             tuple[scalar]: Tuple contain
         """
-        theta = rng.uniform(0, 2*B.pi)
-        return theta - 2*B.pi, theta
+        theta = rng.uniform(0, 2 * B.pi)
+        return theta - 2 * B.pi, theta
 
     def _draw(self, lower, upper, u, attempts=1, max_attempts=100):
         """Draw new state given a bracket for :math:`\\theta`.
@@ -84,7 +83,7 @@ class ESS:
                 corresponding log-likelihood, and the number of attempts.
         """
         if attempts > max_attempts:
-            raise SampleFailedException('Exceeded maximum number of attempts.')
+            raise SampleFailedException("Exceeded maximum number of attempts.")
 
         self._draw_proposal(lower, upper)
         if self.log_lik_x_proposed > u:
@@ -110,15 +109,19 @@ class ESS:
         samples = []
 
         if trace:
-            with wbml.out.Progress(name='Sampling (ESS)',
-                                   total=num,
-                                   filter={'Attempts': None}) as progress:
+            with wbml.out.Progress(
+                name="Sampling (ESS)", total=num, filter={"Attempts": None}
+            ) as progress:
                 for i in range(num):
                     attempts, ms_per_attempt = self._sample()
                     samples.append(self.x)
-                    progress({'Pseudo-log-likelihood': self.log_lik_x,
-                              'Attempts': attempts,
-                              'Milliseconds per attempt': ms_per_attempt})
+                    progress(
+                        {
+                            "Pseudo-log-likelihood": self.log_lik_x,
+                            "Attempts": attempts,
+                            "Milliseconds per attempt": ms_per_attempt,
+                        }
+                    )
 
         else:
             for i in range(num):
@@ -147,15 +150,14 @@ class ESS:
 
                 # Draw a sample.
                 start = time.time()
-                self.x, self.log_lik_x, attempts = \
-                    self._draw(lower, upper, u)
+                self.x, self.log_lik_x, attempts = self._draw(lower, upper, u)
 
                 # Record sample and time per attempt.
-                ms_per_attempt = (time.time() - start)/attempts*1000
+                ms_per_attempt = (time.time() - start) / attempts * 1000
 
                 return attempts, ms_per_attempt
 
             except SampleFailedException as e:
                 # Sample failed. Report failure and try again.
-                with wbml.out.Section('Sample failed'):
+                with wbml.out.Section("Sample failed"):
                     wbml.out.out(str(e))

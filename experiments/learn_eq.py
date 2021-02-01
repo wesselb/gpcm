@@ -4,7 +4,7 @@ from stheno.torch import GP, Delta, EQ
 
 from gpcm.experiment import setup, run
 
-args, wd = setup('eq')
+args, wd = setup("eq")
 
 # Setup experiment.
 n = 300
@@ -19,15 +19,16 @@ n_u = 40
 n_z = 40
 
 # Sample data.
-gp = GP(kernel + noise*Delta())
+gp = GP(kernel + noise * Delta())
 y = B.flatten(gp(t).sample())
 
 
 def comparative_kernel(vs_):
-    return vs_.pos(1)*EQ().stretch(vs_.pos(0.5)) + vs_.pos(noise)*Delta()
+    return vs_.pos(1) * EQ().stretch(vs_.pos(0.5)) + vs_.pos(noise) * Delta()
 
 
-run(args=args,
+run(
+    args=args,
     wd=wd,
     noise=noise,
     window=window,
@@ -37,5 +38,6 @@ run(args=args,
     n_u=n_u,
     n_z=n_z,
     true_kernel=kernel,
-    true_noisy_kernel=kernel + noise*Delta(),
-    comparative_kernel=comparative_kernel)
+    true_noisy_kernel=kernel + noise * Delta(),
+    comparative_kernel=comparative_kernel,
+)

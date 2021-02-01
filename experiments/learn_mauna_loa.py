@@ -6,13 +6,13 @@ from sklearn.linear_model import LinearRegression
 
 from gpcm.experiment import setup, run
 
-args, wd = setup('mauna_loa')
+args, wd = setup("mauna_loa")
 
 data = load()
 data = data[(2000 <= data.index) & (data.index < 2015)]
 
 t = torch.tensor(np.array(data.index))
-y = torch.tensor(np.array(data['ppm_detrended']))
+y = torch.tensor(np.array(data["ppm_detrended"]))
 
 # Detrend once more, because we have selected a subset.
 lr = LinearRegression()
@@ -32,7 +32,8 @@ scale = 0.1
 n_u = 75
 n_z = 100
 
-run(args=args,
+run(
+    args=args,
     wd=wd,
     noise=noise,
     window=window,
@@ -40,4 +41,5 @@ run(args=args,
     t=t,
     y=y,
     n_u=n_u,
-    n_z=n_z)
+    n_z=n_z,
+)

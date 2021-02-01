@@ -2,7 +2,7 @@ from numpy.testing import assert_allclose, assert_array_almost_equal
 import numpy as np
 import lab as B
 
-__all__ = ['allclose', 'approx', 'assert_positive_definite']
+__all__ = ["allclose", "approx", "assert_positive_definite"]
 
 allclose = assert_allclose
 approx = assert_array_almost_equal
