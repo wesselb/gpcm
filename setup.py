@@ -5,7 +5,7 @@ requirements = [
     "matplotlib",
     "plum-dispatch",
     "backends",
-    "backends-matrix",
+    "backends-matrix>=0.3.3",
     "varz",
     "wbml",
     "torch",
