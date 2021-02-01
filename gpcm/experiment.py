@@ -97,10 +97,8 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
-        n_u (int, optional): Number of inducing points for :math:`h`.
-            Defaults to `40`.
-        n_z (int, optional): Number of inducing points for :math:`s` or
-            equivalent.
+        n_u (int, optional): Number of inducing points for :math:`h`. Defaults to `40`.
+        n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
     """
     models = []
 
@@ -413,12 +411,14 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
         # Compute true PSD.
         if true_kernel:
             # TODO: Is `pred.x` okay, or should it be longer?
-            freqs_true, psd_true = estimate_psd(pred.x, true_kernel(pred.x).mat[0, :])
+            freqs_true, psd_true = estimate_psd(
+                pred.x, true_kernel(pred.x).mat[0, :], pd=True
+            )
 
         # Estimate PSD.
         t_ac = t - t[0]
         k_ac = autocorr(y, normalise=False)
-        freqs_ac, psd_ac = estimate_psd(t_ac, k_ac)
+        freqs_ac, psd_ac = estimate_psd(t_ac, k_ac, pd=True)
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f"PSD ({name})")

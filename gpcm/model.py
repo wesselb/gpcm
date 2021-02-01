@@ -321,7 +321,7 @@ class Model:
         t_k, ks = self.predict_kernel(q_u, num_samples=num_samples, return_samples=True)
 
         # Estimate PSDs.
-        freqs, psds = zip(*[estimate_psd(t_k, k) for k in ks])
+        freqs, psds = zip(*[estimate_psd(t_k, k, db=True) for k in ks])
         freqs = freqs[0]
         psds = B.stack(*psds, axis=0)
 
