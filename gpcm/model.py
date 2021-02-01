@@ -558,7 +558,7 @@ def train(construct_model, vs, iters=100, fix_noise=False):
         names = list(set(names) - {"noise", "gamma"})
 
     # Perform optimisation.
-    minimise_adam(objective, vs, iters=iters, trace=True, rate=1e-2, names=names)
+    minimise_adam(objective, vs, iters=iters, trace=True, rate=1e-3, names=names)
 
     # Create final Laplace approximation to return.
     model_detached = construct_model(vs.copy(detach=True))
