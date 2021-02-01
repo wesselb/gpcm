@@ -3,6 +3,8 @@ from gpcm.sample import ESS
 from stheno import Normal
 import numpy as np
 
+from .util import approx
+
 
 def test_ess():
     # Construct a prior and a likelihood.
