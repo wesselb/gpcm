@@ -371,7 +371,7 @@ class Poly(metaclass=Referentiable):
             **var_map (tensor): Variable mapping.
 
         Returns:
-            tensor: Evaluted polynomial.
+            tensor: Evaluated polynomial.
         """
         result = 0
         for term in self.terms:
@@ -467,7 +467,7 @@ class Poly(metaclass=Referentiable):
 
     @_dispatch(int)
     def __pow__(self, power, modulo=None):
-        assert modulo is None, 'Keyword "module" is not supported.'
+        assert modulo is None, 'Keyword "modulo" is not supported.'
         if power < 0:
             raise RuntimeError(
                 "Can only raise polynomials to non-negative integers."
