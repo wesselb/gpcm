@@ -11,7 +11,7 @@ from varz.torch import minimise_adam, minimise_l_bfgs_b
 
 from .util import summarise_samples, pd_inv, estimate_psd
 
-__all__ = ["Model", "train"]
+__all__ = ["Model", "train_laplace", "train_vi"]
 
 
 def _sample(dist, num):
@@ -35,6 +35,7 @@ class Model:
 
         self.K_u = None
         self.K_u_inv = None
+        self.L_u_tiled = None
 
         self.I_hx = None
         self.I_ux = None
@@ -118,6 +119,7 @@ class Model:
 
         self.K_u = K_u
         self.K_u_inv = K_u_inv
+        self.L_u_tiled = L_u_tiled
 
         self.I_hx = I_hx
         self.I_ux = I_ux
@@ -213,20 +215,34 @@ class Model:
 
         return elbo
 
-    def predict(self, q_u, num_samples=200):
-        """Predict at the data.
+    def predict(self, q_u, t, num_samples=20):
+        """Predict.
 
         Args:
             q_u (distribution): Distribution :math:`q(u)`.
-            num_samples (int, optional): Number of samples to use. Defaults
-                to `200`.
+            t (vector): Points to predict at.
+            num_samples (int, optional): Number of samples to use. Defaults to `200`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
-        means = []
-        stds = []
+        n = B.length(t)
+
+        # Construct integrals for prediction.
+        I_hx = self.compute_i_hx(t, t)
+        I_ux = self.compute_I_ux()
+        I_hz = self.compute_I_hz(t)
+        I_uz = self.compute_I_uz(t)
+
+        # Do some precomputations for prediction.
+        L_u = B.chol(self.K_u)
+        L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
+        L_u_inv_I_uz = B.trisolve(L_u_tiled, I_uz)
+        I_zu_inv_K_u_I_uz = B.mm(L_u_inv_I_uz, L_u_inv_I_uz, tr_a=True)
+
+        first_moments = []
+        second_moments = []
 
         for u in _sample(q_u, num_samples):
             L_inv_cov_z, root = self._compute_q_z_related(u=u)
@@ -241,19 +257,17 @@ class Model:
             q_z = Normal(mu_z, cov_z)
 
             # Compute mean.
-            mean = B.flatten(B.mm(m1, self.I_uz, B.dense(mu_z), tr_a=True))
+            mean = B.flatten(B.mm(m1, I_uz, B.dense(mu_z), tr_a=True))
 
             # Compute variance.
-            A = self.I_ux[None, :, :] - B.mm(
-                self.I_uz, B.dense(self.K_z_inv), self.I_uz, tr_c=True
-            )
-            B_ = self.I_hz - self.I_zu_inv_K_u_I_uz
+            A = I_ux[None, :, :] - B.mm(I_uz, B.dense(self.K_z_inv), I_uz, tr_c=True)
+            B_ = I_hz - I_zu_inv_K_u_I_uz
             c = (
-                self.I_hx
-                - B.sum(self.K_u_inv * self.I_ux)
-                - B.sum(B.sum(self.K_z_inv[None, :, :] * self.I_hz, axis=1), axis=1)
+                I_hx
+                - B.sum(self.K_u_inv * I_ux)
+                - B.sum(B.sum(self.K_z_inv[None, :, :] * I_hz, axis=1), axis=1)
                 + B.sum(
-                    B.sum(self.K_z_inv[None, :, :] * self.I_zu_inv_K_u_I_uz, axis=1),
+                    B.sum(self.K_z_inv[None, :, :] * I_zu_inv_K_u_I_uz, axis=1),
                     axis=1,
                 )
             )
@@ -263,14 +277,14 @@ class Model:
                 + c
             )
 
-            means.append(mean)
-            stds.append(B.sqrt(var))
+            first_moments.append(mean)
+            second_moments.append(var + mean ** 2)
 
-        # Estimate mean and standard deviation.
-        mean = B.mean(B.stack(*means, axis=0), axis=0)
-        std = B.mean(B.stack(*stds, axis=0), axis=0)
+        # Estimate moments.
+        first_moment = B.mean(B.stack(*first_moments, axis=0), axis=0)
+        second_moment = B.mean(B.stack(*second_moments, axis=0), axis=0)
 
-        return mean, std
+        return first_moment, B.sqrt(second_moment - first_moment ** 2)
 
     def predict_kernel(self, q_u, num_samples=200, return_samples=False):
         """Predict kernel and normalise prediction.
@@ -432,8 +446,8 @@ def hessian(f, x, differentiable=False):
     # Compute Hessian.
     rows = []
     for i in range(dim):
-        # It can occur that there is no `grad_fn`, in which case there is also
-        # no gradient.
+        # It can occur that there is no `grad_fn`, in which case there is also no
+        # gradient.
         if differentiable and grad[i, 0].grad_fn:
             # Create graph.
             rows.append(torch.autograd.grad(grad[i, 0], x, create_graph=True)[0])
@@ -481,18 +495,17 @@ def laplace_approximation(f, x_init, differentiable=False, f_differentiable=None
     vs = Vars(torch.float64)
     vs.get(init=x_init, name="x")
 
-    # Perform optimisation. Note that we can discard the gradient w.r.t. the
-    # mean of the Laplace approximation, because it is a maximiser.
+    # Perform optimisation. Note that we can discard the gradient w.r.t. the mean of
+    # the Laplace approximation, because it is a maximiser.
     minimise_l_bfgs_b(lambda vs_: -f(vs_["x"]), vs, iters=2000)
     x = vs["x"]
 
-    # Do not yet make the operation differentiable, because we check for
-    # positive definiteness first and we don't want to be computing gradients
-    # yet.
+    # Do not yet make the operation differentiable, because we check for positive
+    # definiteness first and we don't want to be computing gradients yet.
     precision = -hessian(f, x)
 
-    # Determine the appropriate regularisation to force the result to be
-    # positive definite.
+    # Determine the appropriate regularisation to force the result to be positive
+    # definite.
     if is_pd(precision):
         reg = 0
     else:
@@ -503,8 +516,7 @@ def laplace_approximation(f, x_init, differentiable=False, f_differentiable=None
             precision = B.reg(precision, diag=reg)
             wbml.out.out(f"Diagonal of {reg} was required.")
 
-    # Make differentiable, if required. Also apply any determined
-    # regularisation.
+    # Make differentiable, if required. Also apply any determined regularisation.
     if differentiable:
         precision = -hessian(
             f_differentiable if f_differentiable else f, x, differentiable=True
@@ -515,22 +527,21 @@ def laplace_approximation(f, x_init, differentiable=False, f_differentiable=None
     return Normal(x, pd_inv(precision)), x
 
 
-def train(construct_model, vs, iters=100, fix_noise=False):
-    """Train a model.
+def train_laplace(construct_model, vs, iters=100, fix_noise=False):
+    """Train a model by optimising a Laplace approximation.
 
     Args:
-        construct_model (function): Function that takes in a variable container
-            and gives back the model.
+        construct_model (function): Function that takes in a variable container and
+            gives back the model.
         vs (:class:`varz.Vars`): Variable container.
         iters (int, optional): Training iterations. Defaults to `100`.
-        fix_noise (bool, optional): Fix the noise during training. Defaults
-            to `False`.
+        fix_noise (bool, optional): Fix the noise during training. Defaults to `False`.
 
     Returns:
         :class:`stheno.Normal`: Approximate posterior.
     """
     # Persistent state during optimisation.
-    state = {"sampler": None, "u": None}
+    state = {"u": None}
 
     def objective(vs_):
         model = construct_model(vs_)
@@ -550,12 +561,13 @@ def train(construct_model, vs, iters=100, fix_noise=False):
             f_differentiable=model.logpdf_optimal_u,
         )
 
+        # Use a high number of samples for high-quality gradients.
         return -model.elbo(dist, num_samples=50)
 
     # Determine the names of the variables to optimise.
     names = vs.names
     if fix_noise:
-        names = list(set(names) - {"noise", "gamma"})
+        names = list(set(names) - {"noise"})
 
     # Perform optimisation.
     minimise_adam(objective, vs, iters=iters, trace=True, rate=1e-3, names=names)
@@ -565,3 +577,44 @@ def train(construct_model, vs, iters=100, fix_noise=False):
     dist, _ = laplace_approximation(model_detached.logpdf_optimal_u, state["u"])
 
     return dist
+
+
+def train_vi(construct_model, vs, iters=100, fix_noise=False):
+    """Train a model using VI.
+
+    Args:
+        construct_model (function): Function that takes in a variable container and
+            gives back the model.
+        vs (:class:`varz.Vars`): Variable container.
+        iters (int, optional): Training iterations. Defaults to `100`.
+        fix_noise (bool, optional): Fix the noise during training. Defaults to `False`.
+
+    Returns:
+        :class:`stheno.Normal`: Approximate posterior.
+    """
+
+    # Initialise with a Laplace approximation.
+    model_detached = construct_model(vs.copy(detach=True))
+    q_u, _ = laplace_approximation(
+        model_detached.logpdf_optimal_u, B.randn(torch.float64, model_detached.n_u, 1)
+    )
+    vs.positive_definite(init=B.to_numpy(q_u.var), name="q_u/var")
+    vs.unbounded(init=B.to_numpy(q_u.mean), name="q_u/mean")
+
+    def objective(vs_):
+        model = construct_model(vs_)
+        q_u = Normal(vs["q_u/mean"], vs["q_u/var"])
+        # Simply return collapsed ELBO. Use a low number of samples: the gradients do
+        # not have to be of very high quality.
+        return -model.elbo(q_u, num_samples=20)
+
+    # Determine the names of the variables to optimise.
+    names = vs.names
+    if fix_noise:
+        names = list(set(names) - {"noise"})
+
+    # Perform optimisation.
+    minimise_adam(objective, vs, iters=iters, trace=True, rate=1e-2, names=names)
+
+    # Return final approximate posterior.
+    return Normal(vs["q_u/mean"], vs["q_u/var"])
