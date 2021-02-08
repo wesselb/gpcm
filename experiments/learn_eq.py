@@ -1,30 +1,38 @@
 import lab.torch as B
 import torch
-from stheno.torch import GP, Delta, EQ
+from stheno.torch import Measure, GP, Delta, EQ
 
 from gpcm.experiment import setup, run
 
 args, wd = setup("eq")
 
 # Setup experiment.
-n = 300
-noise = 0.5
-t = B.linspace(torch.float64, 0, 20, n)
+n = 880 + 1  # Need to add the last point for the call to `linspace`.
+noise = 1.0
+t = B.linspace(torch.float64, -44, 44, n)
+t_plot = B.linspace(torch.float64, -44, 44, 500)
 
 # Setup true model and GPCM models.
-kernel = EQ().stretch(0.5)
-window = 1.5
-scale = 0.25
-n_u = 40
-n_z = 40
+kernel = EQ()
+window = 2
+scale = 0.7
+n_u = 30
+n_z = 88
 
 # Sample data.
-gp = GP(kernel + noise * Delta())
-y = B.flatten(gp(t).sample())
+m = Measure()
+gp_f = GP(kernel, measure=m)
+gp_y = gp_f + GP(noise * Delta(), measure=m)
+truth, y = map(B.flatten, m.sample(gp_f(t_plot), gp_y(t)))
+
+# Remove region [-4.4, 4.4].
+inds = ~((t >= -4.4) & (t <= 4.4))
+t = t[inds]
+y = y[inds]
 
 
 def comparative_kernel(vs_):
-    return vs_.pos(1) * EQ().stretch(vs_.pos(0.5)) + vs_.pos(noise) * Delta()
+    return vs_.pos(1) * EQ().stretch(vs_.pos(1.0)) + vs_.pos(noise) * Delta()
 
 
 run(
@@ -40,4 +48,7 @@ run(
     true_kernel=kernel,
     true_noisy_kernel=kernel + noise * Delta(),
     comparative_kernel=comparative_kernel,
+    t_plot=t_plot,
+    truth=(t_plot, truth),
+    y_range={"kernel": (-0.5, 1.5)},
 )
