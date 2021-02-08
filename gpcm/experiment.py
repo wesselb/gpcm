@@ -221,6 +221,7 @@ def analyse_models(
     true_kernel=None,
     true_noisy_kernel=None,
     comparative_kernel=None,
+    x_range=None,
     y_range=None,
 ):
     """Analyse models.
@@ -243,6 +244,8 @@ def analyse_models(
             variable container and gives back a kernel. A GP with this
             kernel will be trained on the data to compute a likelihood that
             will be compared to the ELBOs.
+        x_range (dict, optional): Fix the x-range for plotting. Defaults to an empty
+            dictionary.
         y_range (dict, optional): Fix the y-range for plotting. Defaults to an empty
             dictionary.
     """
@@ -270,6 +273,7 @@ def analyse_models(
         true_kernel=true_kernel,
         t_plot=t_plot,
         truth=truth,
+        x_range=x_range,
         y_range=y_range,
     )
 
@@ -324,6 +328,7 @@ def analyse_plots(
     true_kernel=None,
     t_plot=None,
     truth=None,
+    x_range=None,
     y_range=None,
 ):
     """Analyse models in plots.
@@ -340,12 +345,16 @@ def analyse_plots(
         t_plot (vector, optional): Time points to generate plots at. Defaults to `t`.
         truth (tuple[vector], optional): Tuple containing inputs and outputs
             associated to a truth.
+        x_range (dict, optional): Fix the x-range for plotting. Defaults to an empty
+            dictionary.
         y_range (dict, optional): Fix the y-range for plotting. Defaults to an empty
             dictionary.
     """
     # Set defaults.
     if t_plot is None:
         t_plot = t
+    if x_range is None:
+        x_range = {}
     if y_range is None:
         y_range = {}
 
@@ -388,7 +397,10 @@ def analyse_plots(
             plt.plot(*truth, c="tab:red", label="Truth")
 
         # Set limit and format.
-        plt.xlim(min(t_plot), max(t_plot))
+        if "function" in x_range:
+            plt.xlim(*x_range["function"])
+        else:
+            plt.xlim(min(t_plot), max(t_plot))
         if "function" in y_range:
             plt.ylim(*y_range["function"])
         plt.gca().xaxis.set_major_formatter(FormatStrFormatter("$%.1f$"))
@@ -456,7 +468,10 @@ def analyse_plots(
             plt.plot(t_ac, k_ac, c="tab:blue", label="Autocorrelation", scaley=False)
 
         # Set limits and format.
-        plt.xlim(0, max(pred.x))
+        if "kernel" in x_range:
+            plt.xlim(*x_range["kernel"])
+        else:
+            plt.xlim(0, max(pred.x))
         if "kernel" in y_range:
             plt.ylim(*y_range["kernel"])
         wbml.plot.tweak(legend=True)
@@ -527,10 +542,13 @@ def analyse_plots(
             )
 
         # Set limits and format.
-        if t_is_equally_spaced:
-            plt.xlim(0, max(freqs_ac))
+        if "psd" in x_range:
+            plt.xlim(*x_range["psd"])
         else:
-            plt.xlim(0, max(pred.x))
+            if t_is_equally_spaced:
+                plt.xlim(0, max(freqs_ac))
+            else:
+                plt.xlim(0, max(pred.x))
         if "psd" in y_range:
             plt.ylim(*y_range["psd"])
         wbml.plot.tweak(legend=True)
