@@ -16,7 +16,7 @@ from wbml.experiment import WorkingDirectory
 
 from .gpcm import GPCM, CGPCM
 from .gprv import GPRV
-from .model import train
+from .model import train_vi, train_laplace
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action="ignore")
@@ -43,6 +43,12 @@ def setup(name):
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--instant", action="store_true")
     parser.add_argument("--fix-noise", action="store_true")
+    parser.add_argument(
+        "--train-method",
+        choices=["vi", "laplace"],
+        default="vi",
+        nargs=1,
+    )
     parser.add_argument(
         "--model",
         choices=["gpcm", "gprv", "cgpcm"],
@@ -77,13 +83,20 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
         args.model, noise=noise, window=window, scale=scale, t=t, y=y, n_u=n_u, n_z=n_z
     )
 
+    # Get the training function.
+    train = {"vi": train_vi, "laplace": train_laplace}[args.train_method]
+
     if args.instant:
-        dists = train_models(models, wd=wd, iters=0, fix_noise=args.fix_noise)
+        dists = train_models(train, models, wd=wd, iters=0, fix_noise=args.fix_noise)
     else:
         if args.quick:
-            dists = train_models(models, wd=wd, iters=20, fix_noise=args.fix_noise)
+            dists = train_models(
+                train, models, wd=wd, iters=20, fix_noise=args.fix_noise
+            )
         else:
-            dists = train_models(models, wd=wd, iters=200, fix_noise=args.fix_noise)
+            dists = train_models(
+                train, models, wd=wd, iters=500, fix_noise=args.fix_noise
+            )
 
     analyse_models(models, dists, t=t, y=y, wd=wd, **kw_args)
 
@@ -164,12 +177,13 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
     return models
 
 
-def train_models(models, wd=None, **kw_args):
+def train_models(train, models, wd=None, **kw_args):
     """Train models.
 
     Further takes in keyword arguments for :func:`.model.train`.
 
     Args:
+        train (function): Training function.
         models (list): Models to train.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
             directory to save samples to.
@@ -202,9 +216,12 @@ def analyse_models(
     t,
     y,
     wd=None,
+    t_plot=None,
+    truth=None,
     true_kernel=None,
     true_noisy_kernel=None,
     comparative_kernel=None,
+    y_range=None,
 ):
     """Analyse models.
 
@@ -213,16 +230,21 @@ def analyse_models(
         dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
-        wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
-            directory to save results to.
-        true_kernel (:class:`stheno.Kernel`, optional): True kernel that
-            generated the data, not including noise.
+        wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working directory
+            to save results to.
+        t_plot (vector, optional): Time points to generate plots at. Defaults to `t`.
+        truth (tuple[vector], optional): Tuple containing inputs and outputs
+            associated to a truth.
+        true_kernel (:class:`stheno.Kernel`, optional): True kernel that generated
+            the data, not including noise.
         true_noisy_kernel (:class:`stheno.Kernel`, optional): True kernel that
             generated the data, including noise.
         comparative_kernel (function, optional): A function that takes in a
             variable container and gives back a kernel. A GP with this
             kernel will be trained on the data to compute a likelihood that
             will be compared to the ELBOs.
+        y_range (dict, optional): Fix the y-range for plotting. Defaults to an empty
+            dictionary.
     """
 
     # Print the learned variables.
@@ -239,7 +261,17 @@ def analyse_models(
         true_noisy_kernel=true_noisy_kernel,
         comparative_kernel=comparative_kernel,
     )
-    analyse_plots(models, dists, t=t, y=y, wd=wd, true_kernel=true_kernel)
+    analyse_plots(
+        models,
+        dists,
+        t=t,
+        y=y,
+        wd=wd,
+        true_kernel=true_kernel,
+        t_plot=t_plot,
+        truth=truth,
+        y_range=y_range,
+    )
 
 
 def analyse_elbos(models, dists, t, y, true_noisy_kernel=None, comparative_kernel=None):
@@ -283,7 +315,17 @@ def analyse_elbos(models, dists, t, y, true_noisy_kernel=None, comparative_kerne
             wbml.out.kv(name, model.elbo(dists[i]))
 
 
-def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
+def analyse_plots(
+    models,
+    dists,
+    t,
+    y,
+    wd=None,
+    true_kernel=None,
+    t_plot=None,
+    truth=None,
+    y_range=None,
+):
     """Analyse models in plots.
 
     Args:
@@ -291,18 +333,32 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
         dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
-        true_kernel (:class:`stheno.Kernel`, optional): True kernel that
-            generates the data for comparison.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working directory
             to save the plots to.
+        true_kernel (:class:`stheno.Kernel`, optional): True kernel that
+            generates the data for comparison.
+        t_plot (vector, optional): Time points to generate plots at. Defaults to `t`.
+        truth (tuple[vector], optional): Tuple containing inputs and outputs
+            associated to a truth.
+        y_range (dict, optional): Fix the y-range for plotting. Defaults to an empty
+            dictionary.
     """
+    # Set defaults.
+    if t_plot is None:
+        t_plot = t
+    if y_range is None:
+        y_range = {}
+
+    # Check whether `t` is equally spaced.
+    t_is_equally_spaced = max(np.abs(np.diff(np.diff(t)))) / max(np.abs(t)) < 1e-8
+
     # Plot predictions.
     plt.figure(figsize=(12, 8))
 
     for i, (name, vs, construct_model) in enumerate(models):
         # Construct model and make predictions.
         model = construct_model(vs)
-        mu, std = model.predict(dists[i])
+        mu, std = model.predict(dists[i], t_plot)
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f"Function ({name})")
@@ -315,20 +371,26 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
             plt.scatter(model.t_z, model.t_z * 0, s=5, marker="o", c="black")
 
         # Plot the predictions.
-        plt.plot(t, mu, c="tab:green", label="Prediction")
-        plt.fill_between(t, mu - std, mu + std, facecolor="tab:green", alpha=0.15)
+        plt.plot(t_plot, mu, c="tab:green", label="Prediction")
+        plt.fill_between(t_plot, mu - std, mu + std, facecolor="tab:green", alpha=0.15)
         plt.fill_between(
-            t, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.15
+            t_plot, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.15
         )
         plt.fill_between(
-            t, mu - 3 * std, mu + 3 * std, facecolor="tab:green", alpha=0.15
+            t_plot, mu - 3 * std, mu + 3 * std, facecolor="tab:green", alpha=0.15
         )
         error = 2 * B.sqrt(vs["noise"] + std ** 2)  # Model and noise error.
-        plt.plot(t, mu + error, c="tab:green", ls="--")
-        plt.plot(t, mu - error, c="tab:green", ls="--")
+        plt.plot(t_plot, mu + error, c="tab:green", ls="--")
+        plt.plot(t_plot, mu - error, c="tab:green", ls="--")
+
+        # Plot true function.
+        if truth:
+            plt.plot(*truth, c="tab:red", label="Truth")
 
         # Set limit and format.
-        plt.xlim(min(t), max(t))
+        plt.xlim(min(t_plot), max(t_plot))
+        if "function" in y_range:
+            plt.ylim(*y_range["function"])
         plt.gca().xaxis.set_major_formatter(FormatStrFormatter("$%.1f$"))
         wbml.plot.tweak(legend=True)
 
@@ -350,8 +412,9 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
             k_true = true_kernel(pred.x).mat[0, :]
 
         # Estimate autocorrelation.
-        t_ac = t - t[0]
-        k_ac = autocorr(y, normalise=False)
+        if t_is_equally_spaced:
+            t_ac = t - t[0]
+            k_ac = autocorr(y, normalise=False)
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f"Kernel ({name})")
@@ -389,10 +452,13 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
             plt.plot(pred.x, k_true, c="black", label="True", scaley=False)
 
         # Plot the autocorrelation of the data.
-        plt.plot(t_ac, k_ac, c="tab:blue", label="Autocorrelation", scaley=False)
+        if t_is_equally_spaced:
+            plt.plot(t_ac, k_ac, c="tab:blue", label="Autocorrelation", scaley=False)
 
         # Set limits and format.
         plt.xlim(0, max(pred.x))
+        if "kernel" in y_range:
+            plt.ylim(*y_range["kernel"])
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
@@ -416,9 +482,10 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
             )
 
         # Estimate PSD.
-        t_ac = t - t[0]
-        k_ac = autocorr(y, normalise=False)
-        freqs_ac, psd_ac = estimate_psd(t_ac, k_ac, db=True)
+        if t_is_equally_spaced:
+            t_ac = t - t[0]
+            k_ac = autocorr(y, normalise=False)
+            freqs_ac, psd_ac = estimate_psd(t_ac, k_ac, db=True)
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f"PSD ({name})")
@@ -454,10 +521,18 @@ def analyse_plots(models, dists, t, y, true_kernel=None, wd=None):
             plt.plot(freqs_true, psd_true, c="black", label="True", scaley=False)
 
         # Plot PSD derived from the autocorrelation.
-        plt.plot(freqs_ac, psd_ac, c="tab:blue", label="Autocorrelation", scaley=False)
+        if t_is_equally_spaced:
+            plt.plot(
+                freqs_ac, psd_ac, c="tab:blue", label="Autocorrelation", scaley=False
+            )
 
         # Set limits and format.
-        plt.xlim(0, max(freqs_ac))
+        if t_is_equally_spaced:
+            plt.xlim(0, max(freqs_ac))
+        else:
+            plt.xlim(0, max(pred.x))
+        if "psd" in y_range:
+            plt.ylim(*y_range["psd"])
         wbml.plot.tweak(legend=True)
 
     plt.tight_layout()
