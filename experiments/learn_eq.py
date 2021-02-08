@@ -15,7 +15,7 @@ t_plot = B.linspace(torch.float64, -44, 44, 500)
 # Setup true model and GPCM models.
 kernel = EQ()
 window = 2
-scale = 0.7
+scale = 1
 n_u = 30
 n_z = 88
 
@@ -50,5 +50,6 @@ run(
     comparative_kernel=comparative_kernel,
     t_plot=t_plot,
     truth=(t_plot, truth),
-    y_range={"kernel": (-0.5, 1.5)},
+    x_range={"psd": (0, 3)},
+    y_range={"kernel": (-0.5, 1.5), "psd": (-100, 10)},
 )
