@@ -95,7 +95,7 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
             )
         else:
             dists = train_models(
-                train, models, wd=wd, iters=500, fix_noise=args.fix_noise
+                train, models, wd=wd, iters=200, fix_noise=args.fix_noise
             )
 
     analyse_models(models, dists, t=t, y=y, wd=wd, **kw_args)
