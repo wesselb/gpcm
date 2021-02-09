@@ -25,8 +25,8 @@ gp_f = GP(kernel, measure=m)
 gp_y = gp_f + GP(noise * Delta(), measure=m)
 truth, y = map(B.flatten, m.sample(gp_f(t_plot), gp_y(t)))
 
-# Remove region [-4.4, 4.4].
-inds = ~((t >= -4.4) & (t <= 4.4))
+# Remove region [-8.8, 8.8].
+inds = ~((t >= -8.8) & (t <= 8.8))
 t = t[inds]
 y = y[inds]
 

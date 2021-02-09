@@ -4,7 +4,6 @@ import torch
 import torch.autograd
 import wbml.out
 import wbml.out
-from matrix import Dense
 from stheno import Normal
 from varz import Vars
 from varz.torch import minimise_adam, minimise_l_bfgs_b
@@ -35,7 +34,6 @@ class Model:
 
         self.K_u = None
         self.K_u_inv = None
-        self.L_u_tiled = None
 
         self.I_hx = None
         self.I_ux = None
@@ -43,8 +41,6 @@ class Model:
         self.I_uz = None
 
         self.I_uz_sum = None
-
-        self.I_zu_inv_K_u_I_uz = None
 
         self.A_sum = None
         self.B_sum = None
@@ -54,6 +50,7 @@ class Model:
         self.root = None
 
         self.p_u = None
+        self.p_z = None
 
         # Initialise quantities that the particular model should populate.
         self.noise = None
@@ -82,32 +79,29 @@ class Model:
 
         K_u = self.compute_K_u()
         K_u_inv = pd_inv(K_u)
-        L_u = B.chol(K_u)  # Cholesky will be cached.
 
         n = B.length(t)
 
         # Do some precomputations.
-        L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
-        L_u_inv_I_uz = B.trisolve(L_u_tiled, I_uz)
-        I_zu_inv_K_u_I_uz = B.mm(L_u_inv_I_uz, L_u_inv_I_uz, tr_a=True)
-        I_zu_inv_K_u_I_uz_sum = B.sum(I_zu_inv_K_u_I_uz, axis=0)
-
         I_hx_sum = B.sum(I_hx, axis=0)
         I_hz_sum = B.sum(I_hz, axis=0)
         I_ux_sum = n * I_ux
         I_uz_sum = B.sum(y[:, None, None] * I_uz, axis=0)  # Weighted by data.
 
-        A_sum = I_ux_sum - B.sum(B.mm(I_uz, B.dense(K_z_inv), I_uz, tr_c=True), axis=0)
-        B_sum = I_hz_sum - I_zu_inv_K_u_I_uz_sum
+        K_u_squeezed = B.mm(I_uz, B.dense(K_u_inv), I_uz, tr_a=True)
+        K_z_squeezed = B.mm(I_uz, B.dense(K_z_inv), I_uz, tr_c=True)
+        A_sum = I_ux_sum - B.sum(K_z_squeezed, axis=0)
+        B_sum = I_hz_sum - B.sum(K_u_squeezed, axis=0)
         c_sum = (
             I_hx_sum
             - B.sum(K_u_inv * I_ux_sum)
             - B.sum(K_z_inv * I_hz_sum)
-            + B.sum(K_z_inv * I_zu_inv_K_u_I_uz_sum)
+            + B.sum(B.dense(K_u_inv) * K_z_squeezed)
         )
 
-        # Construct prior p(u).
+        # Construct priors.
         p_u = Normal(K_u_inv)
+        p_z = Normal(K_z_inv)
 
         # Store computed quantities.
         self.n = n
@@ -119,7 +113,6 @@ class Model:
 
         self.K_u = K_u
         self.K_u_inv = K_u_inv
-        self.L_u_tiled = L_u_tiled
 
         self.I_hx = I_hx
         self.I_ux = I_ux
@@ -128,34 +121,31 @@ class Model:
 
         self.I_uz_sum = I_uz_sum
 
-        self.I_zu_inv_K_u_I_uz = I_zu_inv_K_u_I_uz
-
         self.A_sum = A_sum
         self.B_sum = B_sum
         self.c_sum = c_sum
 
         self.p_u = p_u
+        self.p_z = p_z
 
         return self
 
-    def _compute_q_z_related(self, u):
-        """Compute quantities related to the optimal :math:`q(z|u)`.
+    def optimal_q_z(self, u):
+        """Compute  the optimal :math:`q(z|u)`.
 
         Args:
             u (tensor): Sample for :math:`u` to use.
 
         Returns:
-            tuple: Two-tuple.
+            :class:`stheno.Normal`: Optimal :math:`q(z|u)`.
         """
         part = B.mm(self.I_uz, u, tr_a=True)
-        inv_cov_z = self.K_z + 1 / self.noise * B.sum(
-            self.B_sum + B.mm(part, part, tr_b=True), axis=0
+        inv_cov_z = self.K_z + 1 / self.noise * (
+            self.B_sum + B.sum(B.mm(part, part, tr_b=True), axis=0)
         )
         inv_cov_z_mu_z = 1 / self.noise * B.mm(self.I_uz_sum, u, tr_a=True)
-        L_inv_cov_z = B.chol(Dense(inv_cov_z))
-        root = B.trisolve(L_inv_cov_z, inv_cov_z_mu_z)
-
-        return L_inv_cov_z, root
+        cov_z = pd_inv(inv_cov_z)
+        return Normal(B.mm(cov_z, inv_cov_z_mu_z), cov_z)
 
     def logpdf_optimal_u(self, u):
         """Compute the log-pdf of the optimal :math:`q(u)` up to a normalising
@@ -178,7 +168,7 @@ class Model:
         Returns:
             scalar: Normalising constant term.
         """
-        L_inv_cov_z, root = self._compute_q_z_related(u)
+        q_z = self.optimal_q_z(u)
 
         return (
             -0.5 * self.n * B.log(2 * B.pi * self.noise)
@@ -188,8 +178,8 @@ class Model:
                 * (B.sum(self.y ** 2) + B.sum(u * B.mm(self.A_sum, u)) + self.c_sum)
             )
             + -0.5 * B.logdet(self.K_z)
-            + -0.5 * 2 * B.sum(B.log(B.diag(L_inv_cov_z)))
-            + 0.5 * B.sum(root ** 2)
+            + 0.5 * B.logdet(q_z.var)
+            + 0.5 * B.iqf(q_z.var, q_z.mean)[0, 0]
         )
 
     def elbo(self, q_u, num_samples=200):
@@ -215,20 +205,18 @@ class Model:
 
         return elbo
 
-    def predict(self, q_u, t, num_samples=20):
+    def predict(self, q_u, t, num_samples=50):
         """Predict.
 
         Args:
             q_u (distribution): Distribution :math:`q(u)`.
             t (vector): Points to predict at.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `50`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
-        n = B.length(t)
-
         # Construct integrals for prediction.
         I_hx = self.compute_i_hx(t, t)
         I_ux = self.compute_I_ux()
@@ -236,65 +224,49 @@ class Model:
         I_uz = self.compute_I_uz(t)
 
         # Do some precomputations for prediction.
-        L_u = B.chol(self.K_u)
-        L_u_tiled = B.tile(L_u[None, :, :], n, 1, 1)
-        L_u_inv_I_uz = B.trisolve(L_u_tiled, I_uz)
-        I_zu_inv_K_u_I_uz = B.mm(L_u_inv_I_uz, L_u_inv_I_uz, tr_a=True)
+        K_u_squeezed = B.mm(I_uz, B.dense(self.K_u_inv), I_uz, tr_a=True)
+        K_z_squeezed = B.mm(I_uz, B.dense(self.K_z_inv), I_uz, tr_c=True)
 
-        first_moments = []
-        second_moments = []
+        m1s = []
+        m2s = []
 
         for u in _sample(q_u, num_samples):
-            L_inv_cov_z, root = self._compute_q_z_related(u=u)
+            q_z = self.optimal_q_z(u=u)
 
-            # Use sample for "first and second moment".
-            m1 = u
-            m2 = B.outer(u)
+            # Compute first moment.
+            m1 = B.flatten(B.mm(u, I_uz, B.dense(q_z.mean), tr_a=True))
 
-            # Construct optimal :math:`q(z)`.
-            mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
-            cov_z = B.cholsolve(L_inv_cov_z, B.eye(L_inv_cov_z))
-            q_z = Normal(mu_z, cov_z)
-
-            # Compute mean.
-            mean = B.flatten(B.mm(m1, I_uz, B.dense(mu_z), tr_a=True))
-
-            # Compute variance.
-            A = I_ux[None, :, :] - B.mm(I_uz, B.dense(self.K_z_inv), I_uz, tr_c=True)
-            B_ = I_hz - I_zu_inv_K_u_I_uz
+            # Compute second moment.
+            A = I_ux - K_z_squeezed + B.mm(I_uz, B.dense(q_z.m2), I_uz, tr_c=True)
+            B_ = I_hz - K_u_squeezed
             c = (
                 I_hx
                 - B.sum(self.K_u_inv * I_ux)
-                - B.sum(B.sum(self.K_z_inv[None, :, :] * I_hz, axis=1), axis=1)
-                + B.sum(
-                    B.sum(self.K_z_inv[None, :, :] * I_zu_inv_K_u_I_uz, axis=1),
-                    axis=1,
-                )
+                - B.sum(B.dense(self.K_z_inv) * I_hz, axis=(1, 2))
+                + B.sum(B.dense(self.K_u_inv) * K_z_squeezed, axis=(1, 2))
             )
-            var = (
-                B.sum(B.sum(A * m2[None, :, :], axis=1), axis=1)
-                + B.sum(B.sum(B_ * q_z.m2[None, :, :], axis=1), axis=1)
+            m2 = (
+                B.sum(A * B.outer(u), axis=(1, 2))
+                + B.sum(B_ * B.dense(q_z.m2), axis=(1, 2))
                 + c
             )
 
-            first_moments.append(mean)
-            second_moments.append(var + mean ** 2)
+            m1s.append(m1)
+            m2s.append(m2)
 
-        # Estimate moments.
-        first_moment = B.mean(B.stack(*first_moments, axis=0), axis=0)
-        second_moment = B.mean(B.stack(*second_moments, axis=0), axis=0)
-
-        return first_moment, B.sqrt(second_moment - first_moment ** 2)
+        # Estimate mean and standard deviation.
+        m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
+        m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
+        return m1, B.sqrt(m2 - m1 ** 2)
 
     def predict_kernel(self, q_u, num_samples=200, return_samples=False):
         """Predict kernel and normalise prediction.
 
         Args:
             q_u (distribution): Distribution :math:`q(u)`.
-            num_samples (int, optional): Number of samples to use. Defaults
-                to `200`.
-            return_samples (bool, optional): Return samples instead of
-                prediction. Defaults to `False`.
+            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            return_samples (bool, optional): Return samples instead of prediction.
+                Defaults to `False`.
 
         Returns:
             :class:`collections.namedtuple` or tuple: Named tuple containing
@@ -326,8 +298,7 @@ class Model:
 
         Args:
             q_u (distribution): Distribution :math:`q(u)`.
-            num_samples (int, optional): Number of samples to use. Defaults
-                to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `200`.
 
         Returns:
             :class:`collections.namedtuple`: Predictions.
@@ -346,29 +317,24 @@ class Model:
 
         Args:
             q_u (distribution): Distribution :math:`q(u)`.
-            num_samples (int, optional): Number of samples to use. Defaults
-                to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `200`.
 
         Returns:
             tuple: Marginals of the predictions.
         """
-        means = []
-        stds = []
+        m1s = []
+        m2s = []
 
         for u in _sample(q_u, num_samples):
-            L_inv_cov_z, root = self._compute_q_z_related(u=u)
+            q_z = self.optimal_q_z(u=u)
+            m1s.append(B.flatten(B.dense(q_z.mean)))
+            m2s.append(B.diag(q_z.var) + m1s[-1] ** 2)
 
-            mu_z = B.trisolve(B.transpose(L_inv_cov_z), root, lower_a=False)
-            cov_z = B.cholsolve(L_inv_cov_z, B.eye(L_inv_cov_z))
-
-            means.append(B.flatten(B.dense(mu_z)))
-            stds.append(B.sqrt(B.diag(cov_z)))
-
-        # Estimate mean and standard deviation.
-        mean = B.mean(B.stack(*means, axis=0), axis=0)
-        std = B.mean(B.stack(*stds, axis=0), axis=0)
-
-        return mean, mean - 2 * std, mean + 2 * std
+        # Estimate mean and associated error bounds.
+        m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
+        m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
+        std = B.sqrt(m2 - m1 ** 2)
+        return m1, m1 - 2 * std, m1 + 2 * std
 
     def kernel_approx(self, t1, t2, u):
         """Kernel approximation using inducing variables :math:`u` for the
@@ -380,8 +346,7 @@ class Model:
             u (vector): Values of the inducing variables.
 
         Returns:
-            tensor: Approximation of the kernel matrix broadcasted over `t1`
-                and `t2`.
+            tensor: Approximation of the kernel matrix broadcasted over `t1` and `t2`.
         """
         # Construct the first part.
         part1 = self.compute_i_hx(t1[:, None], t2[None, :])
@@ -433,8 +398,7 @@ def hessian(f, x, differentiable=False):
 
     dim = B.shape(x)[0]
 
-    # Detach `x` from graph in case we do not need the operation to be
-    # differentiable.
+    # Detach `x` from graph in case we do not need the operation to be differentiable.
     if not differentiable:
         x = x.detach().requires_grad_(True)
     else:
@@ -570,7 +534,7 @@ def train_laplace(construct_model, vs, iters=100, fix_noise=False):
         names = list(set(names) - {"noise"})
 
     # Perform optimisation.
-    minimise_adam(objective, vs, iters=iters, trace=True, rate=1e-3, names=names)
+    minimise_adam(objective, vs, iters=iters, trace=True, rate=1e-2, names=names)
 
     # Create final Laplace approximation to return.
     model_detached = construct_model(vs.copy(detach=True))
@@ -598,15 +562,15 @@ def train_vi(construct_model, vs, iters=100, fix_noise=False):
     q_u, _ = laplace_approximation(
         model_detached.logpdf_optimal_u, B.randn(torch.float64, model_detached.n_u, 1)
     )
-    vs.positive_definite(init=B.to_numpy(q_u.var), name="q_u/var")
     vs.unbounded(init=B.to_numpy(q_u.mean), name="q_u/mean")
+    vs.positive_definite(init=B.to_numpy(q_u.var), name="q_u/var")
 
     def objective(vs_):
         model = construct_model(vs_)
         q_u = Normal(vs["q_u/mean"], vs["q_u/var"])
         # Simply return collapsed ELBO. Use a low number of samples: the gradients do
         # not have to be of very high quality.
-        return -model.elbo(q_u, num_samples=20)
+        return -model.elbo(q_u, num_samples=10)
 
     # Determine the names of the variables to optimise.
     names = vs.names

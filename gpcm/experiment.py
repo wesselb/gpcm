@@ -47,7 +47,7 @@ def setup(name):
         "--train-method",
         choices=["vi", "laplace"],
         default="vi",
-        nargs=1,
+        nargs="?",
     )
     parser.add_argument(
         "--model",
@@ -381,12 +381,9 @@ def analyse_plots(
 
         # Plot the predictions.
         plt.plot(t_plot, mu, c="tab:green", label="Prediction")
-        plt.fill_between(t_plot, mu - std, mu + std, facecolor="tab:green", alpha=0.15)
+        plt.fill_between(t_plot, mu - std, mu + std, facecolor="tab:green", alpha=0.2)
         plt.fill_between(
-            t_plot, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.15
-        )
-        plt.fill_between(
-            t_plot, mu - 3 * std, mu + 3 * std, facecolor="tab:green", alpha=0.15
+            t_plot, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.2
         )
         error = 2 * B.sqrt(vs["noise"] + std ** 2)  # Model and noise error.
         plt.plot(t_plot, mu + error, c="tab:green", ls="--")
@@ -441,21 +438,14 @@ def analyse_plots(
             pred.err_68_lower,
             pred.err_68_upper,
             facecolor="tab:green",
-            alpha=0.15,
+            alpha=0.2,
         )
         plt.fill_between(
             pred.x,
             pred.err_95_lower,
             pred.err_95_upper,
             facecolor="tab:green",
-            alpha=0.15,
-        )
-        plt.fill_between(
-            pred.x,
-            pred.err_99_lower,
-            pred.err_99_upper,
-            facecolor="tab:green",
-            alpha=0.15,
+            alpha=0.2,
         )
         plt.plot(pred.x, pred.samples, c="tab:red", lw=1)
 
@@ -513,21 +503,14 @@ def analyse_plots(
             pred.err_68_lower,
             pred.err_68_upper,
             facecolor="tab:green",
-            alpha=0.15,
+            alpha=0.2,
         )
         plt.fill_between(
             pred.x,
             pred.err_95_lower,
             pred.err_95_upper,
             facecolor="tab:green",
-            alpha=0.15,
-        )
-        plt.fill_between(
-            pred.x,
-            pred.err_99_lower,
-            pred.err_99_upper,
-            facecolor="tab:green",
-            alpha=0.15,
+            alpha=0.2,
         )
         plt.plot(pred.x, pred.samples, c="tab:red", lw=1)
 

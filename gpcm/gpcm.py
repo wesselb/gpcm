@@ -181,10 +181,11 @@ class GPCM(Model):
 
         # Initialise dependent optimisable model parameters.
         if omega is None:
-            omega = scale_to_factor(2 * (self.t_z[1] - self.t_z[0]))
+            omega = scale_to_factor(0.5 * (self.t_z[1] - self.t_z[0]))
 
-        # The optimiser tends to go wild with `omega`, so we do not learn it.
-        self.omega = omega
+        self.omega = vs.pos(omega, name="omega")
+        # Fix variance of inter-domain process to one.
+        omega_t = (2 * omega / B.pi) ** 0.25
 
         # And finally initialise kernels.
         def k_h(t1, t2):
@@ -197,7 +198,7 @@ class GPCM(Model):
             )
 
         def k_xs(t1, t2):
-            return ExpPoly(-const(self.omega) * (t1 - t2) ** 2)
+            return ExpPoly(omega_t, -const(self.omega) * (t1 - t2) ** 2)
 
         self.k_h = k_h
         self.k_xs = k_xs
@@ -242,12 +243,8 @@ def compute_K_z(model):
     Returns:
         matrix: :math:`K_z`.
     """
-    t_z_1 = model.t_z[:, None]
-    t_z_2 = model.t_z[None, :]
-    return Dense(
-        B.sqrt(0.5 * B.pi / model.omega)
-        * B.exp(-0.5 * model.omega * (t_z_1 - t_z_2) ** 2)
-    )
+    exppoly = model.k_xs(var("t1"), var("tau")) * model.k_xs(var("tau"), var("t2"))
+    return Dense(exppoly.integrate("tau", t1=model.t_z[:, None], t2=model.t_z[None, :]))
 
 
 @method(GPCM)
@@ -267,14 +264,14 @@ def compute_i_hx(model, t1=None, t2=None):
     if t2 is None:
         t2 = B.zero(model.dtype)
 
-    expq = model.k_h(var("t1") - var("tau"), var("t2") - var("tau"))
+    exppoly = model.k_h(var("t1") - var("tau"), var("t2") - var("tau"))
 
     if model.causal:
         upper = var("min_t1_t2")
     else:
         upper = np.inf
 
-    return expq.integrate_box(
+    return exppoly.integrate_box(
         ("tau", -np.inf, upper), t1=t1, t2=t2, min_t1_t2=B.minimum(t1, t2)
     )
 
@@ -308,15 +305,15 @@ def compute_I_ux(model, t1=None, t2=None):
     t_u_1 = model.t_u[None, None, :, None]
     t_u_2 = model.t_u[None, None, None, :]
 
-    expq = model.k_h(var("t1") - var("tau"), var("t_u_1"))
-    expq = expq * model.k_h(var("t_u_2"), var("t2") - var("tau"))
+    exppoly = model.k_h(var("t1") - var("tau"), var("t_u_1"))
+    exppoly = exppoly * model.k_h(var("t_u_2"), var("t2") - var("tau"))
 
     if model.causal:
         upper = var("min_t1_t2")
     else:
         upper = np.inf
 
-    result = expq.integrate_box(
+    result = exppoly.integrate_box(
         ("tau", -np.inf, upper),
         t1=t1,
         t2=t2,
@@ -345,7 +342,7 @@ def compute_I_hz(model, t):
 
     Returns:
         tensor: Value of :math:`I_{hz,t_i}`, with shape
-            `(len(t), len(model.ms), len(model.ms))`.
+            `(len(t), len(model.t_z), len(model.t_z))`.
     """
     t = t[:, None, None]
     t_z_1 = model.t_z[None, :, None]
@@ -383,18 +380,18 @@ def compute_I_uz(model, t):
 
     Returns:
         tensor: Value of :math:`I_{uz,t_i}`, with shape
-            `(len(t), len(model.t_u), len(model.ms))`.
+            `(len(t), len(model.t_u), len(model.t_z))`.
     """
     t = t[:, None, None]
     t_u = model.t_u[None, :, None]
     t_z = model.t_z[None, None, :]
 
-    expq = model.k_h(var("t") - var("tau"), var("t_u"))
-    expq = expq * model.k_xs(var("tau"), var("t_z"))
+    exppoly = model.k_h(var("t") - var("tau"), var("t_u"))
+    exppoly = exppoly * model.k_xs(var("tau"), var("t_z"))
 
     if model.causal:
         upper = var("t")
     else:
         upper = np.inf
 
-    return expq.integrate_box(("tau", -np.inf, upper), t=t, t_u=t_u, t_z=t_z)
+    return exppoly.integrate_box(("tau", -np.inf, upper), t=t, t_u=t_u, t_z=t_z)
