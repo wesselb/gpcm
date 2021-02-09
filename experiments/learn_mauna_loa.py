@@ -29,7 +29,7 @@ y /= B.std(y)
 noise = 0.01
 window = 4
 scale = 0.1
-n_u = 75
+n_u = 100
 n_z = 100
 
 run(

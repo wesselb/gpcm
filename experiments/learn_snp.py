@@ -36,4 +36,6 @@ run(
     y=y,
     n_u=n_u,
     n_z=n_z,
+    x_range={"psd": (0, 500)},
+    y_range={"psd": (-60, 0)}
 )
