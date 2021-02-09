@@ -40,6 +40,7 @@ def setup(name):
     # Parse arguments.
     parser = argparse.ArgumentParser()
     parser.add_argument("path", nargs="*")
+    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--instant", action="store_true")
     parser.add_argument("--fix-noise", action="store_true")
@@ -58,7 +59,7 @@ def setup(name):
     args = parser.parse_args()
 
     # Setup working directory.
-    wd = WorkingDirectory("_experiments", name, *args.path)
+    wd = WorkingDirectory("_experiments", name, *args.path, seed=args.seed)
 
     return args, wd
 
