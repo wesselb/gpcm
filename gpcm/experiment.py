@@ -358,8 +358,8 @@ def analyse_plots(
     if y_range is None:
         y_range = {}
 
-    # Check whether `t` is equally spaced.
-    t_is_equally_spaced = max(np.abs(np.diff(np.diff(t)))) / max(np.abs(t)) < 1e-8
+    # Check whether `t` is roughly equally spaced. We allow small deviations.
+    t_is_equally_spaced = max(np.abs(np.diff(np.diff(t)))) / max(np.abs(t)) < 5e-2
 
     # Plot predictions.
     plt.figure(figsize=(12, 8))
