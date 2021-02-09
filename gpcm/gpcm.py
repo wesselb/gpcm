@@ -5,7 +5,7 @@ import numpy as np
 from matrix import Dense
 from varz import Vars
 
-from gpcm.exppoly import ExpPoly, const, var
+from .exppoly import ExpPoly, const, var
 from .model import Model
 from .util import method
 
@@ -51,7 +51,7 @@ class GPCM(Model):
         scale (scalar, alternative): Length scale of the function. This will be
             used to determine `gamma` if it is not given.
         omega (scalar, optional): Decay of the transform :math:`s` of
-            :math:`x`. Defaults to length scale twice the spacing
+            :math:`x`. Defaults to length scale half the spacing
             between the inducing points.
         n_u (int, optional): Number of inducing points for :math:`u`.
         t_u (vector, optional): Locations of inducing points for :math:`u`.
@@ -375,7 +375,7 @@ def compute_I_uz(model, t):
     """Compute the :math:`I_{uz,t_i}` matrix for :math:`t_i` in `t`.
 
     Args:
-        model (:class:`.gprv.GPRV`): Model.
+        model (:class:`.gpcm.GPCM`): Model.
         t (vector): Time points :math:`t_i` of data.
 
     Returns:
