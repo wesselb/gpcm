@@ -13,10 +13,10 @@ t = B.linspace(torch.float64, -44, 44, n)
 t_plot = B.linspace(torch.float64, -44, 44, 500)
 
 # Setup true model and GPCM models.
-kernel = EQ() * (lambda x: B.cos(2 * B.pi * x * 0.5))
-kernel = kernel + EQ() * (lambda x: B.sin(2 * B.pi * x * 0.5))
+kernel = EQ().stretch(1.5) * (lambda x: B.cos(2 * B.pi * x * 0.25))
+kernel = kernel + EQ().stretch(1.5) * (lambda x: B.sin(2 * B.pi * x * 0.25))
 window = 2
-scale = 0.25
+scale = 1
 n_u = 30
 n_z = 88
 
