@@ -3,7 +3,7 @@ from collections import namedtuple
 import lab as B
 import numpy as np
 from matrix import AbstractMatrix, Woodbury
-from plum import Dispatcher
+from plum import Dispatcher, Union
 
 __all__ = [
     "summarise_samples",
@@ -18,8 +18,10 @@ __all__ = [
 _dispatch = Dispatcher()
 
 
-@B.matmul.extend(B.Numeric, B.Numeric, B.Numeric)
-def matmul(a, b, c, tr_a=False, tr_b=False, tr_c=False):
+@B.matmul.dispatch
+def matmul(
+    a: B.Numeric, b: B.Numeric, c: B.Numeric, tr_a=False, tr_b=False, tr_c=False
+):
     return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
 
 
@@ -108,8 +110,8 @@ def invert_perm(perm):
     return inverse_perm
 
 
-@_dispatch({B.Numeric, AbstractMatrix})
-def pd_inv(a):
+@_dispatch
+def pd_inv(a: Union[B.Numeric, AbstractMatrix]):
     """Invert `a` using that `a` is positve definite.
 
     Args:
@@ -121,8 +123,8 @@ def pd_inv(a):
     return B.cholsolve(B.chol(a), B.eye(a))
 
 
-@_dispatch(Woodbury)
-def pd_inv(a):
+@_dispatch
+def pd_inv(a: Woodbury):
     # In this case there is no need to use the Cholesky decomposition.
     return B.inv(a)
 

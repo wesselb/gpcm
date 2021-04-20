@@ -2,7 +2,7 @@ import operator
 from functools import reduce
 import lab as B
 import numpy as np
-from plum import Dispatcher, Self, Referentiable, PromisedType
+from plum import Dispatcher, PromisedType
 
 __all__ = ["var", "const", "ExpPoly"]
 
@@ -61,7 +61,7 @@ def var(x, power=1):
 PromisedPoly = PromisedType()
 
 
-class Factor(metaclass=Referentiable):
+class Factor:
     """Variable raised to some power.
 
     Args:
@@ -69,14 +69,12 @@ class Factor(metaclass=Referentiable):
         power (int, optional): Power. Defaults to one.
     """
 
-    _dispatch = Dispatcher(in_class=Self)
-
-    @_dispatch(str)
-    def __init__(self, name):
+    @_dispatch
+    def __init__(self, name: str):
         Factor.__init__(self, name, 1)
 
-    @_dispatch(str, int)
-    def __init__(self, name, power):
+    @_dispatch
+    def __init__(self, name: str, power: int):
         if power < 1:
             raise ValueError(
                 f'Power for variable "{name}" is {power}, but must be at least 1.'
@@ -101,19 +99,19 @@ class Factor(metaclass=Referentiable):
     def __repr__(self):
         return str(self)
 
-    @_dispatch(Self)
-    def __eq__(self, other):
+    @_dispatch
+    def __eq__(self, other: "Factor"):
         return self.name == other.name and self.power == other.power
 
-    @_dispatch(Self)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: "Factor"):
         if other.name == self.name:
             return Factor(self.name, self.power + other.power)
         else:
             raise RuntimeError("Can only multiply factors of the same variable.")
 
-    @_dispatch(B.Numeric)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: B.Numeric):
         if other is 1:
             return self
         else:
@@ -134,7 +132,7 @@ def _merge_common_factors(*factors):
     return merged_factors
 
 
-class Term(metaclass=Referentiable):
+class Term:
     """Product of a constant and multiple :class:`.exppoly.Factor` objects.
 
     Args:
@@ -142,14 +140,12 @@ class Term(metaclass=Referentiable):
         *factors (:class:`.exppoly.Factor`): Factors.
     """
 
-    _dispatch = Dispatcher(in_class=Self)
-
-    @_dispatch([Factor])
-    def __init__(self, *factors):
+    @_dispatch
+    def __init__(self, *factors: Factor):
         Term.__init__(self, 1, *factors)
 
-    @_dispatch(B.Numeric, [Factor])
-    def __init__(self, const, *factors):
+    @_dispatch
+    def __init__(self, const: B.Numeric, *factors: Factor):
         self.const = const
 
         # Discard factors if constant is equal to zero.
@@ -160,8 +156,8 @@ class Term(metaclass=Referentiable):
         # expected.
         self.factors = set(_merge_common_factors(*factors))
 
-    @_dispatch(str)
-    def is_function_of(self, name):
+    @_dispatch
+    def is_function_of(self, name: str):
         """Check if this term is a function of some variable.
 
         Args:
@@ -172,8 +168,8 @@ class Term(metaclass=Referentiable):
         """
         return any([x.name == name for x in self.factors])
 
-    @_dispatch(Factor)
-    def collect_for(self, factor):
+    @_dispatch
+    def collect_for(self, factor: Factor):
         """Create a new term consisting of the same constant and all factors
         except one.
 
@@ -208,8 +204,8 @@ class Term(metaclass=Referentiable):
         """
         return len(self.factors) == 0
 
-    @_dispatch(str)
-    def highest_power(self, name):
+    @_dispatch
+    def highest_power(self, name: str):
         """Find the highest power of a variable.
 
         Args:
@@ -225,8 +221,8 @@ class Term(metaclass=Referentiable):
                 highest_power = max(highest_power, factor.power)
         return highest_power
 
-    @_dispatch(str, PromisedPoly)
-    def substitute(self, name, poly):
+    @_dispatch
+    def substitute(self, name: str, poly: PromisedPoly):
         """Substitute a polynomial for a variable.
 
         Args:
@@ -258,19 +254,19 @@ class Term(metaclass=Referentiable):
     def __repr__(self):
         return str(self)
 
-    @_dispatch(Self)
-    def __eq__(self, other):
+    @_dispatch
+    def __eq__(self, other: "Term"):
         return self.const == other.const and self.factors == other.factors
 
-    @_dispatch(Self)
-    def __add__(self, other):
+    @_dispatch
+    def __add__(self, other: "Term"):
         if self.factors == other.factors:
             return Term(self.const + other.const, *self.factors)
         else:
             raise RuntimeError("Can only add terms of the same factors.")
 
-    @_dispatch(B.Numeric)
-    def __add__(self, other):
+    @_dispatch
+    def __add__(self, other: B.Numeric):
         if other is 0:
             return self
         else:
@@ -279,14 +275,14 @@ class Term(metaclass=Referentiable):
     def __radd__(self, other):
         return self + other
 
-    @_dispatch(Self)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: "Term"):
         return Term(
             self.const * other.const, *(list(self.factors) + list(other.factors))
         )
 
-    @_dispatch(B.Numeric)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: B.Numeric):
         if other is 1:
             return self
         else:
@@ -310,24 +306,22 @@ def _merge_common_terms(*terms):
     return merged_terms
 
 
-class Poly(metaclass=Referentiable):
+class Poly:
     """Sum of several :class:`.exppoly.Term` objects.
 
     Args:
         *terms (:class:`.exppoly.Term`): Terms.
     """
 
-    _dispatch = Dispatcher(in_class=Self)
-
-    @_dispatch([Term])
-    def __init__(self, *terms):
+    @_dispatch
+    def __init__(self, *terms: Term):
         # Merge common terms. Do _not_ store this as a set, even though we would like
         # to, because in certain AD frameworks the hash of the constant of a term
         # cannot be computed.
         self.terms = _merge_common_terms(*terms)
 
-    @_dispatch(str)
-    def is_function_of(self, name):
+    @_dispatch
+    def is_function_of(self, name: str):
         """Check if this polynomial is a function of some variable.
 
         Args:
@@ -338,8 +332,8 @@ class Poly(metaclass=Referentiable):
         """
         return any([term.is_function_of(name) for term in self.terms])
 
-    @_dispatch(Factor)
-    def collect_for(self, factor):
+    @_dispatch
+    def collect_for(self, factor: Factor):
         """Create a new polynomial consisting of terms whose factors contain `factor`
         and subsequently collect `factor`, which means that it is excluded in those
         terms.
@@ -352,8 +346,8 @@ class Poly(metaclass=Referentiable):
         """
         return Poly(*[x.collect_for(factor) for x in self.terms if factor in x.factors])
 
-    @_dispatch(str)
-    def reject(self, name):
+    @_dispatch
+    def reject(self, name: str):
         """Create a new polynomial excluding terms whose factors contain a variable.
 
         Args:
@@ -386,8 +380,8 @@ class Poly(metaclass=Referentiable):
         """
         return all([x.is_constant() for x in self.terms])
 
-    @_dispatch(str)
-    def highest_power(self, name):
+    @_dispatch
+    def highest_power(self, name: str):
         """Find the highest power of a variable.
 
         Args:
@@ -399,8 +393,8 @@ class Poly(metaclass=Referentiable):
         """
         return max([term.highest_power(name) for term in self.terms])
 
-    @_dispatch(str, Self)
-    def substitute(self, name, poly):
+    @_dispatch
+    def substitute(self, name: str, poly: "Poly"):
         """Substitute a polynomial for a variable.
 
         Args:
@@ -424,16 +418,16 @@ class Poly(metaclass=Referentiable):
     def __repr__(self):
         return str(self)
 
-    @_dispatch(Self)
-    def __eq__(self, other):
+    @_dispatch
+    def __eq__(self, other: "Poly"):
         return set(self.terms) == set(other.terms)
 
-    @_dispatch(Self)
-    def __add__(self, other):
+    @_dispatch
+    def __add__(self, other: "Poly"):
         return Poly(*(list(self.terms) + list(other.terms)))
 
-    @_dispatch(B.Numeric)
-    def __add__(self, other):
+    @_dispatch
+    def __add__(self, other: B.Numeric):
         if other is 0:
             return self
         else:
@@ -451,12 +445,12 @@ class Poly(metaclass=Referentiable):
     def __rsub__(self, other):
         return (-self) + other
 
-    @_dispatch(Self)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: "Poly"):
         return Poly(*[x * y for x in self.terms for y in other.terms])
 
-    @_dispatch(B.Numeric)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: B.Numeric):
         if other is 1:
             return self
         else:
@@ -465,27 +459,25 @@ class Poly(metaclass=Referentiable):
     def __rmul__(self, other):
         return self * other
 
-    @_dispatch(int)
-    def __pow__(self, power, modulo=None):
+    @_dispatch
+    def __pow__(self, power: int, modulo=None):
         assert modulo is None, 'Keyword "modulo" is not supported.'
         if power < 0:
-            raise RuntimeError(
-                "Can only raise polynomials to non-negative integers."
-            )
+            raise RuntimeError("Can only raise polynomials to non-negative integers.")
         return reduce(operator.mul, [self] * power, 1)
 
 
-@_dispatch(Poly)
-def _as_poly(x):
+@_dispatch
+def _as_poly(x: Poly):
     return x
 
 
-@_dispatch(B.Numeric)
-def _as_poly(x):
+@_dispatch
+def _as_poly(x: B.Numeric):
     return const(x)
 
 
-class ExpPoly(metaclass=Referentiable):
+class ExpPoly:
     """A constant multiplied by an exponentiated polynomial.
 
     Args:
@@ -493,19 +485,17 @@ class ExpPoly(metaclass=Referentiable):
         poly (:class:`.exppoly.Poly`): Polynomial.
     """
 
-    _dispatch = Dispatcher(in_class=Self)
-
-    @_dispatch(Poly)
-    def __init__(self, poly):
+    @_dispatch
+    def __init__(self, poly: Poly):
         ExpPoly.__init__(self, 1, poly)
 
-    @_dispatch(B.Numeric, Poly)
-    def __init__(self, const, poly):
+    @_dispatch
+    def __init__(self, const: B.Numeric, poly: Poly):
         self.const = const
         self.poly = poly
 
-    @_dispatch(str, Poly)
-    def substitute(self, name, poly):
+    @_dispatch
+    def substitute(self, name: str, poly: Poly):
         """Substitute a polynomial for a variable.
 
         Args:
@@ -612,8 +602,8 @@ class ExpPoly(metaclass=Referentiable):
             result = result + part.integrate_half(*names, **var_map)
         return result
 
-    @_dispatch(str, Poly)
-    def translate_var(self, name, poly):
+    @_dispatch
+    def translate_var(self, name: str, poly: Poly):
         """Translate a variable by some polynomial; that is, substitute a variable
         for itself plus some polynomial.
 
@@ -635,9 +625,7 @@ class ExpPoly(metaclass=Referentiable):
         c = self.poly.reject(name)
 
         if not a.is_constant():
-            raise RuntimeError(
-                f'Quadratic coefficient for "{name}" must be constant.'
-            )
+            raise RuntimeError(f'Quadratic coefficient for "{name}" must be constant.')
 
         a = a.eval()
 
@@ -725,16 +713,16 @@ class ExpPoly(metaclass=Referentiable):
     def __repr__(self):
         return str(self)
 
-    @_dispatch(Self)
-    def __eq__(self, other):
+    @_dispatch
+    def __eq__(self, other: "ExpPoly"):
         return self.const == other.const and self.poly == other.poly
 
-    @_dispatch(Self)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: "ExpPoly"):
         return ExpPoly(self.const * other.const, self.poly + other.poly)
 
-    @_dispatch(B.Numeric)
-    def __mul__(self, other):
+    @_dispatch
+    def __mul__(self, other: B.Numeric):
         return ExpPoly(self.const * other, self.poly)
 
     def __rmul__(self, other):
