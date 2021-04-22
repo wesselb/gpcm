@@ -3,11 +3,11 @@ from setuptools import find_packages, setup
 requirements = [
     "numpy>=1.16",
     "matplotlib",
-    "plum-dispatch",
-    "backends",
-    "backends-matrix>=0.3.3",
-    "varz",
-    "wbml",
+    "plum-dispatch>=1",
+    "backends>=1",
+    "backends-matrix>=1",
+    "varz>=0.6",
+    "wbml>=0.3",
     "torch",
 ]
 
