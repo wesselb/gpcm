@@ -9,6 +9,7 @@ requirements = [
     "stheno>=1.1.7",
     "varz>=0.7.3",
     "wbml>=0.3",
+    "probmods>=0.2.1"
     "jax",
     "jaxlib"
 ]
