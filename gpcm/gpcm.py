@@ -6,7 +6,7 @@ from matrix import Dense
 from varz import Vars
 
 from .exppoly import ExpPoly, const, var
-from .model import Model
+from .model import AbstractGPCM
 from .util import method
 
 __all__ = ["GPCM", "CGPCM"]
@@ -36,11 +36,10 @@ def factor_to_scale(factor):
     return 1 / B.sqrt(4 * factor / B.pi)
 
 
-class GPCM(Model):
+class GPCM(AbstractGPCM):
     """GPCM and causal variant.
 
     Args:
-        vs (:class:`varz.Vars`, optional): Variable container.
         causal (bool, optional): Use causal variant. Defaults to `False`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to
@@ -63,13 +62,14 @@ class GPCM(Model):
         t_z (vector, optional): Locations of inducing points for :math:`s`.
             Defaults to equally spaced points across the span of the data
             extended by twice the filter length scale.
-        t (vector, alternative): Locations of the observations. Can be used to
-            automatically initialise quantities.
+        t (vector, alternative): Locations of interest. Can be used to automatically
+            initialise quantities.
     """
+    name = "GPCM"
+    """str: Formatted name."""
 
     def __init__(
         self,
-        vs=None,
         causal=False,
         noise=1e-4,
         alpha=None,
@@ -85,14 +85,14 @@ class GPCM(Model):
         t_z=None,
         t=None,
     ):
-        Model.__init__(self)
+        AbstractGPCM.__init__(self)
 
         # Store whether this is the CGPCM instead of the GPCM.
         self.causal = causal
 
-        # Initialise default variable container.
-        if vs is None:
-            vs = Vars(np.float64)
+        # Ensure that `t` is a vector.
+        if t is not None:
+            t = np.array(t)
 
         # First initialise optimisable model parameters.
         if alpha is None:
@@ -110,13 +110,10 @@ class GPCM(Model):
         if gamma is None:
             gamma = scale_to_factor(scale) - 0.5 * alpha
 
-        self.noise = vs.positive(noise, name="noise")
-        self.alpha = alpha  # Don't learn the window length.
-        self.alpha_t = vs.positive(alpha_t, name="alpha_t")
-        self.gamma = vs.positive(gamma, name="gamma")
-
-        self.vs = vs
-        self.dtype = vs.dtype
+        self.noise = noise
+        self.alpha = alpha
+        self.alpha_t = alpha_t
+        self.gamma = gamma
 
         # Then initialise fixed variables.
         if t_u is None:
@@ -130,11 +127,11 @@ class GPCM(Model):
             if causal:
                 d_t_u = t_u_max / (n_u - 1)
                 n_u += 2
-                t_u = B.linspace(self.dtype, -2 * d_t_u, t_u_max, n_u)
+                t_u = B.linspace(-2 * d_t_u, t_u_max, n_u)
             else:
                 if n_u % 2 == 0:
                     n_u += 1
-                t_u = B.linspace(self.dtype, -t_u_max, t_u_max, n_u)
+                t_u = B.linspace(-t_u_max, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -164,12 +161,10 @@ class GPCM(Model):
             # For the causal case, only need inducing points on the left side.
             if causal:
                 n_z += n_z_extra
-                t_z = B.linspace(self.dtype, min(t) - t_z_extra, max(t), n_z)
+                t_z = B.linspace(min(t) - t_z_extra, max(t), n_z)
             else:
                 n_z += 2 * n_z_extra
-                t_z = B.linspace(
-                    self.dtype, min(t) - t_z_extra, max(t) + t_z_extra, n_z
-                )
+                t_z = B.linspace(min(t) - t_z_extra, max(t) + t_z_extra, n_z)
 
         if n_z is None:
             n_z = B.shape(t_z)[0]
@@ -183,7 +178,7 @@ class GPCM(Model):
         if omega is None:
             omega = scale_to_factor(0.5 * (self.t_z[1] - self.t_z[0]))
 
-        self.omega = vs.pos(omega, name="omega")
+        self.omega = omega
         # Fix variance of inter-domain process to one.
         omega_t = (2 * omega / B.pi) ** 0.25
 
@@ -203,13 +198,25 @@ class GPCM(Model):
         self.k_h = k_h
         self.k_xs = k_xs
 
+    def __prior__(self):
+        # Make certain parameters learnable:
+        self.noise = self.ps.positive(self.noise, name="noise")
+        self.alpha = self.alpha  # Don't learn the window length.
+        self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
+        self.gamma = self.ps.positive(self.gamma, name="gamma")
+        self.omega = self.ps.positive(self.omega, name="omega")
+
+        AbstractGPCM.__prior__(self)
+
 
 class CGPCM(GPCM):
     """CGPCM variant of the GPCM.
 
     Takes in the same keyword arguments as :class:`.gpcm.GPCM`, but the keyword
-    `causal` default to `True`.
+    `causal` defaults to `True`.
     """
+    name = "CGPCM"
+    """str: Formatted name."""
 
     def __init__(self, causal=True, **kw_args):
         GPCM.__init__(self, causal=causal, **kw_args)

@@ -1,26 +1,24 @@
 import argparse
 import warnings
 
-import lab.torch as B
+import jax.numpy as jnp
+import lab.jax as B
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 import wbml.out
 import wbml.plot
 from matplotlib.ticker import FormatStrFormatter
 from matrix.util import ToDenseWarning
-from stheno.torch import GP
-from varz import Vars, sequential
-from varz.torch import minimise_l_bfgs_b
+from stheno.jax import GP
+from varz import Vars, sequential, minimise_l_bfgs_b
 from wbml.experiment import WorkingDirectory
 
 from .gpcm import GPCM, CGPCM
 from .gprv import GPRV
-from .model import train_vi, train_laplace
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action="ignore")
-B.epsilon = 1e-8
+B.epsilon = 1e-7
 wbml.out.report_time = True
 
 __all__ = ["setup", "run", "build_models", "train_models", "analyse_models"]
@@ -46,7 +44,7 @@ def setup(name):
     parser.add_argument("--fix-noise", action="store_true")
     parser.add_argument(
         "--train-method",
-        choices=["vi", "laplace"],
+        choices=["vi", "laplace", "laplace-vi"],
         default="vi",
         nargs="?",
     )
@@ -84,22 +82,23 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
         args.model, noise=noise, window=window, scale=scale, t=t, y=y, n_u=n_u, n_z=n_z
     )
 
-    # Get the training function.
-    train = {"vi": train_vi, "laplace": train_laplace}[args.train_method]
-
+    # Setup training.
+    train_config = {
+        "vi": {"method": "vi", "fix_noise": args.fix_noise},
+        "laplace": {"method": "laplace"},
+        "laplace-vi": {"method": "laplace-vi", "fix_noise": args.fix_noise},
+    }[args.train_method]
     if args.instant:
-        dists = train_models(train, models, wd=wd, iters=0, fix_noise=args.fix_noise)
+        train_config["iters"] = 0
     else:
         if args.quick:
-            dists = train_models(
-                train, models, wd=wd, iters=20, fix_noise=args.fix_noise
-            )
+            train_config["iters"] = 20
         else:
-            dists = train_models(
-                train, models, wd=wd, iters=200, fix_noise=args.fix_noise
-            )
+            train_config["iters"] = 200
+    train_models(models, t, y, train_config, wd)
 
-    analyse_models(models, dists, t=t, y=y, wd=wd, **kw_args)
+    # Perform analysis.
+    analyse_models(models, t, y, wd=wd, **kw_args)
 
 
 def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
@@ -119,55 +118,38 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
     if "gpcm" in names:
         names = set(names) - {"gpcm"}
         models.append(
-            (
-                "GPCM",
-                Vars(torch.float64),
-                lambda vs_: GPCM(
-                    vs=vs_,
-                    noise=noise,
-                    window=window,
-                    scale=scale,
-                    t=t,
-                    n_u=n_u,
-                    n_z=n_z,
-                ).construct(t, y),
-            )
+            GPCM(
+                noise=noise,
+                window=window,
+                scale=scale,
+                t=t,
+                n_u=n_u,
+                n_z=n_z,
+            ),
         )
 
     if "cgpcm" in names:
         names = set(names) - {"cgpcm"}
         models.append(
-            (
-                "CGPCM",
-                Vars(torch.float64),
-                lambda vs_: CGPCM(
-                    vs=vs_,
-                    noise=noise,
-                    window=window,
-                    scale=scale,
-                    t=t,
-                    n_u=n_u,
-                    n_z=n_z,
-                ).construct(t, y),
+            CGPCM(
+                noise=noise,
+                window=window,
+                scale=scale,
+                t=t,
+                n_u=n_u,
+                n_z=n_z,
             )
         )
     if "gprv" in names:
         names = set(names) - {"gprv"}
         models.append(
-            (
-                "GP-RV",
-                Vars(torch.float64),
-                lambda vs_: (
-                    GPRV(
-                        vs=vs_,
-                        noise=noise,
-                        window=window,
-                        scale=scale,
-                        t=t,
-                        n_u=n_u,
-                        m_max=int(np.ceil(n_z / 2)),
-                    ).construct(t, y)
-                ),
+            GPRV(
+                noise=noise,
+                window=window,
+                scale=scale,
+                t=t,
+                n_u=n_u,
+                m_max=int(np.ceil(n_z / 2)),
             )
         )
 
@@ -178,14 +160,14 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
     return models
 
 
-def train_models(train, models, wd=None, **kw_args):
+def train_models(models, t, y, train_config, wd=None):
     """Train models.
 
-    Further takes in keyword arguments for :func:`.model.train`.
-
     Args:
-        train (function): Training function.
         models (list): Models to train.
+        t (vector): Time points of data.
+        y (vector): Observations.
+        train_train (dict): Training configuration.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
             directory to save samples to.
 
@@ -194,26 +176,25 @@ def train_models(train, models, wd=None, **kw_args):
     """
     dists = []
 
-    for name, vs, construct_model in models:
-        with wbml.out.Section(f"Training {name}"):
-            construct_model(vs)
-            dist = train(construct_model, vs, **kw_args)
-            dists.append(dist)
+    for model in models:
+        with wbml.out.Section(f"Training {model.name}"):
+            model.fit(t, y, **train_config)
 
     # Save results.
     if wd:
-        wd.save([(q.mean, q.var) for q in dists], "dists.pickle")
         wd.save(
-            [{name: vs[name] for name in vs.names} for _, vs, _ in models],
+            {
+                model.name: {
+                    var_name: model.vs[var_name] for var_name in model.vs.names
+                }
+                for model in models
+            },
             "variables.pickle",
         )
-
-    return dists
 
 
 def analyse_models(
     models,
-    dists,
     t,
     y,
     wd=None,
@@ -229,7 +210,6 @@ def analyse_models(
 
     Args:
         models (list): Models.
-        dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working directory
@@ -253,13 +233,12 @@ def analyse_models(
 
     # Print the learned variables.
     with wbml.out.Section("Variables after optimisation"):
-        for name, vs, construct_model in models:
-            with wbml.out.Section(name):
-                vs.print()
+        for model in models:
+            with wbml.out.Section(model.name):
+                model.vs.print()
 
     analyse_elbos(
         models,
-        dists,
         t=t,
         y=y,
         true_noisy_kernel=true_noisy_kernel,
@@ -267,7 +246,6 @@ def analyse_models(
     )
     analyse_plots(
         models,
-        dists,
         t=t,
         y=y,
         wd=wd,
@@ -279,12 +257,11 @@ def analyse_models(
     )
 
 
-def analyse_elbos(models, dists, t, y, true_noisy_kernel=None, comparative_kernel=None):
+def analyse_elbos(models, t, y, true_noisy_kernel=None, comparative_kernel=None):
     """Compare ELBOs of models.
 
     Args:
-        models (list): Models to train.
-        dists (list[:class:`stheno.Normal`]): Approximate posteriors.
+        models (list): Models to analyse.
         t (vector): Time points of data.
         y (vector): Observations.
         true_noisy_kernel (:class:`stheno.Kernel`, optional): True kernel that
@@ -307,22 +284,27 @@ def analyse_elbos(models, dists, t, y, true_noisy_kernel=None, comparative_kerne
             return -gp(t).logpdf(y)
 
         # Fit the GP.
-        vs = Vars(torch.float64)
-        lml_gp_opt = -minimise_l_bfgs_b(objective, vs, iters=1000)
+        vs = Vars(jnp.float64)
+        lml_gp_opt = -minimise_l_bfgs_b(objective, vs, jit=True, iters=1000)
 
         # Print likelihood.
         wbml.out.kv("LML under optimised GP", lml_gp_opt)
 
     # Estimate ELBOs.
     with wbml.out.Section("ELBOs"):
-        for i, (name, vs, construct_model) in enumerate(models):
-            model = construct_model(vs)
-            wbml.out.kv(name, model.elbo(dists[i]))
+        for model in models:
+            state, elbo = model.elbo(
+                B.global_random_state(model.dtype),
+                t,
+                y,
+                num_samples=100,
+            )
+            B.set_global_random_state(state)
+            wbml.out.kv(model.name, elbo)
 
 
 def analyse_plots(
     models,
-    dists,
     t,
     y,
     wd=None,
@@ -336,7 +318,6 @@ def analyse_plots(
 
     Args:
         models (list): Models to train.
-        dists (list[:class:`stheno.Normal`]): Approximate posteriors.
         t (vector): Time points of data.
         y (vector): Observations.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working directory
@@ -362,16 +343,19 @@ def analyse_plots(
     # Check whether `t` is roughly equally spaced. We allow small deviations.
     t_is_equally_spaced = max(np.abs(np.diff(np.diff(t)))) / max(np.abs(t)) < 5e-2
 
+    # Perform instantiation of posteriors.
+    models = [model.condition(t, y)() for model in models]
+
     # Plot predictions.
     plt.figure(figsize=(12, 8))
 
-    for i, (name, vs, construct_model) in enumerate(models):
+    for i, model in enumerate(models):
         # Construct model and make predictions.
-        model = construct_model(vs)
-        mu, std = model.predict(dists[i], t_plot)
+        mu, var = model.predict(t_plot)
+        std = B.sqrt(var)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(f"Function ({name})")
+        plt.title(f"Function ({model.name})")
 
         # Plot data.
         plt.scatter(t, y, c="black", label="Data")
@@ -386,7 +370,7 @@ def analyse_plots(
         plt.fill_between(
             t_plot, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.2
         )
-        error = 2 * B.sqrt(vs["noise"] + std ** 2)  # Model and noise error.
+        error = 2 * B.sqrt(model.ps.noise() + std ** 2)  # Model and noise error
         plt.plot(t_plot, mu + error, c="tab:green", ls="--")
         plt.plot(t_plot, mu - error, c="tab:green", ls="--")
 
@@ -411,11 +395,10 @@ def analyse_plots(
     # Plot kernels.
     plt.figure(figsize=(12, 8))
 
-    for i, (name, vs, construct_model) in enumerate(models):
+    for i, model in enumerate(models):
         # Construct model and predict the kernel.
-        model = construct_model(vs)
-        with wbml.out.Section(f"Predicting kernel for {name}"):
-            pred = model.predict_kernel(dists[i])
+        with wbml.out.Section(f"Predicting kernel for {model.name}"):
+            pred = model.predict_kernel()
 
         # Compute true kernel.
         if true_kernel:
@@ -427,7 +410,7 @@ def analyse_plots(
             k_ac = autocorr(y, normalise=False)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(f"Kernel ({name})")
+        plt.title(f"Kernel ({model.name})")
 
         # Plot inducing points, if the model has them.
         plt.scatter(model.t_u, 0 * model.t_u, s=5, c="black")
@@ -474,11 +457,10 @@ def analyse_plots(
     # Plot PSDs.
     plt.figure(figsize=(12, 8))
 
-    for i, (name, vs, construct_model) in enumerate(models):
+    for i, model in enumerate(models):
         # Construct compute and predict PSD.
-        model = construct_model(vs)
-        with wbml.out.Section(f"Predicting PSD for {name}"):
-            pred = model.predict_psd(dists[i])
+        with wbml.out.Section(f"Predicting PSD for {model.name}"):
+            pred = model.predict_psd()
 
         # Compute true PSD.
         if true_kernel:
@@ -494,7 +476,7 @@ def analyse_plots(
             freqs_ac, psd_ac = estimate_psd(t_ac, k_ac, db=True)
 
         plt.subplot(3, 1, 1 + i)
-        plt.title(f"PSD ({name})")
+        plt.title(f"PSD ({model.name})")
 
         # Plot predictions.
         plt.plot(pred.x, pred.mean, c="tab:green", label="Prediction")
@@ -544,18 +526,19 @@ def analyse_plots(
     # Plot Fourier features for GP-RV.
     plt.figure(figsize=(12, 8))
 
-    for i, (name, vs, construct_model) in enumerate(models):
-        # Construct model.
-        model = construct_model(vs)
-
+    for i, model in enumerate(models):
         # Predict Fourier features if it is a GP-RV.
         if isinstance(model, GPRV):
-            mean, lower, upper = model.predict_fourier(dists[i])
+            mean, var = model.predict_fourier()
         else:
             continue
 
+        # Compute upper and lower error bounds.
+        lower = mean - 1.96 * B.sqrt(var)
+        upper = mean + 1.96 * B.sqrt(var)
+
         plt.subplot(3, 2, 1 + 2 * i)
-        plt.title(f"Cosine Features ({name})")
+        plt.title(f"Cosine Features ({model.name})")
         freqs = model.ms / (model.b - model.a)
         inds = np.concatenate(
             np.where(model.ms == 0) + np.where(model.ms <= model.m_max)
@@ -572,7 +555,7 @@ def analyse_plots(
         wbml.plot.tweak(legend=False)
 
         plt.subplot(3, 2, 2 + 2 * i)
-        plt.title(f"Sine Features ({name})")
+        plt.title(f"Sine Features ({model.name})")
         freqs = np.maximum(model.ms - model.m_max, 0) / (model.b - model.a)
         inds = np.concatenate(
             np.where(model.ms == 0) + np.where(model.ms > model.m_max)

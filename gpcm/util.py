@@ -9,7 +9,7 @@ __all__ = [
     "summarise_samples",
     "estimate_psd",
     "invert_perm",
-    "pd_inv",
+    "closest_psd",
     "collect",
     "autocorr",
     "method",
@@ -110,23 +110,24 @@ def invert_perm(perm):
     return inverse_perm
 
 
-@_dispatch
-def pd_inv(a: Union[B.Numeric, AbstractMatrix]):
-    """Invert `a` using that `a` is positve definite.
+def closest_psd(a, inv=False):
+    """Map a matrix to the closest PSD matrix.
 
     Args:
-        a (matrix): Matrix to invert.
+        a (tensor): Matrix.
+        inv (bool, optional): Also invert `a`.
 
-    Return:
-        matrix: Inverse of `a`.
+    Returns:
+        tensor: PSD matrix closest to `a` or the inverse of `a`.
     """
-    return B.cholsolve(B.chol(a), B.eye(a))
-
-
-@_dispatch
-def pd_inv(a: Woodbury):
-    # In this case there is no need to use the Cholesky decomposition.
-    return B.inv(a)
+    a = B.dense(a)
+    a = (a + B.transpose(a)) / 2
+    u, s, v = B.svd(a)
+    signs = B.matmul(u, v, tr_a=True)
+    s = B.maximum(B.diag(signs) * s, 0)
+    if inv:
+        s = B.where(s == 0, 0, 1 / s)
+    return B.mm(u * B.expand_dims(s, axis=-2), v, tr_b=True)
 
 
 def collect(name="Quantities", **kw_args):

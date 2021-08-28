@@ -5,17 +5,16 @@ import numpy as np
 from matrix import Dense, Diagonal, LowRank
 from varz import Vars
 
-from .model import Model
+from .model import AbstractGPCM
 from .util import method, invert_perm
 
 __all__ = ["GPRV"]
 
 
-class GPRV(Model):
+class GPRV(AbstractGPCM):
     """GP-RV variation of the GPCM.
 
     Args:
-        vs (:class:`varz.Vars`, optional): Variable container.
         noise (scalar, optional): Observation noise. Defaults to `1e-4`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to normalise the
@@ -40,13 +39,14 @@ class GPRV(Model):
         n_u (int, optional): Number of inducing points for :math:`u`.
         t_u (vector, optional): Locations of inducing points for :math:`u`. Defaults
             to equally spaced points across twice the filter length scale.
-        t (vector, alternative): Locations of the observations. Can be used to
-            automatically initialise quantities.
+        t (vector, alternative): Locations of interest. Can be used to automatically
+            initialise quantities.
     """
+    name = "GP-RV"
+    """str: Formatted name."""
 
     def __init__(
         self,
-        vs=None,
         noise=1e-4,
         alpha=None,
         alpha_t=None,
@@ -64,11 +64,11 @@ class GPRV(Model):
         t_u=None,
         t=None,
     ):
-        Model.__init__(self)
+        AbstractGPCM.__init__(self)
 
-        # Initialise default variable container.
-        if vs is None:
-            vs = Vars(np.float64)
+        # Ensure that `t` is a vector.
+        if t is not None:
+            t = np.array(t)
 
         # First initialise optimisable model parameters.
         if alpha is None:
@@ -80,18 +80,15 @@ class GPRV(Model):
         if lam is None:
             lam = 2 * alpha
 
-        self.noise = vs.positive(noise, name="noise")
-        self.alpha = alpha  # Don't learn the window length.
-        self.alpha_t = vs.positive(alpha_t, name="alpha_t")
-        self.lam = vs.positive(lam, name="lambda")
-
-        self.vs = vs
-        self.dtype = vs.dtype
+        self.noise = noise
+        self.alpha = alpha
+        self.alpha_t = alpha_t
+        self.lam = lam
 
         # Then initialise fixed variables.
         if t_u is None:
             t_u_max = 2 / self.alpha
-            t_u = B.linspace(self.dtype, 0, t_u_max, n_u)
+            t_u = B.linspace(0, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -114,7 +111,7 @@ class GPRV(Model):
                 m_max = m_max_cap
 
         if ms is None:
-            ms = B.range(self.dtype, 2 * m_max + 1)
+            ms = B.range(2 * m_max + 1)
 
         self.a = a
         self.b = b
@@ -130,8 +127,18 @@ class GPRV(Model):
         if gamma_t is None:
             gamma_t = B.sqrt(2 * gamma)
 
-        self.gamma = vs.positive(gamma, name="gamma")
+        self.gamma = gamma
         self.gamma_t = gamma_t  # Don't learn `gamma_t`: overparametrised.
+
+    def __prior__(self):
+        self.noise = self.ps.positive(self.noise, name="noise")
+        self.alpha = self.alpha  # Don't learn the window length.
+        self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
+        self.lam = self.ps.positive(self.lam, name="lambda")
+        self.gamma = self.ps.positive(self.gamma, name="gamma")
+        self.gamma_t = self.gamma_t  # Don't learn `gamma_t`: overparametrised.
+
+        AbstractGPCM.__prior__(self)
 
 
 @method(GPRV)

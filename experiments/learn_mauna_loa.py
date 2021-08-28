@@ -1,18 +1,14 @@
+import lab as B
 import numpy as np
-import torch
-from wbml.data.mauna_loa import load
-import lab.torch as B
-from sklearn.linear_model import LinearRegression
-
 from gpcm.experiment import setup, run
+from sklearn.linear_model import LinearRegression
+from wbml.data.mauna_loa import load
 
 args, wd = setup("mauna_loa")
 
 data = load()
-data = data[(2000 <= data.index) & (data.index < 2015)]
-
-t = torch.tensor(np.array(data.index))
-y = torch.tensor(np.array(data["ppm_detrended"]))
+t = np.array(data.index)
+y = np.array(data["ppm_detrended"])
 
 # Detrend once more, because we have selected a subset.
 lr = LinearRegression()

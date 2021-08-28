@@ -4,11 +4,13 @@ requirements = [
     "numpy>=1.16",
     "matplotlib",
     "plum-dispatch>=1",
-    "backends>=1",
-    "backends-matrix>=1",
-    "varz>=0.6",
+    "backends>=1.4.3",
+    "backends-matrix>=1.1.5",
+    "stheno>=1.1.7",
+    "varz>=0.7.3",
     "wbml>=0.3",
-    "torch",
+    "jax",
+    "jaxlib"
 ]
 
 setup(

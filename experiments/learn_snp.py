@@ -1,7 +1,6 @@
+import lab as B
 import numpy as np
-import torch
 from wbml.data.snp import load
-import lab.torch as B
 
 from gpcm.experiment import setup, run
 
@@ -9,9 +8,8 @@ args, wd = setup("snp")
 
 data = load()
 data = data.iloc[-200:]
-
-t = torch.tensor(np.array(data.index))
-y = torch.tensor(np.array(data["volume"]))
+t = np.array(data.index)
+y = np.array(data["volume"])
 
 t = t - t[0]  # Why does this help the numerics? Avoid cancellations?
 
@@ -37,5 +35,5 @@ run(
     n_u=n_u,
     n_z=n_z,
     x_range={"psd": (0, 500)},
-    y_range={"psd": (-60, 0)}
+    y_range={"psd": (-60, 0)},
 )

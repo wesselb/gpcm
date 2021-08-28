@@ -9,8 +9,8 @@ args, wd = setup("eq")
 # Setup experiment.
 n = 880 + 1  # Need to add the last point for the call to `linspace`.
 noise = 1.0
-t = B.linspace(torch.float64, -44, 44, n)
-t_plot = B.linspace(torch.float64, -44, 44, 500)
+t = B.linspace(-44, 44, n)
+t_plot = B.linspace(-44, 44, 500)
 
 # Setup true model and GPCM models.
 kernel = EQ()
