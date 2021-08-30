@@ -16,7 +16,7 @@ kernel = EQ().stretch(3) * (lambda x: B.cos(2 * B.pi * x * 0.25))
 kernel = kernel + EQ().stretch(3) * (lambda x: B.sin(2 * B.pi * x * 0.25))
 
 window = 4
-scale = 0.25
+scale = 0.5
 n_u = 80
 n_z = 88
 

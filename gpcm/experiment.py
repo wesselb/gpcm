@@ -39,8 +39,7 @@ def setup(name):
     parser = argparse.ArgumentParser()
     parser.add_argument("path", nargs="*")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--quick", action="store_true")
-    parser.add_argument("--instant", action="store_true")
+    parser.add_argument("--iters", type=int)
     parser.add_argument("--fix-noise", action="store_true")
     parser.add_argument(
         "--train-method",
@@ -83,18 +82,12 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
     )
 
     # Setup training.
-    train_config = {
-        "vi": {"method": "vi", "fix_noise": args.fix_noise},
-        "laplace": {"method": "laplace"},
-        "laplace-vi": {"method": "laplace-vi", "fix_noise": args.fix_noise},
-    }[args.train_method]
-    if args.instant:
-        train_config["iters"] = 0
-    else:
-        if args.quick:
-            train_config["iters"] = 20
-        else:
-            train_config["iters"] = 200
+    train_config = {"method": args.train_method}
+    for name in ["iters", "fix_noise"]:
+        if getattr(args, name):
+            train_config[name] = getattr(args, name)
+
+    # Perform training.
     train_models(models, t, y, train_config, wd)
 
     # Perform analysis.
@@ -174,7 +167,12 @@ def train_models(models, t, y, train_config, wd=None):
     Returns:
         list[:class:`stheno.Normal`]: Approximate posteriors.
     """
-    dists = []
+    # Print the initial variables.
+    with wbml.out.Section("Variables before optimisation"):
+        for model in models:
+            with wbml.out.Section(model.name):
+                model()
+                model.vs.print()
 
     for model in models:
         with wbml.out.Section(f"Training {model.name}"):

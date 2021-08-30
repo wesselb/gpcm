@@ -1,14 +1,14 @@
 from functools import partial
 
-import jax.numpy as jnp
 import jax
+import jax.numpy as jnp
 import lab.jax as B
-import numpy as np
 import wbml.out
+from matrix import Diagonal
+from plum import Val, Dispatcher
 from probmods import Model, instancemethod, priormethod, convert, fit
 from stheno.jax import Normal
 from varz import Vars, minimise_adam, minimise_l_bfgs_b
-from plum import Val, Dispatcher
 
 from .util import summarise_samples, estimate_psd, closest_psd
 
@@ -44,24 +44,20 @@ class AbstractGPCM(Model):
         self.p_z = Normal(self.K_z_inv)
 
         # Construct variational posterior.
-        self.q_u = Normal(
-            self.ps.q_u[0].mean.unbounded(shape=(self.n_u, 1)),
-            self.ps.q_u[0].var.positive_definite(
-                init=B.eye(self.n_u), shape=(self.n_u, self.n_u)
-            ),
+        self.q_u = self._parametrise_q_u(self.ps.q_u[0])
+
+    def _parametrise_q_u(self, params):
+        diag = Diagonal(params.var.positive(1e-1, shape=(self.n_u,)))
+        return Normal(
+            params.mean.unbounded(shape=(self.n_u, 1)),
+            self.K_u_inv - B.pd_inv(self.K_u + diag),
         )
 
     @convert
     def __condition__(self, t, y):
         self.p_u = self.q_u
-        q_u_params = next(self.ps.q_u)
-        self.q_u = Normal(
-            q_u_params.mean.unbounded(shape=(self.n_u, 1)),
-            q_u_params.var.positive_definite(
-                init=B.eye(self.n_u), shape=(self.n_u, self.n_u)
-            ),
-        )
-
+        self.q_u = self._parametrise_q_u(next(self.ps.q_u))
+        # TODO: Lazily construct ELBO quantities? Is this call here necessary?
         self._construct_elbo_quantities(t, y)
 
     @convert
@@ -405,8 +401,7 @@ def laplace_approximation(f, x_init, f_eval=None):
         f_eval (function): Use this log-density for the evaluation at the MAP estimate.
 
     Returns:
-        tuple[:class:`stheno.Normal`, column vector]: Laplace approximation
-            and end point of the optimisation.
+        tuple[:class:`stheno.Normal`]: Laplace approximation.
     """
 
     def laplace_objective(vs_):
@@ -415,12 +410,12 @@ def laplace_approximation(f, x_init, f_eval=None):
     # Perform optimisation.
     vs = Vars(B.dtype(x_init))
     vs.unbounded(init=x_init, name="x")
-    minimise_l_bfgs_b(laplace_objective, vs, iters=10_000, jit=True, trace=True)
+    minimise_l_bfgs_b(laplace_objective, vs, iters=2_000, jit=True, trace=True)
     x = vs["x"]
 
     # Compute Laplace approximation.
     precision = -hessian(f_eval if f_eval is not None else f, x)
-    return Normal(x, closest_psd(precision, inv=True)), x
+    return Normal(x, closest_psd(precision, inv=True))
 
 
 @fit.dispatch
@@ -440,7 +435,7 @@ def fit(model, t, y, method: Val["laplace"]):
     """
     # Initialise with a Laplace approximation.
     instance = model()
-    q_u, _ = laplace_approximation(
+    q_u = laplace_approximation(
         partial(instance.logpdf_optimal_q_u, t, y),
         B.randn(instance.dtype, instance.n_u, 1),
     )
@@ -490,6 +485,7 @@ def fit(
         return -elbo, random_state
 
     # Determine the names of the variables to optimise.
+    model()  # Instantiate the model to ensure that all variables exist.
     names = model.vs.names
     if fix_noise:
         names = list(set(names) - {"noise"})
@@ -501,7 +497,7 @@ def fit(
         (model.vs, random_state),
         iters=iters,
         trace=True,
-        rate=1e-2,
+        rate=5e-2,
         names=names,
     )
 
@@ -522,11 +518,9 @@ def fit(model, t, y, method: Val["vi"], iters=1000, fix_noise=False):
         iters (int, optional): Training iterations. Defaults to `100`.
         fix_noise (bool, optional): Fix the noise during training. Defaults to `False`.
     """
-    # Initialise with a Laplace approximation.
-    fit(model, t, y, method="laplace")
 
     def objective(vs_, state):
-        state, elbo = model.elbo(
+        state, elbo = model(vs_).elbo(
             state,
             B.cast(vs_.dtype, t),  # Prevent conversion to NumPy.
             y,
@@ -535,6 +529,7 @@ def fit(model, t, y, method: Val["vi"], iters=1000, fix_noise=False):
         return -elbo, state
 
     # Determine the names of the variables to optimise.
+    model()  # Instantiate the model to ensure that all variables exist.
     names = model.vs.names
     if fix_noise:
         names = list(set(names) - {"noise"})
@@ -546,6 +541,6 @@ def fit(model, t, y, method: Val["vi"], iters=1000, fix_noise=False):
         (model.vs, state),
         iters=iters,
         trace=True,
-        rate=1e-2,
+        rate=5e-2,
         names=names,
     )

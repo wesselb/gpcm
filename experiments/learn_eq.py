@@ -15,8 +15,8 @@ t_plot = B.linspace(-44, 44, 500)
 # Setup true model and GPCM models.
 kernel = EQ()
 window = 2
-scale = 1
-n_u = 30
+scale = 0.5
+n_u = 40
 n_z = 88
 
 # Sample data.

@@ -22,11 +22,11 @@ y -= B.mean(y)
 y /= B.std(y)
 
 # Setup GPCM models.
-noise = 0.01
+noise = 0.1
 window = 4
-scale = 0.1
-n_u = 100
-n_z = 100
+scale = 0.2
+n_u = 50
+n_z = 300
 
 run(
     args=args,
@@ -38,4 +38,5 @@ run(
     y=y,
     n_u=n_u,
     n_z=n_z,
+    y_range={"kernel": (-0.5, 2), "psd": (-30, 10)},
 )
