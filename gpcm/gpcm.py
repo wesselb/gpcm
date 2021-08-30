@@ -65,6 +65,7 @@ class GPCM(AbstractGPCM):
         t (vector, alternative): Locations of interest. Can be used to automatically
             initialise quantities.
     """
+
     name = "GPCM"
     """str: Formatted name."""
 
@@ -178,25 +179,42 @@ class GPCM(AbstractGPCM):
         if omega is None:
             omega = scale_to_factor(0.5 * (self.t_z[1] - self.t_z[0]))
 
-        self.omega = omega
         # Fix variance of inter-domain process to one.
         omega_t = (2 * omega / B.pi) ** 0.25
 
-        # And finally initialise kernels.
-        def k_h(t1, t2):
-            return ExpPoly(
-                self.alpha_t ** 2,
-                -(
-                    const(self.alpha) * (t1 ** 2 + t2 ** 2)
-                    + const(self.gamma) * (t1 - t2) ** 2
-                ),
-            )
+        self.omega = omega
+        self.omega_t = omega_t
 
-        def k_xs(t1, t2):
-            return ExpPoly(omega_t, -const(self.omega) * (t1 - t2) ** 2)
+    def k_h(self, t1, t2):
+        """Kernel function associated to the filter :math:`h`.
 
-        self.k_h = k_h
-        self.k_xs = k_xs
+        Args:
+            t1 (tensor): First input :math:`t_1`.
+            t2 (tensor): Second input :math:`t_2`.
+
+        Returns:
+            tensor: Kernel tensor :math:`k_h(t_1, t_2)`.
+        """
+        return ExpPoly(
+            self.alpha_t ** 2,
+            -(
+                const(self.alpha) * (t1 ** 2 + t2 ** 2)
+                + const(self.gamma) * (t1 - t2) ** 2
+            ),
+        )
+
+    def k_xs(self, t1, t2):
+        """Covariance function between to the white noise :math:`x` and its interdomain
+        transform :math:`s`.
+
+        Args:
+            t1 (tensor): First input :math:`t_1`.
+            t2 (tensor): Second input :math:`t_2`.
+
+        Returns:
+            tensor: Kernel tensor :math:`k_{xs}(t_1, t_2)`.
+        """
+        return ExpPoly(omega_t, -const(self.omega) * (t1 - t2) ** 2)
 
     def __prior__(self):
         # Make certain parameters learnable:
@@ -215,6 +233,7 @@ class CGPCM(GPCM):
     Takes in the same keyword arguments as :class:`.gpcm.GPCM`, but the keyword
     `causal` defaults to `True`.
     """
+
     name = "CGPCM"
     """str: Formatted name."""
 
