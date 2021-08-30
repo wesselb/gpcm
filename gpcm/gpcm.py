@@ -214,7 +214,7 @@ class GPCM(AbstractGPCM):
         Returns:
             tensor: Kernel tensor :math:`k_{xs}(t_1, t_2)`.
         """
-        return ExpPoly(omega_t, -const(self.omega) * (t1 - t2) ** 2)
+        return ExpPoly(self.omega_t, -const(self.omega) * (t1 - t2) ** 2)
 
     def __prior__(self):
         # Make certain parameters learnable:
