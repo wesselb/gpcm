@@ -217,12 +217,14 @@ class GPCM(AbstractGPCM):
         return ExpPoly(self.omega_t, -const(self.omega) * (t1 - t2) ** 2)
 
     def __prior__(self):
-        # Make certain parameters learnable:
+        # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
         self.alpha = self.alpha  # Don't learn the window length.
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.omega = self.ps.positive(self.omega, name="omega")
+        self.t_u = self.ps.unbounded(self.t_u, name="t_u")
+        self.t_z = self.ps.unbounded(self.t_z, name="t_z")
 
         AbstractGPCM.__prior__(self)
 

@@ -6,7 +6,7 @@ import lab.jax as B
 import wbml.out
 from matrix import Diagonal
 from plum import Val, Dispatcher
-from probmods import Model, instancemethod, priormethod, convert, fit
+from probmods import Model, instancemethod, priormethod, cast, fit
 from stheno.jax import Normal
 from varz import Vars, minimise_adam, minimise_l_bfgs_b
 
@@ -20,9 +20,6 @@ _dispatch = Dispatcher()
 def _sample(dist, num):
     samples = dist.sample(num=num)
     return [samples[:, i : i + 1] for i in range(num)]
-
-
-convert = partial(convert, rank=1)  # Configure argument converter.
 
 
 class AbstractGPCM(Model):
@@ -53,14 +50,14 @@ class AbstractGPCM(Model):
             self.K_u_inv - B.pd_inv(self.K_u + diag),
         )
 
-    @convert
+    @cast
     def __condition__(self, t, y):
         self.p_u = self.q_u
         self.q_u = self._parametrise_q_u(next(self.ps.q_u))
         # TODO: Lazily construct ELBO quantities? Is this call here necessary?
         self._construct_elbo_quantities(t, y)
 
-    @convert
+    @cast
     def _construct_elbo_quantities(self, t, y):
         """Construct quantities required to compute the ELBO.
 
@@ -135,7 +132,7 @@ class AbstractGPCM(Model):
         )
 
     @instancemethod
-    @convert
+    @cast
     def logpdf_optimal_q_u(self, t, y, u):
         """Compute the log-pdf of the optimal :math:`q(u)` up to a normalising
         constant.
@@ -162,7 +159,7 @@ class AbstractGPCM(Model):
 
     @_dispatch
     @instancemethod
-    @convert
+    @cast
     def elbo(self, state, t, y, *, num_samples=5):
         """Compute an estimate of the doubly collapsed ELBO.
 
@@ -182,7 +179,7 @@ class AbstractGPCM(Model):
         return state, sum(rec_samples) / num_samples - self.q_u.kl(self.p_u)
 
     @instancemethod
-    @convert
+    @cast
     def predict(self, t, num_samples=50):
         """Predict.
 
@@ -319,7 +316,7 @@ class AbstractGPCM(Model):
         return m1, m2 - m1 ** 2
 
     @instancemethod
-    @convert
+    @cast
     def kernel_approx(self, t1, t2, u):
         """Kernel approximation using inducing variables :math:`u` for the
         impulse response :math:`h`.
@@ -352,7 +349,7 @@ class AbstractGPCM(Model):
         return part1 - part2
 
     @priormethod
-    @convert
+    @cast
     def sample(self, t, normalise=False):
         """Sample the kernel then the function.
 

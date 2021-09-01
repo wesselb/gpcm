@@ -42,6 +42,7 @@ class GPRV(AbstractGPCM):
         t (vector, alternative): Locations of interest. Can be used to automatically
             initialise quantities.
     """
+
     name = "GP-RV"
     """str: Formatted name."""
 
@@ -128,15 +129,17 @@ class GPRV(AbstractGPCM):
             gamma_t = B.sqrt(2 * gamma)
 
         self.gamma = gamma
-        self.gamma_t = gamma_t  # Don't learn `gamma_t`: overparametrised.
+        self.gamma_t = gamma_t
 
     def __prior__(self):
+        # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
         self.alpha = self.alpha  # Don't learn the window length.
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.lam = self.ps.positive(self.lam, name="lambda")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.gamma_t = self.gamma_t  # Don't learn `gamma_t`: overparametrised.
+        self.t_u = self.ps.unbounded(self.t_u, name="t_u")
 
         AbstractGPCM.__prior__(self)
 
