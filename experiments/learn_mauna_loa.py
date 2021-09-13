@@ -1,7 +1,6 @@
 import lab as B
 import numpy as np
 from gpcm.experiment import setup, run
-from sklearn.linear_model import LinearRegression
 from wbml.data.mauna_loa import load
 
 args, wd = setup("mauna_loa")
@@ -9,11 +8,6 @@ args, wd = setup("mauna_loa")
 data = load()
 t = np.array(data.index)
 y = np.array(data["ppm_detrended"])
-
-# Detrend once more, because we have selected a subset.
-lr = LinearRegression()
-lr.fit(t[:, None], y)
-y = y - lr.predict(t[:, None])
 
 t = t - t[0]  # Why does this help the numerics? Avoid cancellations?
 
