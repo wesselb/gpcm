@@ -219,10 +219,10 @@ class GPCM(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.alpha  # Don't learn the window length.
+        self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
-        self.omega = self.ps.positive(self.omega, name="omega")
+        self.omega = self.omega  # Learning this sometimes causes instabilities.
         self.t_u = self.ps.unbounded(self.t_u, name="t_u")
         self.t_z = self.ps.unbounded(self.t_z, name="t_z")
 

@@ -9,6 +9,7 @@ from plum import Val, Dispatcher
 from probmods import Model, instancemethod, priormethod, cast, fit
 from stheno.jax import Normal
 from varz import Vars, minimise_adam, minimise_l_bfgs_b
+from .sample import ESS
 
 from .util import summarise_samples, estimate_psd, closest_psd
 
@@ -22,11 +23,27 @@ def _sample(dist, num):
     return [samples[:, i : i + 1] for i in range(num)]
 
 
+def _parametrise_q(params, K, K_inv):
+    n = B.shape(K, 0)
+    return Normal(
+        params.mean.unbounded(shape=(n, 1)),
+        K_inv - B.pd_inv(K + Diagonal(params.var.positive(1e-1, shape=(n,)))),
+    )
+
+class AbstractGPCMApproximation:
+    pass
+
+class CollapsedVI:
+    def construct(self):
+        pass
+
+
 class AbstractGPCM(Model):
     """GPCM model."""
 
-    def __init__(self):
+    def __init__(self, collapsed=True):
         self.vs = Vars(jnp.float64)
+        self.collapsed = collapsed
 
     def __prior__(self):
         # Construct kernel matrices.
@@ -41,19 +58,12 @@ class AbstractGPCM(Model):
         self.p_z = Normal(self.K_z_inv)
 
         # Construct variational posterior.
-        self.q_u = self._parametrise_q_u(self.ps.q_u[0])
-
-    def _parametrise_q_u(self, params):
-        diag = Diagonal(params.var.positive(1e-1, shape=(self.n_u,)))
-        return Normal(
-            params.mean.unbounded(shape=(self.n_u, 1)),
-            self.K_u_inv - B.pd_inv(self.K_u + diag),
-        )
+        self.q_u = _parametrise_q(self.ps.q_u[0], self.K_u, self.K_u_inv)
 
     @cast
     def __condition__(self, t, y):
         self.p_u = self.q_u
-        self.q_u = self._parametrise_q_u(next(self.ps.q_u))
+        self.q_u = _parametrise_q(next(self.ps.q_u), self.K_u, self.K_u_inv)
         # TODO: Lazily construct ELBO quantities? Is this call here necessary?
         self._construct_elbo_quantities(t, y)
 
@@ -133,7 +143,7 @@ class AbstractGPCM(Model):
 
     @instancemethod
     @cast
-    def logpdf_optimal_q_u(self, t, y, u):
+    def logpdf_optimal_q_u(self, t, y, u, prior=True):
         """Compute the log-pdf of the optimal :math:`q(u)` up to a normalising
         constant.
 
@@ -147,11 +157,14 @@ class AbstractGPCM(Model):
         """
         self._construct_elbo_quantities(t, y)
         u = B.uprank(u, rank=2)  # Internally, :math:`u` must be a column vector.
-        return self._compute_log_Z(u) + self.p_u.logpdf(u)
+        logpdf = self._compute_log_Z(u)
+        if prior:
+            logpdf = logpdf + self.p_u.logpdf(u)
+        return logpdf
 
     @_dispatch
     def elbo(self, t, y, *, num_samples=5):
-        state, elbo = self.elbo(
+        state, elbo = self.elbo_collapsed(
             B.global_random_state(self.dtype), t, y, num_samples=num_samples
         )
         B.set_global_random_state(state)
@@ -161,7 +174,7 @@ class AbstractGPCM(Model):
     @instancemethod
     @cast
     def elbo(self, state, t, y, *, num_samples=5):
-        """Compute an estimate of the doubly collapsed ELBO.
+        """Compute an estimate of the collapsed ELBO.
 
         Args:
             t (vector): Locations of observations.
@@ -173,7 +186,8 @@ class AbstractGPCM(Model):
         """
         self._construct_elbo_quantities(t, y)
         rec_samples = []
-        for _ in range(num_samples):
+        # for _ in range(num_samples):
+        for sample in self.samples:
             state, u = self.q_u.sample(state)
             rec_samples.append(self._compute_log_Z(u))
         return state, sum(rec_samples) / num_samples - self.q_u.kl(self.p_u)
@@ -204,7 +218,8 @@ class AbstractGPCM(Model):
         m1s = []
         m2s = []
 
-        for u in _sample(self.p_u, num_samples):
+        # for u in _sample(self.p_u, num_samples):
+        for u in self.samples:
             q_z = self._optimal_q_z(u=u)
 
             # Compute first moment.
@@ -259,7 +274,8 @@ class AbstractGPCM(Model):
         # Sample kernels.
         ks = []
         t_k = B.linspace(self.dtype, 0, 1.2 * B.max(self.t_u), 300)
-        for u in _sample(self.p_u, num_samples):
+        # for u in _sample(self.p_u, num_samples):
+        for u in self.samples:
             k = self.kernel_approx(
                 t_k, B.zeros(self.dtype, 1), u=B.flatten(B.dense(B.matmul(self.K_u, u)))
             )
@@ -389,6 +405,27 @@ def hessian(f, x):
     return (hess + B.transpose(hess)) / 2  # Symmetrise to counteract numerical errors.
 
 
+def maximum_a_posteriori(f, x_init, iters=2000):
+    """Compute the MAP estimate.
+
+    Args:
+        f (function): Possibly unnormalised log-density.
+        x_init (column vector): Starting point to start the optimisation.
+        iters (int, optional): Number of optimisation iterations. Defaults to `2000`.
+
+    Returns:
+        tensor: MAP estimate.
+    """
+
+    def objective(vs_):
+        return -f(vs_["x"])
+
+    vs = Vars(B.dtype(x_init))
+    vs.unbounded(init=x_init, name="x")
+    minimise_l_bfgs_b(objective, vs, iters=iters, jit=True, trace=True)
+    return vs["x"]
+
+
 def laplace_approximation(f, x_init, f_eval=None):
     """Perform a Laplace approximation of a density.
 
@@ -400,17 +437,7 @@ def laplace_approximation(f, x_init, f_eval=None):
     Returns:
         tuple[:class:`stheno.Normal`]: Laplace approximation.
     """
-
-    def laplace_objective(vs_):
-        return -f(vs_["x"])
-
-    # Perform optimisation.
-    vs = Vars(B.dtype(x_init))
-    vs.unbounded(init=x_init, name="x")
-    minimise_l_bfgs_b(laplace_objective, vs, iters=2_000, jit=True, trace=True)
-    x = vs["x"]
-
-    # Compute Laplace approximation.
+    x = maximum_a_posteriori(f, x_init)
     precision = -hessian(f_eval if f_eval is not None else f, x)
     return Normal(x, closest_psd(precision, inv=True))
 
@@ -512,7 +539,7 @@ def fit(model, t, y, method: Val["vi"], iters=1000, fix_noise=False):
             :obj:`plum.Val("vi")`.
         t (vector): Locations of observations.
         y (vector): Observations.
-        iters (int, optional): Training iterations. Defaults to `100`.
+        iters (int, optional): Training iterations. Defaults to `1000`.
         fix_noise (bool, optional): Fix the noise during training. Defaults to `False`.
     """
 
@@ -533,11 +560,50 @@ def fit(model, t, y, method: Val["vi"], iters=1000, fix_noise=False):
 
     # Perform optimisation.
     state = B.create_random_state(model.dtype)
+    # Initialise the variational parameters. The learning rate can be fairly high here.
     minimise_adam(
         objective,
         (model.vs, state),
-        iters=iters,
+        iters=500,
         trace=True,
         rate=5e-2,
-        names=names,
+        names="q_*",
+        jit=True,
     )
+    # Use the other half the iterations to jointly optimise everything. The learning
+    # rate needs to be lower here.
+    minimise_adam(
+        objective,
+        (model.vs, state),
+        iters=iters // 2,
+        trace=True,
+        rate=2e-2,
+        names=names,
+        jit=True,
+    )
+
+
+@fit.dispatch
+def fit(model, t, y, method: Val["ess"], iters=1000):
+    """Train a model using VI.
+
+    Args:
+        model (:class:`.gpcm.AbstractGPCM`): Model.
+        method (str): Specification of the method. Must be equal to
+            :obj:`plum.Val("vi")`.
+        t (vector): Locations of observations.
+        y (vector): Observations.
+        iters (int, optional): Training iterations. Defaults to `1000`.
+    """
+    instance = model()
+    x_map = maximum_a_posteriori(
+        B.jit(partial(instance.logpdf_optimal_q_u, t, y)),
+        B.randn(instance.dtype, instance.n_u, 1),
+        iters=50
+    )
+    sampler = ESS(
+        B.jit(partial(instance.logpdf_optimal_q_u, t, y, prior=False)),
+        instance.p_u.sample,
+        x_map
+    )
+    model.samples = sampler.sample(num=500, trace=True)[-400:]

@@ -43,7 +43,7 @@ def setup(name):
     parser.add_argument("--fix-noise", action="store_true")
     parser.add_argument(
         "--train-method",
-        choices=["vi", "laplace", "laplace-vi"],
+        choices=["vi", "laplace", "laplace-vi", "ess"],
         default="vi",
         nargs="?",
     )
@@ -405,7 +405,7 @@ def analyse_plots(
         # Estimate autocorrelation.
         if t_is_equally_spaced:
             t_ac = t - t[0]
-            k_ac = autocorr(y, normalise=False)
+            k_ac = autocorr(y, cov=True)
 
         plt.subplot(3, 1, 1 + i)
         plt.title(f"Kernel ({model.name})")
@@ -470,7 +470,7 @@ def analyse_plots(
         # Estimate PSD.
         if t_is_equally_spaced:
             t_ac = t - t[0]
-            k_ac = autocorr(y, normalise=False)
+            k_ac = autocorr(y, cov=True)
             freqs_ac, psd_ac = estimate_psd(t_ac, k_ac, db=True)
 
         plt.subplot(3, 1, 1 + i)

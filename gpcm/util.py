@@ -144,13 +144,16 @@ def collect(name="Quantities", **kw_args):
     return namedtuple(name, kw_args)(**kw_args)
 
 
-def autocorr(x, lags=None, normalise=True):
+def autocorr(x, lags=None, cov=False, window=False):
     """Estimate the autocorrelation.
 
     Args:
         x (vector): Time series to estimate autocorrelation of.
         lags (int, optional): Number of lags. Defaults to all lags.
-        normalise (bool, optional): Normalise estimation. Defaults to `True`.
+        cov (bool, optional): Compute covariances rather than correlations. Defaults to
+            `False`.
+        window (bool, optional): Apply a triangular window to the estimate. Defaults to
+            `False`.
 
     Returns:
         vector: Autocorrelation.
@@ -158,19 +161,26 @@ def autocorr(x, lags=None, normalise=True):
     # Convert to NumPy for compatibility with frameworks.
     x = B.to_numpy(x)
 
-    # Compute autocorrelation.
+    # Compute autocovariance.
     x = np.reshape(x, -1)  # Flatten the input.
     x = x - np.mean(x)
-    k = np.correlate(x, x, mode="full")[: x.size][::-1]
-    k /= np.arange(x.size, 0, -1)  # Divide by the number of estimates.
+    k = np.correlate(x, x, mode="full")
+    k = k[k.size // 2 :]
+
+    if window:
+        # Do not undo the triangular window.
+        k = k / x.size
+    else:
+        # Divide by the precise numbers of estimates.
+        k = k / np.arange(x.size, 0, -1)
 
     # Get the right number of lags.
     if lags is not None:
         k = k[: lags + 1]
 
-    # Normalise by the variance.
-    if normalise:
-        k = k / max(k)
+    # Divide by estimate of variance if computing correlations.
+    if not cov:
+        k = k / k[0]
 
     return k
 

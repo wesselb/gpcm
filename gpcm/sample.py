@@ -1,8 +1,11 @@
 import time
 
 import lab as B
+import numpy as np
 import numpy.random as rng
 import wbml.out
+
+from .util import autocorr
 
 __all__ = ["ESS"]
 
@@ -22,15 +25,18 @@ class ESS:
             mean Gaussian.
     """
 
-    def __init__(self, log_lik, sample_prior):
+    def __init__(self, log_lik, sample_prior, x_init=None):
         self.log_lik = log_lik
         self.sample_prior = sample_prior
 
         self.x = None
         self.log_lik_x = None
 
-        # Sample the initial state from the prior and compute log-likelihood.
-        self.move(sample_prior())
+        # Initialise.
+        if x_init is not None:
+            self.move(x_init)
+        else:
+            self.move(sample_prior())
 
     def move(self, x):
         """Move to a particular state.
@@ -115,11 +121,24 @@ class ESS:
                 for i in range(num):
                     attempts, ms_per_attempt = self._sample()
                     samples.append(self.x)
+
+                    # Compute average effective sample size.
+                    m = 20
+                    if len(samples) > m:
+                        ess = []
+                        chain = B.stack(*[B.flatten(x)[0] for x in samples[m:]], axis=0)
+                        corrs = autocorr(chain, window=True, lags=5)
+                        ess.append(len(samples) / (1 + 2 * np.sum(corrs)))
+                        ess = np.mean(ess)
+                    else:
+                        ess = np.nan
+
                     progress(
                         {
                             "Pseudo-log-likelihood": self.log_lik_x,
                             "Attempts": attempts,
                             "Milliseconds per attempt": ms_per_attempt,
+                            "Effective sample size": ess,
                         }
                     )
 
