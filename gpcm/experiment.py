@@ -43,7 +43,7 @@ def setup(name):
     parser.add_argument("--fix-noise", action="store_true")
     parser.add_argument(
         "--train-method",
-        choices=["vi", "laplace", "laplace-vi", "ess"],
+        choices=["vi", "laplace", "laplace-vi", "ess", "gibbs"],
         default="vi",
         nargs="?",
     )
