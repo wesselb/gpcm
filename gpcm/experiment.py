@@ -10,15 +10,15 @@ import wbml.plot
 from matplotlib.ticker import FormatStrFormatter
 from matrix.util import ToDenseWarning
 from stheno.jax import GP
-from varz import Vars, sequential, minimise_l_bfgs_b
+from varz import Vars, minimise_l_bfgs_b, sequential
 from wbml.experiment import WorkingDirectory
 
-from .gpcm import GPCM, CGPCM
+from .gpcm import CGPCM, GPCM
 from .gprv import GPRV
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action="ignore")
-B.epsilon = 1e-7
+B.epsilon = 1e-10
 wbml.out.report_time = True
 
 __all__ = ["setup", "run", "build_models", "train_models", "analyse_models"]
@@ -41,12 +41,7 @@ def setup(name):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--iters", type=int)
     parser.add_argument("--fix-noise", action="store_true")
-    parser.add_argument(
-        "--train-method",
-        choices=["vi", "laplace", "laplace-vi", "ess", "gibbs"],
-        default="vi",
-        nargs="?",
-    )
+    parser.add_argument("--train-method", type=str, default="vi")
     parser.add_argument(
         "--model",
         choices=["gpcm", "gprv", "cgpcm"],

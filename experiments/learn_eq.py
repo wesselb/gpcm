@@ -1,13 +1,11 @@
-import lab.torch as B
-import torch
-from stheno.torch import Measure, GP, Delta, EQ
-
-from gpcm.experiment import setup, run
+import lab as B
+from gpcm.experiment import run, setup
+from stheno import EQ, GP, Delta, Measure
 
 args, wd = setup("eq")
 
 # Setup experiment.
-n = 880 + 1  # Need to add the last point for the call to `linspace`.
+n = 200 + 1  # Need to add the last point for the call to `linspace`.
 noise = 1.0
 t = B.linspace(-44, 44, n)
 t_plot = B.linspace(-44, 44, 500)
@@ -15,7 +13,7 @@ t_plot = B.linspace(-44, 44, 500)
 # Setup true model and GPCM models.
 kernel = EQ()
 window = 2
-scale = 0.5
+scale = 1
 n_u = 40
 n_z = 88
 

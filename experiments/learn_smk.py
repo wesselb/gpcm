@@ -1,7 +1,6 @@
 import lab as B
-from stheno import Measure, GP, Delta, EQ
-
-from gpcm.experiment import setup, run
+from gpcm.experiment import run, setup
+from stheno import EQ, GP, Delta, Measure
 
 args, wd = setup("smk")
 
@@ -17,7 +16,7 @@ kernel = kernel + EQ().stretch(3) * (lambda x: B.sin(2 * B.pi * x * 0.25))
 
 window = 4
 scale = 0.5
-n_u = 80
+n_u = 40
 n_z = 88
 
 # Sample data.

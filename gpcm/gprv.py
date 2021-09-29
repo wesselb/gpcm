@@ -6,7 +6,7 @@ from matrix import Dense, Diagonal, LowRank
 from varz import Vars
 
 from .model import AbstractGPCM
-from .util import method, invert_perm
+from .util import invert_perm, method
 
 __all__ = ["GPRV"]
 
@@ -89,7 +89,8 @@ class GPRV(AbstractGPCM):
         # Then initialise fixed variables.
         if t_u is None:
             t_u_max = 2 / self.alpha
-            t_u = B.linspace(0, t_u_max, n_u)
+            # Make lower value very small, so we can restrict `t_u` to be positive.
+            t_u = B.linspace(1e-6, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -118,6 +119,7 @@ class GPRV(AbstractGPCM):
         self.b = b
         self.m_max = m_max
         self.ms = ms
+        self.n_z = len(ms)
         self.n_u = n_u
         self.t_u = t_u
 
@@ -139,7 +141,7 @@ class GPRV(AbstractGPCM):
         self.lam = self.ps.positive(self.lam, name="lambda")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.gamma_t = self.gamma_t  # Don't learn `gamma_t`: overparametrised.
-        self.t_u = self.ps.unbounded(self.t_u, name="t_u")
+        self.t_u = self.ps.positive(self.t_u, name="t_u")
 
         AbstractGPCM.__prior__(self)
 
@@ -156,8 +158,7 @@ def compute_K_u(model):
         tensor: :math:`K_u`.
     """
     return Dense(
-        model.gamma_t ** 2
-        / (2 * model.gamma)
+        (model.gamma_t ** 2 / (2 * model.gamma))
         * B.exp(-model.gamma * B.abs(model.t_u[:, None] - model.t_u[None, :]))
     )
 

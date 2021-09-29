@@ -62,6 +62,9 @@ class GPCM(AbstractGPCM):
         t_z (vector, optional): Locations of inducing points for :math:`s`.
             Defaults to equally spaced points across the span of the data
             extended by twice the filter length scale.
+        extend_t_z (bool, optional): Increase the number of inducing points for
+            :math:`z` to additionally and appropriately cover an extension of the length
+            of the filter on both sides.
         t (vector, alternative): Locations of interest. Can be used to automatically
             initialise quantities.
     """
@@ -84,6 +87,7 @@ class GPCM(AbstractGPCM):
         n_z=None,
         n_z_cap=150,
         t_z=None,
+        extend_t_z=False,
         t=None,
     ):
         AbstractGPCM.__init__(self)
@@ -118,7 +122,8 @@ class GPCM(AbstractGPCM):
 
         # Then initialise fixed variables.
         if t_u is None:
-            # For the causal case, decay is less quick.
+            # For the causal case, decay is less quick, and we want `t_u_max` to be the
+            # same in both cases.
             if causal:
                 t_u_max = factor_to_scale(self.alpha)
             else:
@@ -149,7 +154,13 @@ class GPCM(AbstractGPCM):
                     )
                     n_z = n_z_cap
 
-            # Again, decay is less quick for the causal case.
+            t_z = B.linspace(min(t), max(t), n_z)
+
+        if n_z is None:
+            n_z = B.shape(t_z)[0]
+
+        if extend_t_z:
+            # Again, decay is less quick for the causal case. See above.
             if causal:
                 t_z_extra = factor_to_scale(self.alpha)
             else:
@@ -166,9 +177,6 @@ class GPCM(AbstractGPCM):
             else:
                 n_z += 2 * n_z_extra
                 t_z = B.linspace(min(t) - t_z_extra, max(t) + t_z_extra, n_z)
-
-        if n_z is None:
-            n_z = B.shape(t_z)[0]
 
         self.n_u = n_u
         self.t_u = t_u
@@ -219,10 +227,10 @@ class GPCM(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.ps.positive(self.alpha, name="alpha")
+        self.alpha = self.alpha  # Fix the window length.
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
-        self.omega = self.omega  # Learning this sometimes causes instabilities.
+        self.omega = self.ps.positive(self.omega, name="omega")
         self.t_u = self.ps.unbounded(self.t_u, name="t_u")
         self.t_z = self.ps.unbounded(self.t_z, name="t_z")
 

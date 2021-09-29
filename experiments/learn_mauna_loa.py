@@ -1,12 +1,11 @@
 import lab as B
 import numpy as np
-from gpcm.experiment import setup, run
+from gpcm.experiment import run, setup
 from wbml.data.mauna_loa import load
 
 args, wd = setup("mauna_loa")
 
-n = 300
-
+n = 400
 data = load()
 t = np.array(data.index)[-n:]
 y = np.array(data["ppm_detrended"])[-n:]
@@ -19,10 +18,12 @@ y /= B.std(y)
 
 # Setup GPCM models.
 noise = 0.1
-window = 15
-scale = 2 / 12
-n_u = 6 * (window * 2)   # Roughly six inducing points per year
-n_z = n // 2
+window = max(t) / 2
+scale = 4 / 12
+# Set two points per wiggle of the filter.
+n_u = int(2 * (2 * window) / scale)
+# Set two inducing points per frequency and add Nyquist correction.
+n_z = int(1.2 * 2 * 2 * max(t))
 
 run(
     args=args,
