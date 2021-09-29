@@ -1,10 +1,11 @@
-import pytest
-import numpy as np
-from scipy.integrate import dblquad, quad
 from itertools import product
+
 import gpcm.gprv as gprv
-from varz import Vars
 import lab as B
+import numpy as np
+import pytest
+from scipy.integrate import dblquad, quad
+from varz import Vars
 
 from .util import approx, assert_positive_definite
 
@@ -16,7 +17,7 @@ def t():
 
 @pytest.fixture()
 def model(t):
-    return gprv.GPRV(Vars(np.float64), window=0.5, t=t, n_u=3, m_max=2)
+    return gprv.GPRV(window=0.5, t=t, n_u=3, m_max=2)
 
 
 def signed_pairs(num):
