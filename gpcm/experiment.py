@@ -40,11 +40,17 @@ def setup(name):
     parser.add_argument("path", nargs="*")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--iters", type=int)
-    parser.add_argument("--fix-noise", action="store_true")
-    parser.add_argument("--train-method", type=str, default="vi")
+    parser.add_argument(
+        "--scheme",
+        choices=["mean-field-bfgs", "mean-field-ca", "structured"],
+        type=str,
+        default="structured",
+        nargs=1,
+    )
     parser.add_argument(
         "--model",
         choices=["gpcm", "gprv", "cgpcm"],
+        type=str,
         default=["gpcm", "gprv", "cgpcm"],
         nargs="+",
     )
@@ -73,12 +79,20 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
         n_z (int): Number of inducing points for :math:`s` or equivalent.
     """
     models = build_models(
-        args.model, noise=noise, window=window, scale=scale, t=t, y=y, n_u=n_u, n_z=n_z
+        args.model,
+        scheme=args.scheme[0],
+        noise=noise,
+        window=window,
+        scale=scale,
+        t=t,
+        y=y,
+        n_u=n_u,
+        n_z=n_z,
     )
 
     # Setup training.
-    train_config = {"method": args.train_method}
-    for name in ["iters", "fix_noise"]:
+    train_config = {}
+    for name in ["iters"]:
         if getattr(args, name):
             train_config[name] = getattr(args, name)
 
@@ -89,11 +103,12 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
     analyse_models(models, t, y, wd=wd, **kw_args)
 
 
-def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
+def build_models(names, scheme, window, scale, noise, t, y, n_u=40, n_z=None):
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
         names (list[str]): Names of models to build.
+        scheme (str): Approximation scheme.
         window (scalar): Window length.
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
@@ -107,6 +122,7 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
         names = set(names) - {"gpcm"}
         models.append(
             GPCM(
+                scheme=scheme,
                 noise=noise,
                 window=window,
                 scale=scale,
@@ -120,6 +136,7 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
         names = set(names) - {"cgpcm"}
         models.append(
             CGPCM(
+                scheme=scheme,
                 noise=noise,
                 window=window,
                 scale=scale,
@@ -132,6 +149,7 @@ def build_models(names, window, scale, noise, t, y, n_u=40, n_z=None):
         names = set(names) - {"gprv"}
         models.append(
             GPRV(
+                scheme=scheme,
                 noise=noise,
                 window=window,
                 scale=scale,

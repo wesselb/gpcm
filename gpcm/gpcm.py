@@ -40,6 +40,7 @@ class GPCM(AbstractGPCM):
     """GPCM and causal variant.
 
     Args:
+        scheme (str, optional): Approximation scheme. Defaults to `structured`.
         causal (bool, optional): Use causal variant. Defaults to `False`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to
@@ -74,6 +75,7 @@ class GPCM(AbstractGPCM):
 
     def __init__(
         self,
+        scheme="structured",
         causal=False,
         noise=1e-4,
         alpha=None,
@@ -90,7 +92,7 @@ class GPCM(AbstractGPCM):
         extend_t_z=False,
         t=None,
     ):
-        AbstractGPCM.__init__(self)
+        AbstractGPCM.__init__(self, scheme)
 
         # Store whether this is the CGPCM instead of the GPCM.
         self.causal = causal
@@ -227,7 +229,7 @@ class GPCM(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.alpha  # Fix the window length.
+        self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.omega = self.ps.positive(self.omega, name="omega")

@@ -21,13 +21,19 @@ def _m1s_m2s_to_marginals(m1s: Union[list, tuple], m2s: Union[list, tuple]):
 
 
 @_dispatch
-def _subsample_mc(xs: list, n: int):
+def _subsample_mc(xs: B.Numeric, n: int):
     if n == 1:
-        return xs[-1]
+        return xs[:, -1:]
     elif n < 1:
         raise ValueError(f"Invalid number of samples {n}.")
-    inds = list(range(len(xs)))[:: max(len(xs) // n, 1)]
-    return [xs[i + len(xs) - 1 - inds[-1]] for i in inds[-n:]]
+
+    total = B.shape(xs, 1)
+
+    # Determine which indices to take.
+    inds = list(range(total))[:: max(total // n, 1)]
+    inds = [i + len(xs) - 1 - inds[-1] for i in inds[-n:]]
+
+    return [xs[:, i : i + 1] for i in inds]
 
 
 def _mean_var(lam, prec):
@@ -70,6 +76,11 @@ def _parametrise_natural(params, n):
     )
 
 
+@_dispatch
+def _columns(xs: B.Numeric):
+    return [xs[:, i : i + 1] for i in range(B.shape(xs, 1))]
+
+
 class GPCMApproximation:
     """Approximation of the GPCM.
 
@@ -96,8 +107,7 @@ class GPCMApproximation:
     @property
     def p_u_samples(self):
         """list[tensor]: Samples for the current prior for :math:`u`."""
-        samples = self.model.ps.q_u[self._q_i - 1].samples()
-        return B.unstack(samples, axis=1, squeeze=False)
+        return self.model.ps.q_u[self._q_i - 1].samples()
 
     @property
     def q_u(self):
@@ -114,8 +124,7 @@ class GPCMApproximation:
     @property
     def q_u_samples(self):
         """list[tensor]: Samples for the current variational posterior for :math:`u`."""
-        samples = self.model.ps.q_u[self._q_i].samples()
-        return B.unstack(samples, axis=1, squeeze=False)
+        return self.model.ps.q_u[self._q_i].samples()
 
     @q_u_samples.setter
     @_dispatch
@@ -131,7 +140,7 @@ class GPCMApproximation:
         if self._q_i == 0:
             return (0, self.model.K_z)
         else:
-            return self._parametrise_natural(
+            return _parametrise_natural(
                 self.model.ps.q_z[self._q_i - 1],
                 self.model.n_z,
             )
@@ -139,8 +148,7 @@ class GPCMApproximation:
     @property
     def p_z_samples(self):
         """list[tensor]: Samples from the current prior for :math:`z`."""
-        samples = self.model.ps.q_z[self._q_i - 1].samples()
-        return B.unstack(samples, axis=1, squeeze=False)
+        return self.model.ps.q_z[self._q_i - 1].samples()
 
     @property
     def q_z(self):
@@ -157,8 +165,7 @@ class GPCMApproximation:
     @property
     def q_z_samples(self):
         """list[tensor]: Samples from the variational posterior for :math:`z`."""
-        samples = self.model.ps.q_z[self._q_i].samples()
-        return B.unstack(samples, axis=1, squeeze=False)
+        return self.model.ps.q_z[self._q_i].samples()
 
     @q_z_samples.setter
     @_dispatch
@@ -209,7 +216,10 @@ class GPCMApproximation:
             ts.I_hx_sum
             - B.sum(self.model.K_u_inv * ts.I_ux_sum)
             - B.sum(self.model.K_z_inv * ts.I_hz_sum)
-            + B.sum(self.model.K_u_inv * B.sum(ts.K_z_squeezed, axis=0))
+            # It would be more efficient to first `B.sum(ts.K_z_squeezed, axis=0)`, but
+            # for some reason that results in a segmentation fault when run on with the
+            # JIT on the GPU. I'm not sure what's going on...
+            + B.sum(self.model.K_u_inv * ts.K_z_squeezed)
         )
 
         if y is not None:
@@ -275,13 +285,6 @@ class GPCMApproximation:
             self.model.K_z,
             u,
         )
-        # part = B.mm(ts.I_uz, u, tr_a=True)
-        # inv_cov_z = self.model.K_z + 1 / self.model.noise * (
-        #     ts.B_sum + B.sum(B.mm(part, part, tr_b=True), axis=0)
-        # )
-        # inv_cov_z_mu_z = 1 / self.model.noise * B.mm(ts.I_uz_sum, u, tr_a=True)
-        # cov_z = B.pd_inv(inv_cov_z)
-        # return Normal(B.mm(cov_z, inv_cov_z_mu_z), cov_z)
 
     @_dispatch
     def q_z_optimal_mean_field_natural(self, ts: SimpleNamespace, lam, prec):
@@ -370,7 +373,7 @@ class GPCMApproximation:
         """
         ts = self.construct_terms(t, y)
         state, us = _sample(state, self.q_u, num_samples)
-        recs = [self.log_Z_u(ts, u) for u in B.unstack(us, axis=1, squeeze=False)]
+        recs = [self.log_Z_u(ts, u) for u in _columns(us)]
         return state, sum(recs) / len(recs) - _kl(self.q_u, self.p_u)
 
     @_dispatch
@@ -385,13 +388,10 @@ class GPCMApproximation:
         Returns:
             scalar: ELBO.
         """
-        raise NotImplementedError
         ts = self.construct_terms(t, y)
-        state, samples = self.q_z.sample(state, num_samples)
-        rec_samples = [
-            self.log_Z_z(ts, z) for z in B.unstack(samples, axis=1, squeeze=False)
-        ]
-        return state, sum(rec_samples) / num_samples - self.q_z.kl(self.p_z)
+        state, us = _sample(state, self.q_z, num_samples)
+        recs = [self.log_Z_z(ts, z) for z in _columns(zs)]
+        return state, sum(recs) / len(recs) - _kl(self.q_z, self.p_z)
 
     @_dispatch
     def elbo_mean_field(self, t, y):
@@ -404,8 +404,9 @@ class GPCMApproximation:
         Returns:
             scalar: ELBO.
         """
-        raise NotImplementedError
         ts = self.construct_terms(t, y)
+        u, u2 = _mean_m2(*self.q_u)
+        z, z2 = _mean_m2(*self.q_z)
         return (
             (
                 -0.5 * ts.n * B.log(2 * B.pi * self.model.noise)
@@ -413,40 +414,41 @@ class GPCMApproximation:
                     (-0.5 / self.model.noise)
                     * (
                         B.sum(ts.y ** 2)
-                        + B.sum(ts.A_sum * self.q_u.m2)
-                        + B.sum(ts.B_sum * self.q_z.m2)
-                        + B.sum(
-                            B.mm(ts.I_uz, self.q_z.m2, ts.I_uz, tr_c=True) * self.q_u.m2
-                        )
+                        + B.sum(ts.A_sum * u2)
+                        + B.sum(ts.B_sum * z2)
+                        + B.sum(B.mm(ts.I_uz, z2, ts.I_uz, tr_c=True) * u2)
                         + ts.c_sum
-                        - 2 * B.sum(self.q_u.mean * B.mm(ts.I_uz_sum, self.q_z.mean))
+                        - 2 * B.sum(u * B.mm(ts.I_uz_sum, z))
                     )
                 )
             )
-            - self.q_u.kl(self.model.p_u)
-            - self.q_z.kl(self.model.p_z)
+            - _kl(self.q_u, self.p_u)
+            - _kl(self.q_z, self.p_z)
         )
 
-    def predict(self, t, num_samples=50):
+    def predict(self, t, num_samples=100):
         """Predict.
 
         Args:
             t (vector): Points to predict at.
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
         ts = self.construct_terms(t)
-        us = _subsample_mc(self.p_u_samples, num_samples)
-        zs = _subsample_mc(self.p_z_samples, num_samples)
-        m1s, m2s = zip(
-            *[
-                self._predict_moments(ts, u, B.outer(u), z, B.outer(z))
-                for u, z in zip(us, zs)
-            ]
-        )
+        m1s, m2s = [], []
+        for u in _subsample_mc(self.p_u_samples, num_samples):
+            q_z = self.q_z_optimal_natural(self.ts, u)
+            m1, m2 = self._predict_moments(
+                ts,
+                u,
+                B.outer(u),
+                *_mean_m2(*q_z),
+            )
+            m1s.append(m1)
+            m2s.append(m2)
         return _m1s_m2s_to_marginals(m1s, m2s)
 
     def predict_mean_field(self, t):
@@ -461,8 +463,8 @@ class GPCMApproximation:
         """
         m1, m2 = self._predict_moments(
             self.construct_terms(t),
-            *_mean_var(*self.p_u, self.model.K_u),
-            *_mean_var(*self.p_z, self.model.K_z),
+            *_mean_m2(*self.p_u),
+            *_mean_m2(*self.p_z),
         )
         return m1, m2 - m1 ** 2
 
@@ -488,12 +490,12 @@ class GPCMApproximation:
 
         return m1, m2
 
-    def sample_kernel(self, t_k, num_samples=50):
+    def sample_kernel(self, t_k, num_samples=100):
         """Sample kernel.
 
         Args:
             t_k (vector): Time point to sample at.
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
 
         Returns:
             tensor: Samples.
@@ -501,17 +503,20 @@ class GPCMApproximation:
         us = _subsample_mc(self.p_u_samples, num_samples)
         return B.stack(*[self._sample_kernel(t_k, u) for u in us], axis=0)
 
-    def sample_kernel_mean_field(self, t_k, num_samples=50):
+    def sample_kernel_mean_field(self, t_k, num_samples=100):
         """Sample kernel under the mean-field approximation.
 
         Args:
             t_k (vector): Time point to sample at.
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
 
         Returns:
             tensor: Samples.
         """
-        raise NotImplementedError
+        state = B.global_random_state(self.model.dtype)
+        state, us = _sample(state, self.p_u, num_samples)
+        B.set_global_random_state(state)
+        return B.stack(*[self._sample_kernel(t_k, u) for u in _columns(us)], axis=0)
 
     def _sample_kernel(self, t_k, u):
         return B.flatten(
@@ -522,11 +527,11 @@ class GPCMApproximation:
             )
         )
 
-    def predict_z(self, num_samples=50):
+    def predict_z(self, num_samples=100):
         """Predict Fourier features.
 
         Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
 
         Returns:
             tuple: Marginals of the predictions.
@@ -540,4 +545,4 @@ class GPCMApproximation:
         Returns:
             tuple: Marginals of the predictions.
         """
-        return Normal(*_mean_var(*self.p_z, self.model.K_z)).marginals()
+        return Normal(*_mean_var(*self.p_z)).marginals()

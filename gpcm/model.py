@@ -22,9 +22,16 @@ _dispatch = Dispatcher()
 
 
 class AbstractGPCM(Model):
-    """GPCM model."""
+    """GPCM model.
 
-    def __init__(self):
+    Args:
+        scheme (str): Approximation scheme.
+    """
+
+    @_dispatch
+    def __init__(self, scheme: str):
+        self.scheme = scheme.lower()
+        # TODO: Check validity..
         self.vs = Vars(jnp.float64)
 
     def __prior__(self):
@@ -46,13 +53,22 @@ class AbstractGPCM(Model):
 
     @instancemethod
     @cast
-    def elbo(self, *args, **kw_args):
-        return self.approximation.elbo_collapsed_z(*args, **kw_args)
+    def elbo(self, state, *args, **kw_args):
+        if self.scheme == "structured":
+            return self.approximation.elbo_collapsed_z(state, *args, **kw_args)
+        else:
+            # TODO: refactor
+            if "num_samples" in kw_args:
+                del kw_args["num_samples"]
+            return state, self.approximation.elbo_mean_field(*args, **kw_args)
 
     @instancemethod
     @cast
     def predict(self, *args, **kw_args):
-        return self.approximation.predict(*args, **kw_args)
+        if self.scheme == "structured":
+            return self.approximation.predict(*args, **kw_args)
+        else:
+            return self.approximation.predict_mean_field(*args, **kw_args)
 
     @instancemethod
     def predict_kernel(self, **kw_args):
@@ -82,7 +98,10 @@ class AbstractGPCM(Model):
         if t_k is None:
             t_k = B.linspace(self.dtype, 0, 1.2 * B.max(self.t_u), 300)
 
-        ks = self.approximation.sample_kernel_samples(t_k, **kw_args)
+        if self.scheme == "structured":
+            ks = self.approximation.sample_kernel(t_k, **kw_args)
+        else:
+            ks = self.approximation.sample_kernel_mean_field(t_k, **kw_args)
 
         # Normalise predicted kernel.
         var_mean = B.mean(ks[:, 0])
@@ -120,7 +139,10 @@ class AbstractGPCM(Model):
         Returns:
             tuple: Marginals of the predictions.
         """
-        return self.approximation.predict_z(**kw_args)
+        if self.scheme == "structured":
+            return self.approximation.predict_z(**kw_args)
+        else:
+            return self.approximation.predict_z_mean_field(**kw_args)
 
     @instancemethod
     @cast
@@ -228,8 +250,8 @@ def laplace_approximation(f, x_init, f_eval=None):
 
 
 @fit.dispatch
-def fit(model: AbstractGPCM, t, y, method: str = "structured", **kw_args):
-    fit(model, t, y, Val(method.lower()), **kw_args)
+def fit(model: AbstractGPCM, t, y, **kw_args):
+    fit(model, t, y, Val(model.scheme.lower()), **kw_args)
 
 
 @fit.dispatch
@@ -363,27 +385,24 @@ def fit(model, t, y, method: Val["structured"], iters=5000):
             B.cast(instance.dtype, t),
             B.cast(instance.dtype, y),
         )
-        samples = []
-        for _ in range(5):
-            q_u = instance.approximation.q_u_optimal_natural(ts, z)
-            state, u = _sample(state, q_u, 1)
-            q_z = instance.approximation.q_z_optimal_natural(ts, u)
-            state, z = _sample(state, q_z, 1)
-            u = B.dense(u)
-            samples.append(
-                instance.approximation.log_Z_u(ts, stop_gradient(u))
-                - Normal(instance.K_u).logpdf(B.mm(instance.K_u, stop_gradient(u)))
-            )
-        return -sum(samples) / len(samples), state, B.dense(u), B.dense(z)
+        q_u = instance.approximation.q_u_optimal_natural(ts, z)
+        state, u = _sample(state, q_u, 1)
+        q_z = instance.approximation.q_z_optimal_natural(ts, u)
+        state, z = _sample(state, q_z, 1)
+        u = B.dense(u)
+        elbo = instance.approximation.log_Z_u(ts, stop_gradient(u)) + Normal(
+            instance.K_u
+        ).logpdf(B.mm(instance.K_u, stop_gradient(u)))
+        return -elbo, state, B.dense(u), B.dense(z)
 
     # Optimise hyperparameters.
     _, state, u, z = minimise_adam(
         objective,
         (model.vs, state, u, z),
-        iters=20,
-        rate=5e-2,
+        iters=500,
+        rate=5e-3,
         trace=True,
-        jit=False,
+        jit=True,
         names=["-q_*"],
     )
 

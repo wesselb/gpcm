@@ -15,6 +15,7 @@ class GPRV(AbstractGPCM):
     """GP-RV variation of the GPCM.
 
     Args:
+        scheme (str, optional): Approximation scheme. Defaults to `structured`.
         noise (scalar, optional): Observation noise. Defaults to `1e-4`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to normalise the
@@ -48,6 +49,7 @@ class GPRV(AbstractGPCM):
 
     def __init__(
         self,
+        scheme="structured",
         noise=1e-4,
         alpha=None,
         alpha_t=None,
@@ -65,7 +67,7 @@ class GPRV(AbstractGPCM):
         t_u=None,
         t=None,
     ):
-        AbstractGPCM.__init__(self)
+        AbstractGPCM.__init__(self, scheme)
 
         # Ensure that `t` is a vector.
         if t is not None:
