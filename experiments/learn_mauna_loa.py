@@ -18,12 +18,12 @@ y /= B.std(y)
 
 # Setup GPCM models.
 noise = 0.1
-window = max(t) / 2
-scale = 4 / 12
+window = min(max(t) / 2, 15)
+scale = 2 / 12
 # Set two points per wiggle of the filter.
 n_u = int(2 * (2 * window) / scale)
 # Set two inducing points per frequency and add Nyquist correction.
-n_z = int(1.2 * 2 * 2 * max(t))
+n_z = int(2.2 * 2 * 2 * max(t))
 
 run(
     args=args,
