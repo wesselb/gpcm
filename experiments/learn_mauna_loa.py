@@ -5,7 +5,7 @@ from wbml.data.mauna_loa import load
 
 args, wd = setup("mauna_loa")
 
-n = 200
+n = 300
 data = load()
 t = np.array(data.index)[-n:]
 y = np.array(data["ppm_detrended"])[-n:]
@@ -18,7 +18,7 @@ y /= B.std(y)
 
 # Setup GPCM models.
 noise = 0.05
-window = min(max(t) / 2, 15)
+window = min(max(t), 15)
 scale = 3 / 12
 
 run(
