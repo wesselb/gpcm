@@ -40,13 +40,7 @@ def setup(name):
     parser.add_argument("path", nargs="*")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--iters", type=int)
-    parser.add_argument(
-        "--scheme",
-        choices=["mean-field-bfgs", "mean-field-ca", "structured"],
-        type=str,
-        default="structured",
-        nargs=1,
-    )
+    parser.add_argument("--scheme", type=str, default="structured")
     parser.add_argument(
         "--model",
         choices=["gpcm", "gprv", "cgpcm"],
@@ -80,7 +74,7 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
     """
     models = build_models(
         args.model,
-        scheme=args.scheme[0],
+        scheme=args.scheme,
         noise=noise,
         window=window,
         scale=scale,
@@ -304,12 +298,7 @@ def analyse_elbos(models, t, y, true_noisy_kernel=None, comparative_kernel=None)
     # Estimate ELBOs.
     with wbml.out.Section("ELBOs"):
         for model in models:
-            state, elbo = model.elbo(
-                B.global_random_state(model.dtype),
-                t,
-                y,
-                num_samples=100,
-            )
+            state, elbo = model.elbo(B.global_random_state(model.dtype), t, y)
             B.set_global_random_state(state)
             wbml.out.kv(model.name, elbo)
 

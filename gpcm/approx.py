@@ -1,87 +1,36 @@
-import math
 from types import SimpleNamespace
-from typing import Union
 
 import lab.jax as B
-from matrix import Diagonal
-from plum import Dispatcher
-from probmods import Model
-from stheno.jax import Normal
+import wbml.out
+from jax.lax import stop_gradient
+from plum import Dispatcher, Union
+from probmods import Model, fit
+from varz import minimise_l_bfgs_b, minimise_adam
+from varz.spec import Struct
 
-__all__ = ["GPCMApproximation"]
+from .normal import NaturalNormal
+
+__all__ = ["Structured", "MeanField"]
 
 _dispatch = Dispatcher()
 
 
 @_dispatch
-def _m1s_m2s_to_marginals(m1s: Union[list, tuple], m2s: Union[list, tuple]):
-    m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
-    m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
-    return m1, m2 - m1 ** 2
-
-
-@_dispatch
-def _subsample_mc(xs: B.Numeric, n: int):
-    if n == 1:
-        return xs[:, -1:]
-    elif n < 1:
-        raise ValueError(f"Invalid number of samples {n}.")
-
-    total = B.shape(xs, 1)
-
-    # Determine which indices to take.
-    inds = list(range(total))[:: max(total // n, 1)]
-    inds = [i + len(xs) - 1 - inds[-1] for i in inds[-n:]]
-
-    return [xs[:, i : i + 1] for i in inds]
-
-
-def _mean_var(lam, prec):
-    var = B.pd_inv(prec)
-    return B.dense(B.cholsolve(B.chol(prec), lam)), var
-
-
-def _mean_m2(lam, prec):
-    chol = B.chol(prec)
-    mean = B.cholsolve(chol, lam)
-    m2 = prec + B.outer(lam)
-    return B.dense(mean), B.cholsolve(chol, B.transpose(B.cholsolve(chol, m2)))
-
-
-def _sample(state, lam_prec, num_samples):
-    lam, prec = lam_prec
-    state, noise = Normal(prec).sample(state, num_samples)
-    return state, B.cholsolve(B.chol(prec), noise + lam)
-
-
-def _kl(lam_prec1, lam_prec2):
-    lam1, prec1 = lam_prec1
-    lam2, prec2 = lam_prec2
-    chol1 = B.chol(prec1)
-    chol2 = B.chol(prec2)
-    diff = B.cholsolve(chol1, lam1) - B.cholsolve(chol2, lam2)
-    ratio = B.solve(chol1, chol2)
-    return 0.5 * (
-        B.sum(ratio ** 2)
-        - 2 * B.logdet(ratio)
-        + B.sum(B.mm(prec2, diff) * diff)
-        - B.cast(B.dtype(lam1, prec1, lam2, prec2), B.shape_matrix(lam1, 0))
-    )
-
-
-def _parametrise_natural(params, n):
-    return (
+def _parametrise_natural(params: Struct, n: B.Int):
+    return NaturalNormal(
         params.lam.unbounded(B.randn(n, 1), shape=(n, 1)),
         params.prec.positive_definite(1e-1 * B.eye(n), shape=(n, n)),
     )
 
 
 @_dispatch
-def _columns(xs: B.Numeric):
-    return [xs[:, i : i + 1] for i in range(B.shape(xs, 1))]
+def _columns(xs: B.Numeric, num: Union[None, B.Int] = None):
+    if num is None:
+        num = B.shape(xs, 1)
+    return [xs[:, i : i + 1] for i in range(min(B.shape(xs, 1), num))]
 
 
-class GPCMApproximation:
+class Approximation:
     """Approximation of the GPCM.
 
     Args:
@@ -97,17 +46,12 @@ class GPCMApproximation:
     def p_u(self):
         """:class:`stheno.Normal`: Current prior for :math:`u`."""
         if self._q_i == 0:
-            return (0, self.model.K_u)
+            return NaturalNormal(0, self.model.K_u)
         else:
             return _parametrise_natural(
                 self.model.ps.q_u[self._q_i - 1],
                 self.model.n_u,
             )
-
-    @property
-    def p_u_samples(self):
-        """list[tensor]: Samples for the current prior for :math:`u`."""
-        return self.model.ps.q_u[self._q_i - 1].samples()
 
     @property
     def q_u(self):
@@ -116,39 +60,21 @@ class GPCMApproximation:
 
     @q_u.setter
     @_dispatch
-    def q_u(self, lam_prec: tuple):
-        lam, prec = lam_prec
-        self.model.ps.q_u[self._q_i].lam.assign(B.dense(lam))
-        self.model.ps.q_u[self._q_i].prec.assign(B.dense(prec))
-
-    @property
-    def q_u_samples(self):
-        """list[tensor]: Samples for the current variational posterior for :math:`u`."""
-        return self.model.ps.q_u[self._q_i].samples()
-
-    @q_u_samples.setter
-    @_dispatch
-    def q_u_samples(self, samples: list):
-        # We need a setter, because these won't be trainable through gradients.
-        self.model.ps.q_u[self._q_i].samples.delete()
-        samples = B.stack(*[B.flatten(x) for x in samples], axis=1)
-        self.model.ps.q_u[self._q_i].samples.unbounded(init=samples, visible=False)
+    def q_u(self, dist: NaturalNormal):
+        self.q_u  # Ensure that it is initialised.
+        self.model.ps.q_u[self._q_i].lam.assign(B.dense(dist.lam))
+        self.model.ps.q_u[self._q_i].prec.assign(B.dense(dist.prec))
 
     @property
     def p_z(self):
         """:class:`stheno.Normal`: Current prior for :math:`z`."""
         if self._q_i == 0:
-            return (0, self.model.K_z)
+            return NaturalNormal(0, self.model.K_z)
         else:
             return _parametrise_natural(
                 self.model.ps.q_z[self._q_i - 1],
                 self.model.n_z,
             )
-
-    @property
-    def p_z_samples(self):
-        """list[tensor]: Samples from the current prior for :math:`z`."""
-        return self.model.ps.q_z[self._q_i - 1].samples()
 
     @property
     def q_z(self):
@@ -157,23 +83,39 @@ class GPCMApproximation:
 
     @q_z.setter
     @_dispatch
-    def q_z(self, lam_prec: tuple):
-        lam, prec = lam_prec
-        self.model.ps.q_z[self._q_i].lam.assign(B.dense(lam))
-        self.model.ps.q_z[self._q_i].prec.assign(B.dense(prec))
+    def q_z(self, dist: NaturalNormal):
+        self.q_z  # Ensure that it is initialised.
+        self.model.ps.q_z[self._q_i].lam.assign(B.dense(dist.lam))
+        self.model.ps.q_z[self._q_i].prec.assign(B.dense(dist.prec))
 
-    @property
-    def q_z_samples(self):
-        """list[tensor]: Samples from the variational posterior for :math:`z`."""
-        return self.model.ps.q_z[self._q_i].samples()
+    def ignore_qs(self, previous, current):
+        """Get a list of regexes that ignore variables corresponding to approximate
+        posteriors.
 
-    @q_z_samples.setter
-    @_dispatch
-    def q_z_samples(self, samples: list):
-        # We need a setter, because these won't be trainable through gradients.
-        self.model.ps.q_z[self._q_i].samples.delete()
-        samples = B.stack(*[B.flatten(x) for x in samples], axis=1)
-        self.model.ps.q_z[self._q_i].samples.unbounded(init=samples, visible=False)
+        Args:
+            previous (bool): Ignore all previous approximate posteriors.
+            current (bool or str): Current approximate posteriors to ignore. Set to
+                `True` or `False` to ignore all or none or to `z` or `u` to ignore
+                a specific approximate posterior.
+
+        Returns:
+            list[str]: Appropriate list of regexes.
+        """
+        names = []
+        if previous:
+            for i in range(self._q_i):
+                names.append("-" + self.model.ps.q_u[i].all())
+                names.append("-" + self.model.ps.q_z[i].all())
+        if current is True:
+            names.append("-" + self.model.ps.q_u[self._q_i].all())
+            names.append("-" + self.model.ps.q_z[self._q_i].all())
+        elif current == "u":
+            names.append("-" + self.model.ps.q_u[self._q_i].all())
+        elif current == "z":
+            names.append("-" + self.model.ps.q_z[self._q_i].all())
+        else:
+            raise ValueError(f'Invalid value "{current}" for `current`.')
+        return names
 
     def condition(self, t, y):
         """Make the current variational approximation the prior and create a new
@@ -229,17 +171,17 @@ class GPCMApproximation:
         return ts
 
     @_dispatch
-    def q_u_optimal_natural(self, ts: SimpleNamespace, z):
+    def q_u_optimal(self, ts: SimpleNamespace, z: B.Numeric):
         """Compute the optimal :math:`q(u|z)`.
 
         Args:
-            ts (object): Terms.
+            ts (:class:`types.SimpleNamespace`): Terms.
             u (tensor): Sample for :math:`z`.
 
         Returns:
             tuple[tensor, tensor]: Natural parameters.
         """
-        return self._q_optimal_natural(
+        return self._q_optimal(
             ts.A_sum,
             ts.I_uz,
             ts.I_uz_sum,
@@ -248,37 +190,37 @@ class GPCMApproximation:
         )
 
     @_dispatch
-    def q_u_optimal_mean_field_natural(self, ts: SimpleNamespace, lam, prec):
+    def q_u_optimal_mean_field(self, ts: SimpleNamespace, q_z: NaturalNormal):
         """Compute the optimal :math:`q(u)` in the mean-field approximation.
 
         Args:
-            ts (object): Terms.
-            lam (tensor): Lambda of :math:`q(z)`.
-            prec (tensor): Precision of :math:`q(z)`.
+            ts (:class:`types.SimpleNamespace`): Terms.
+            q_z (:class:`.normal.NaturalNormal`): Current estimate for :math:`q(z)`.
 
         Returns:
             tuple[tensor, tensor]: Natural parameters.
         """
-        return self._q_optimal_natural(
+        return self._q_optimal(
             ts.A_sum,
             ts.I_uz,
             ts.I_uz_sum,
             self.model.K_u,
-            *_mean_m2(lam, prec),
+            q_z.mean,
+            q_z.m2,
         )
 
     @_dispatch
-    def q_z_optimal_natural(self, ts: SimpleNamespace, u):
+    def q_z_optimal(self, ts: SimpleNamespace, u: B.Numeric):
         """Compute the optimal :math:`q(z|u)`.
 
         Args:
-            ts (object): Terms.
+            ts (:class:`types.SimpleNamespace`): Terms.
             u (tensor): Sample for :math:`u`.
 
         Returns:
             tuple[tensor, tensor]: Natural parameters.
         """
-        return self._q_optimal_natural(
+        return self._q_optimal(
             ts.B_sum,
             B.transpose(ts.I_uz),
             B.transpose(ts.I_uz_sum),
@@ -287,186 +229,36 @@ class GPCMApproximation:
         )
 
     @_dispatch
-    def q_z_optimal_mean_field_natural(self, ts: SimpleNamespace, lam, prec):
+    def q_z_optimal_mean_field(self, ts: SimpleNamespace, q_u: NaturalNormal):
         """Compute the optimal :math:`q(z)` in the mean-field approximation.
 
         Args:
-            ts (object): Terms.
-            lam (tensor): Lambda of :math:`q(u)`.
-            prec (tensor): Precision of :math:`q(u)`.
+            ts (:class:`types.SimpleNamespace`): Terms.
+            q_u (:class:`.normal.NaturalNormal`): Current estimate for :math:`q(u)`.
 
         Returns:
             tuple[tensor, tensor]: Natural parameters.
         """
-        return self._q_optimal_natural(
+        return self._q_optimal(
             ts.B_sum,
             B.transpose(ts.I_uz),
             B.transpose(ts.I_uz_sum),
             self.model.K_z,
-            *_mean_m2(lam, prec),
+            q_u.mean,
+            q_u.m2,
         )
 
-    @_dispatch
-    def _q_optimal_natural(self, A, I, I_sum, K, x, x2=None):
+    def _q_optimal(self, A, I, I_sum, K, x, x2=None):
         if x2 is not None:
             inner = B.mm(I, x2, I, tr_c=True)
         else:
             # This is _much_ more efficient!
             part = B.mm(I, x)
             inner = B.mm(part, part, tr_b=True)
-        return (
+        return NaturalNormal(
             B.mm(I_sum, x) / self.model.noise,
             K + (A + B.sum(inner, axis=0)) / self.model.noise,
         )
-
-    def log_Z_u(self, ts, u):
-        """Compute the normalising constant term of the optimal :math:`q(z|u)`.
-
-        Args:
-            ts (object): Terms.
-            u (tensor): Sample for :math:`u` to use.
-
-        Returns:
-            scalar: Normalising constant term.
-        """
-        lam, prec = self.q_z_optimal_natural(ts, u)
-        quadratic = B.sum(ts.y ** 2) + B.sum(u * B.mm(ts.A_sum, u)) + ts.c_sum
-        return 0.5 * (
-            -ts.n * B.log(2 * B.pi * self.model.noise)
-            - quadratic / self.model.noise
-            + B.logdet(self.model.K_z)
-            - B.logdet(prec)
-            + B.squeeze(B.iqf(prec, lam))
-        )
-
-    def log_Z_z(self, ts, z):
-        """Compute the normalising constant term of the optimal :math:`q(u|z)`.
-
-        Args:
-            ts (object): Terms.
-            z (tensor): Sample for :math:`z` to use.
-
-        Returns:
-            scalar: Normalising constant term.
-        """
-        lam, prec = self.q_u_optimal_natural(ts, z)
-        quadratic = B.sum(ts.y ** 2) + B.sum(z * B.mm(ts.B_sum, z)) + ts.c_sum
-        return 0.5 * (
-            -ts.n * B.log(2 * B.pi * self.model.noise)
-            - quadratic / self.model.noise
-            + B.logdet(self.model.K_u)
-            - B.logdet(prec)
-            + B.squeeze(B.iqf(prec, lam))
-        )
-
-    @_dispatch
-    def elbo_collapsed_z(self, state, t, y, *, num_samples=5):
-        """Compute an estimate of the ELBO collapsed over :math:`q(z|u)`.
-
-        Args:
-            t (vector): Locations of observations.
-            y (vector): Observations.
-            num_samples (int, optional): Number of samples to use. Defaults to `5`.
-
-        Returns:
-            scalar: ELBO.
-        """
-        ts = self.construct_terms(t, y)
-        state, us = _sample(state, self.q_u, num_samples)
-        recs = [self.log_Z_u(ts, u) for u in _columns(us)]
-        return state, sum(recs) / len(recs) - _kl(self.q_u, self.p_u)
-
-    @_dispatch
-    def elbo_collapsed_u(self, state, t, y, *, num_samples=5):
-        """Compute an estimate of the ELBO collapsed over :math:`q(u|z)`.
-
-        Args:
-            t (vector): Locations of observations.
-            y (vector): Observations.
-            num_samples (int, optional): Number of samples to use. Defaults to `5`.
-
-        Returns:
-            scalar: ELBO.
-        """
-        ts = self.construct_terms(t, y)
-        state, us = _sample(state, self.q_z, num_samples)
-        recs = [self.log_Z_z(ts, z) for z in _columns(zs)]
-        return state, sum(recs) / len(recs) - _kl(self.q_z, self.p_z)
-
-    @_dispatch
-    def elbo_mean_field(self, t, y):
-        """Compute the mean-field ELBO.
-
-        Args:
-            t (vector): Locations of observations.
-            y (vector): Observations.
-
-        Returns:
-            scalar: ELBO.
-        """
-        ts = self.construct_terms(t, y)
-        u, u2 = _mean_m2(*self.q_u)
-        z, z2 = _mean_m2(*self.q_z)
-        return (
-            (
-                -0.5 * ts.n * B.log(2 * B.pi * self.model.noise)
-                + (
-                    (-0.5 / self.model.noise)
-                    * (
-                        B.sum(ts.y ** 2)
-                        + B.sum(ts.A_sum * u2)
-                        + B.sum(ts.B_sum * z2)
-                        + B.sum(B.mm(ts.I_uz, z2, ts.I_uz, tr_c=True) * u2)
-                        + ts.c_sum
-                        - 2 * B.sum(u * B.mm(ts.I_uz_sum, z))
-                    )
-                )
-            )
-            - _kl(self.q_u, self.p_u)
-            - _kl(self.q_z, self.p_z)
-        )
-
-    def predict(self, t, num_samples=100):
-        """Predict.
-
-        Args:
-            t (vector): Points to predict at.
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
-
-        Returns:
-            tuple: Tuple containing the mean and standard deviation of the
-                predictions.
-        """
-        ts = self.construct_terms(t)
-        m1s, m2s = [], []
-        for u in _subsample_mc(self.p_u_samples, num_samples):
-            q_z = self.q_z_optimal_natural(self.ts, u)
-            m1, m2 = self._predict_moments(
-                ts,
-                u,
-                B.outer(u),
-                *_mean_m2(*q_z),
-            )
-            m1s.append(m1)
-            m2s.append(m2)
-        return _m1s_m2s_to_marginals(m1s, m2s)
-
-    def predict_mean_field(self, t):
-        """Predict.
-
-        Args:
-            t (vector): Points to predict at.
-
-        Returns:
-            tuple: Tuple containing the mean and standard deviation of the
-                predictions.
-        """
-        m1, m2 = self._predict_moments(
-            self.construct_terms(t),
-            *_mean_m2(*self.p_u),
-            *_mean_m2(*self.p_z),
-        )
-        return m1, m2 - m1 ** 2
 
     def _predict_moments(self, ts, u, u2, z, z2):
         # Compute first moment.
@@ -490,7 +282,224 @@ class GPCMApproximation:
 
         return m1, m2
 
-    def sample_kernel(self, t_k, num_samples=100):
+    def _sample_kernel(self, t_k, u):
+        return B.flatten(
+            self.model.kernel_approx(
+                t_k,
+                B.zero(u)[None],
+                B.flatten(B.matmul(self.model.K_u, u)),
+            )
+        )
+
+
+@_dispatch
+def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 1000):
+    """Train an instance with a mean-field approximation using coordinate ascent.
+
+    Args:
+        instance (:class:`.gpcm.AbstractGPCM`): Instantiated model.
+        t (vector): Locations of observations.
+        y (vector): Observations.
+        iters (int, optional): Fixed point iterations. Defaults to `1000`.
+    """
+    ts = instance.approximation.construct_terms(t, y)
+
+    @B.jit
+    def compute_q_u(lam, prec):
+        q_z = NaturalNormal(lam, prec)
+        q_u = instance.approximation.q_u_optimal_mean_field(ts, q_z)
+        return B.dense(q_u.lam), B.dense(q_u.prec)
+
+    @B.jit
+    def compute_q_z(lam, prec):
+        q_u = NaturalNormal(lam, prec)
+        q_z = instance.approximation.q_z_optimal_mean_field(ts, q_u)
+        return B.dense(q_z.lam), B.dense(q_z.prec)
+
+    def diff(xs, ys):
+        total = 0
+        for x, y in zip(xs, ys):
+            total += B.sqrt(B.mean((x - y) ** 2))
+        return total
+
+    # Perform fixed point iterations.
+    with wbml.out.Progress(name="Fixed point iterations", total=iters) as progress:
+        q_u = instance.approximation.q_u
+        q_z = instance.approximation.q_z
+        # To be able to use the JIT, we must pass around plain tensors.
+        q_u = (B.dense(q_u.lam), B.dense(q_u.prec))
+        q_z = (B.dense(q_z.lam), B.dense(q_z.prec))
+        last_q_u = q_u
+        last_q_z = q_z
+
+        for _ in range(iters):
+            q_u = compute_q_u(*q_z)
+            q_z = compute_q_z(*q_u)
+            progress({"Difference": diff(q_u + q_z, last_q_u + last_q_z)})
+            last_q_u = q_u
+            last_q_z = q_z
+
+    # Store result of fixed point iterations.
+    instance.approximation.q_u = NaturalNormal(*q_u)
+    instance.approximation.q_z = NaturalNormal(*q_z)
+
+
+class Structured(Approximation):
+    """Structured approximation of the GPCM."""
+
+    @property
+    def p_u_samples(self):
+        """tensor: Samples for the current prior for :math:`u`."""
+        return self.model.ps.q_u[self._q_i - 1].samples()
+
+    @property
+    def q_u_samples(self):
+        """tensor: Samples for the current variational posterior for :math:`u`."""
+        return self.model.ps.q_u[self._q_i].samples()
+
+    @q_u_samples.setter
+    @_dispatch
+    def q_u_samples(self, samples: list):
+        # We need a setter, because these won't be trainable through gradients.
+        self.model.ps.q_u[self._q_i].samples.delete()
+        samples = B.stack(*[B.flatten(x) for x in samples], axis=1)
+        self.model.ps.q_u[self._q_i].samples.unbounded(init=samples, visible=False)
+
+    @property
+    def p_z_samples(self):
+        """tensor: Samples from the current prior for :math:`z`."""
+        return self.model.ps.q_z[self._q_i - 1].samples()
+
+    @property
+    def q_z_samples(self):
+        """tensor: Samples from the variational posterior for :math:`z`."""
+        return self.model.ps.q_z[self._q_i].samples()
+
+    @q_z_samples.setter
+    @_dispatch
+    def q_z_samples(self, samples: list):
+        # We need a setter, because these won't be trainable through gradients.
+        self.model.ps.q_z[self._q_i].samples.delete()
+        samples = B.stack(*[B.flatten(x) for x in samples], axis=1)
+        self.model.ps.q_z[self._q_i].samples.unbounded(init=samples, visible=False)
+
+    @_dispatch
+    def elbo(self, state, t, y, *args, **kw_args):
+        """Fit a mean-field approximation and compute an estimate of the resulting ELBO
+        collapsed over :math:`q(z|u)`.
+
+        Args:
+            state (random state): Random state.
+            t (vector): Locations of observations.
+            y (vector): Observations.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+
+        Returns:
+            tuple[random state, scalar] : Random state and ELBO.
+        """
+        _fit_mean_field_ca(self.model, t, y)
+        return self.elbo_collapsed_z(state, t, y, *args, **kw_args)
+
+    @_dispatch
+    def elbo_gibbs(
+        self,
+        state: B.RandomState,
+        t,
+        y,
+        u: B.Numeric,
+        z: B.Numeric,
+        num_samples: B.Int = 5,
+    ):
+        """Compute an estimate of the structured ELBO ignoring the entropy of
+        the optimal :math:`q(u)`.
+
+        Args:
+            state (random state): Random state.
+            t (vector): Locations of observations.
+            y (vector): Observations.
+            u (matrix): Current sample for :math:`u`.
+            z (matrix): Current sample for :math:`z`.
+            num_samples (int, optional): Number of samples to use. Defaults to `5`.
+
+        Returns:
+            tuple[random state, scalar, matrix, matrix]: Random state, ELBO, updated
+                sample for :math:`u`, and updated sample for :math:`z`.
+        """
+        ts = self.construct_terms(t, y)
+        elbos = []
+        for _ in range(num_samples):
+            state, u = self.q_u_optimal(ts, z).sample(state)
+            state, z = self.q_z_optimal(ts, u).sample(state)
+            elbos.append(
+                self.log_Z_u(ts, stop_gradient(u)) + self.p_u.logpdf(stop_gradient(u))
+            )
+        return state, sum(elbos) / len(elbos), u, z
+
+    @_dispatch
+    def log_Z_u(self, ts: SimpleNamespace, u: B.Numeric):
+        """Compute the normalising constant term of the optimal :math:`q(z|u)`.
+
+        Args:
+            ts (:class:`types.SimpleNamespace`): Terms.
+            u (tensor): Sample for :math:`u` to use.
+
+        Returns:
+            scalar: Normalising constant term.
+        """
+        q_z = self.q_z_optimal(ts, u)
+        quadratic = B.sum(ts.y ** 2) + B.sum(u * B.mm(ts.A_sum, u)) + ts.c_sum
+        return 0.5 * (
+            -ts.n * B.log(2 * B.pi * self.model.noise)
+            - quadratic / self.model.noise
+            + B.logdet(self.model.K_z)
+            - B.logdet(q_z.prec)
+            + B.squeeze(B.iqf(q_z.prec, q_z.lam))
+        )
+
+    @_dispatch
+    def elbo_collapsed_z(self, state: B.RandomState, t, y, num_samples: B.Int = 100):
+        """Compute an estimate of the ELBO collapsed over :math:`q(z|u)`.
+
+        Args:
+            state (random state): Random state.
+            t (vector): Locations of observations.
+            y (vector): Observations.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+
+        Returns:
+            tuple[random state, scalar] : Random state and ELBO.
+        """
+        ts = self.construct_terms(t, y)
+        q_u = self.q_u
+        state, us = q_u.sample(state, num_samples)
+        recs = [self.log_Z_u(ts, u) for u in _columns(us)]
+        return state, sum(recs) / len(recs) - q_u.kl(self.p_u)
+
+    @_dispatch
+    def predict(self, t, num_samples: B.Int = 100):
+        """Predict.
+
+        Args:
+            t (vector): Points to predict at.
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+
+        Returns:
+            tuple: Tuple containing the mean and standard deviation of the
+                predictions.
+        """
+        ts = self.construct_terms(t)
+        m1s, m2s = [], []
+        for u in _columns(self.p_u_samples, num_samples):
+            q_z = self.q_z_optimal(self.ts, u)
+            m1, m2 = self._predict_moments(ts, u, B.outer(u), q_z.mean, q_z.m2)
+            m1s.append(m1)
+            m2s.append(m2)
+        m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
+        m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
+        return m1, m2 - m1 ** 2
+
+    @_dispatch
+    def sample_kernel(self, t_k, num_samples: B.Int = 100):
         """Sample kernel.
 
         Args:
@@ -500,10 +509,102 @@ class GPCMApproximation:
         Returns:
             tensor: Samples.
         """
-        us = _subsample_mc(self.p_u_samples, num_samples)
+        us = _columns(self.p_u_samples, num_samples)
         return B.stack(*[self._sample_kernel(t_k, u) for u in us], axis=0)
 
-    def sample_kernel_mean_field(self, t_k, num_samples=100):
+    @_dispatch
+    def predict_z(self, num_samples: B.Int = 100):
+        """Predict Fourier features.
+
+        Args:
+            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+
+        Returns:
+            tuple[vector, vector]: Marginals of the predictions.
+        """
+        zs = [B.flatten(x) for x in _columns(self.p_z_samples, num_samples)]
+        m1 = B.mean(B.stack(*zs, axis=0), axis=0)
+        m2 = B.mean(B.stack(*[z ** 2 for z in zs], axis=0), axis=0)
+        return m1, m2 - m1 ** 2
+
+
+class MeanField(Approximation):
+    """Mean-field approximation of the GPCM.
+
+    Args:
+        model (:class:`.gpcm.AbstractGPCM`): Instantiated GPCM.
+        fit (str): Fitting method. Must be one of `ca`, `bfgs`, `collapsed-bfgs`.
+    """
+
+    def __init__(self, model, fit):
+        super().__init__(model)
+        self.fit = fit
+
+    @_dispatch
+    def elbo(self, state, t, y, collapsed: Union[None, str] = None):
+        """Compute the mean-field ELBO.
+
+        Args:
+            state (random state): Random state.
+            t (vector): Locations of observations.
+            y (vector): Observations.
+            collapsed (str, optional): Collapse over :math:`z` or :math:`u`.
+
+        Returns:
+            tuple[random state, scalar]: Random state and ELBO.
+        """
+        ts = self.construct_terms(t, y)
+        if collapsed is None:
+            q_u = self.q_u
+            q_z = self.q_z
+        elif collapsed == "z":
+            q_u = self.q_u
+            q_z = self.q_z_optimal_mean_field(ts, q_u)
+        elif collapsed == "u":
+            q_z = self.q_z
+            q_u = self.q_u_optimal_mean_field(ts, q_z)
+        else:
+            raise ValueError(f'Invalid value "{collapsed}" for `collapsed`.')
+        return state, (
+            (
+                -0.5 * ts.n * B.log(2 * B.pi * self.model.noise)
+                + (
+                    (-0.5 / self.model.noise)
+                    * (
+                        B.sum(ts.y ** 2)
+                        + B.sum(ts.A_sum * q_u.m2)
+                        + B.sum(ts.B_sum * q_z.m2)
+                        + B.sum(B.mm(ts.I_uz, q_z.m2, ts.I_uz, tr_c=True) * q_u.m2)
+                        + ts.c_sum
+                        - 2 * B.sum(q_u.mean * B.mm(ts.I_uz_sum, q_z.mean))
+                    )
+                )
+            )
+            - q_u.kl(self.p_u)
+            - q_z.kl(self.p_z)
+        )
+
+    @_dispatch
+    def predict(self, t):
+        """Predict.
+
+        Args:
+            t (vector): Points to predict at.
+
+        Returns:
+            tuple[vector, vector]: Marginals of the predictions.
+        """
+        m1, m2 = self._predict_moments(
+            self.construct_terms(t),
+            self.p_u.mean,
+            self.p_u.m2,
+            self.p_z.mean,
+            self.p_z.m2,
+        )
+        return m1, m2 - m1 ** 2
+
+    @_dispatch
+    def sample_kernel(self, t_k, num_samples: B.Int = 100):
         """Sample kernel under the mean-field approximation.
 
         Args:
@@ -514,35 +615,148 @@ class GPCMApproximation:
             tensor: Samples.
         """
         state = B.global_random_state(self.model.dtype)
-        state, us = _sample(state, self.p_u, num_samples)
+        state, us = self.p_u.sample(state, num_samples)
         B.set_global_random_state(state)
         return B.stack(*[self._sample_kernel(t_k, u) for u in _columns(us)], axis=0)
 
-    def _sample_kernel(self, t_k, u):
-        return B.flatten(
-            self.model.kernel_approx(
-                t_k,
-                B.zero(u)[None],
-                B.flatten(B.matmul(self.model.K_u, u)),
-            )
+    @_dispatch
+    def predict_z(self):
+        """Predict Fourier features under the mean-field approximation.
+
+        Returns:
+            tuple[vector, vector]: Marginals of the predictions.
+        """
+        return B.flatten(self.p_z.mean), B.diag(self.p_z.var)
+
+
+@fit.dispatch
+def fit(model, t, y, approximation: Structured, iters: B.Int = 5000):
+    """Fit a structured approximation.
+
+    Args:
+        model (:class:`.gpcm.AbstractGPCM`): Model.
+        approximation (:class:`.Structured`): Approximation.
+        t (vector): Locations of observations.
+        y (vector): Observations.
+        iters (int, optional): Gibbs sampling iterations. Defaults to `5000`.
+    """
+
+    def gibbs_sample(state, iters, subsample=None, u=None, z=None):
+        """Perform Gibbs sampling."""
+        instance = model()
+        ts = instance.approximation.construct_terms(t, y)
+
+        @B.jit
+        def sample_u(state, z):
+            q_u = instance.approximation.q_u_optimal(ts, z)
+            return q_u.sample(state)
+
+        @B.jit
+        def sample_z(state, u):
+            q_z = instance.approximation.q_z_optimal(ts, u)
+            return q_z.sample(state)
+
+        # Initialise the state for the Gibbs sampler.
+        if u is None:
+            state, u = instance.approximation.q_u.sample(state)
+        if z is None:
+            state, z = instance.approximation.q_z.sample(state)
+
+        # Perform Gibbs sampling.
+        with wbml.out.Progress(name="Gibbs sampling", total=iters) as progress:
+            us, zs = [], []
+            for i in range(iters):
+                state, u = sample_u(state, z)
+                state, z = sample_z(state, u)
+                if subsample is None or i % subsample == 0:
+                    us.append(u)
+                    zs.append(z)
+                progress()
+
+        return state, us, zs
+
+    # Maintain a random state.
+    state = B.create_random_state(model.dtype, seed=0)
+
+    # Find a good starting point for the optimisation.
+    state, us, zs = gibbs_sample(state, iters=200)  # `200` should be roughly good.
+    u, z = us[-1], zs[-1]
+
+    def objective(vs_, state, u, z):
+        state, elbo, u, z = model(vs_).approximation.elbo_gibbs(state, t, y, u, z)
+        return -elbo, state, u, z
+
+    # Optimise hyperparameters.
+    _, state, u, z = minimise_adam(
+        objective,
+        (model.vs, state, u, z),
+        iters=(2 * iters) // 5,  # Spend twice the sampling budget.
+        rate=5e-2,
+        trace=True,
+        jit=True,
+        names=model().approximation.ignore_qs(previous=True, current=True),
+    )
+
+    # Produce 100 final Gibbs samples and store those samples.
+    hunderds = iters // 100
+    state, us, zs = gibbs_sample(state, hunderds * 100, subsample=hunderds)
+    instance = model()
+    instance.approximation.q_u_samples = us
+    instance.approximation.q_z_samples = zs
+
+
+@fit.dispatch
+def fit(model, t, y, approximation: MeanField, iters: B.Int = 1000):
+    """Fit a mean-field approximation.
+
+    Args:
+        model (:class:`.gpcm.AbstractGPCM`): Model.
+        approximation (:class:`.MeanField`): Approximation.
+        t (vector): Locations of observations.
+        y (vector): Observations.
+        iters (int, optional): Fixed point iterations. Defaults to `1000`.
+    """
+    # Maintain a random state.
+    state = B.create_random_state(model.dtype, seed=0)
+
+    if approximation.fit == "ca":
+        _fit_mean_field_ca(model(), t, y, iters)
+    elif approximation.fit == "bfgs":
+
+        def objective(vs_, state):
+            state, elbo = model(vs_).approximation.elbo(state, t, y)
+            return -elbo, state
+
+        # Optimise hyperparameters.
+        _, state = minimise_l_bfgs_b(
+            objective,
+            (model.vs, state),
+            iters=iters,
+            trace=True,
+            jit=True,
+            names=model().approximation.ignore_qs(previous=True),
+        )
+    elif approximation.fit == "collapsed-bfgs":
+
+        def objective(vs_, state):
+            state, elbo = model(vs_).approximation.elbo(state, t, y, collapsed="z")
+            return -elbo, state
+
+        # Optimise hyperparameters.
+        _, state = minimise_l_bfgs_b(
+            objective,
+            (model.vs, state),
+            iters=iters,
+            trace=True,
+            jit=True,
+            names=model().approximation.ignore_qs(previous=True, current="z"),
         )
 
-    def predict_z(self, num_samples=100):
-        """Predict Fourier features.
-
-        Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
-
-        Returns:
-            tuple: Marginals of the predictions.
-        """
-        samples = [B.flatten(x) for x in _subsample_mc(self.p_z_samples, num_samples)]
-        return _m1s_m2s_to_marginals(samples, [x ** 2 for x in samples])
-
-    def predict_z_mean_field(self):
-        """Predict Fourier features.
-
-        Returns:
-            tuple: Marginals of the predictions.
-        """
-        return Normal(*_mean_var(*self.p_z)).marginals()
+        # Explicitly update :math:`q(z)`: it was collapsed in the ELBO.
+        instance = model()
+        ts = instance.approximation.construct_terms(t, y)
+        q_u = instance.approximation.q_u
+        q_z = instance.approximation.q_z_optimal_mean_field(ts, q_u)
+        instance.approximation.q_z = q_z
+    else:
+        raise ValueError(f'Invalid value "{approximation.fit}" for `fit`.')

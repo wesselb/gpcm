@@ -138,11 +138,13 @@ class GPRV(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.alpha  # Don't learn the window length.
+        self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.lam = self.ps.positive(self.lam, name="lambda")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
-        self.gamma_t = self.gamma_t  # Don't learn `gamma_t`: overparametrised.
+        # `gamma_t` overparametrises the model, but we still learn it to hopefully ease
+        # the optimisation.
+        self.gamma_t = self.ps.positive(self.gamma_t, name="gamma_t")
         self.t_u = self.ps.positive(self.t_u, name="t_u")
 
         AbstractGPCM.__prior__(self)

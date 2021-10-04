@@ -1,19 +1,12 @@
-from functools import partial
-from types import SimpleNamespace
-
-import jax
 import jax.numpy as jnp
 import lab.jax as B
 import wbml.out
-from jax.lax import stop_gradient
-from matrix import Diagonal
-from plum import Dispatcher, Val
+from plum import Dispatcher
 from probmods import Model, cast, fit, instancemethod, priormethod
 from stheno.jax import Normal
-from varz import Vars, minimise_adam, minimise_l_bfgs_b
+from varz import Vars
 
-from .approx import GPCMApproximation, _sample
-from .sample import ESS
+from .approx import MeanField, Structured
 from .util import closest_psd, estimate_psd, summarise_samples
 
 __all__ = ["AbstractGPCM"]
@@ -25,14 +18,14 @@ class AbstractGPCM(Model):
     """GPCM model.
 
     Args:
-        scheme (str): Approximation scheme.
+        scheme (str): Approximation scheme. Must be one of `structured`,
+            `mean-field-ca`, `mean-field-gradient`, or `mean-field-collapsed-gradient`.
     """
 
     @_dispatch
     def __init__(self, scheme: str):
-        self.scheme = scheme.lower()
-        # TODO: Check validity..
         self.vs = Vars(jnp.float64)
+        self.scheme = scheme.lower()
 
     def __prior__(self):
         # Construct kernel matrices.
@@ -46,29 +39,31 @@ class AbstractGPCM(Model):
         self.p_z = Normal(self.K_z_inv)
 
         # Construct approximation scheme.
-        self.approximation = GPCMApproximation(self)
+        if self.scheme == "structured":
+            self.approximation = Structured(self)
+        elif self.scheme == "mean-field-ca":
+            self.approximation = MeanField(self, fit="ca")
+        elif self.scheme == "mean-field-gradient":
+            self.approximation = MeanField(self, fit="bfgs")
+        elif self.scheme == "mean-field-collapsed-gradient":
+            self.approximation = MeanField(self, fit="collapsed-bfgs")
+        else:
+            raise ValueError(
+                f'Invalid value "{self.scheme}" for the approximation scheme.'
+            )
 
     def __condition__(self, t, y):
         self.approximation.condition(t, y)
 
     @instancemethod
     @cast
-    def elbo(self, state, *args, **kw_args):
-        if self.scheme == "structured":
-            return self.approximation.elbo_collapsed_z(state, *args, **kw_args)
-        else:
-            # TODO: refactor
-            if "num_samples" in kw_args:
-                del kw_args["num_samples"]
-            return state, self.approximation.elbo_mean_field(*args, **kw_args)
+    def elbo(self, *args, **kw_args):
+        return self.approximation.elbo(*args, **kw_args)
 
     @instancemethod
     @cast
     def predict(self, *args, **kw_args):
-        if self.scheme == "structured":
-            return self.approximation.predict(*args, **kw_args)
-        else:
-            return self.approximation.predict_mean_field(*args, **kw_args)
+        return self.approximation.predict(*args, **kw_args)
 
     @instancemethod
     def predict_kernel(self, **kw_args):
@@ -98,10 +93,7 @@ class AbstractGPCM(Model):
         if t_k is None:
             t_k = B.linspace(self.dtype, 0, 1.2 * B.max(self.t_u), 300)
 
-        if self.scheme == "structured":
-            ks = self.approximation.sample_kernel(t_k, **kw_args)
-        else:
-            ks = self.approximation.sample_kernel_mean_field(t_k, **kw_args)
+        ks = self.approximation.sample_kernel(t_k, **kw_args)
 
         # Normalise predicted kernel.
         var_mean = B.mean(ks[:, 0])
@@ -139,10 +131,7 @@ class AbstractGPCM(Model):
         Returns:
             tuple: Marginals of the predictions.
         """
-        if self.scheme == "structured":
-            return self.approximation.predict_z(**kw_args)
-        else:
-            return self.approximation.predict_z_mean_field(**kw_args)
+        return self.approximation.predict_z(**kw_args)
 
     @instancemethod
     @cast
@@ -190,227 +179,9 @@ class AbstractGPCM(Model):
             K = K / K[0, 0]
         f = B.sample(closest_psd(K))[:, 0]
         y = f + B.sqrt(self.noise) * B.randn(f)
-        return K, f
-
-
-def hessian(f, x):
-    """Compute the Hessian of a function at a certain input.
-
-    Args:
-        f (function): Function to compute Hessian of.
-        x (column vector): Input to compute Hessian at.
-        differentiable (bool, optional): Make the computation of the Hessian
-            differentiable. Defaults to `False`.
-
-    Returns:
-        matrix: Hessian.
-    """
-    if B.rank(x) != 2 or B.shape(x)[1] != 1:
-        raise ValueError("Input must be a column vector.")
-    # Use RMAD twice to preserve memory.
-    hess = jax.jacrev(jax.jacrev(lambda x: f(x[:, None])))(x[:, 0])
-    return (hess + B.transpose(hess)) / 2  # Symmetrise to counteract numerical errors.
-
-
-def maximum_a_posteriori(f, x_init, iters=2000):
-    """Compute the MAP estimate.
-
-    Args:
-        f (function): Possibly unnormalised log-density.
-        x_init (column vector): Starting point to start the optimisation.
-        iters (int, optional): Number of optimisation iterations. Defaults to `2000`.
-
-    Returns:
-        tensor: MAP estimate.
-    """
-
-    def objective(vs_):
-        return -f(vs_["x"])
-
-    vs = Vars(B.dtype(x_init))
-    vs.unbounded(init=x_init, name="x")
-    minimise_l_bfgs_b(objective, vs, iters=iters, jit=True, trace=True)
-    return vs["x"]
-
-
-def laplace_approximation(f, x_init, f_eval=None):
-    """Perform a Laplace approximation of a density.
-
-    Args:
-        f (function): Possibly unnormalised log-density.
-        x_init (column vector): Starting point to start the optimisation.
-        f_eval (function): Use this log-density for the evaluation at the MAP estimate.
-
-    Returns:
-        tuple[:class:`stheno.Normal`]: Laplace approximation.
-    """
-    x = maximum_a_posteriori(f, x_init)
-    precision = -hessian(f_eval if f_eval is not None else f, x)
-    return Normal(x, closest_psd(precision, inv=True))
+        return K, y
 
 
 @fit.dispatch
 def fit(model: AbstractGPCM, t, y, **kw_args):
-    fit(model, t, y, Val(model.scheme.lower()), **kw_args)
-
-
-@fit.dispatch
-def fit(model, t, y, method: Val["mean-field-gradient"], iters=1000):
-    """Train a model with a mean-field approximation fit using gradient-based
-    optimisation.
-
-    Args:
-        model (:class:`.gpcm.AbstractGPCM`): Model.
-        method (str): Specification of the method. Must be equal to
-            :obj:`plum.Val("mean-field-bfgs")`.
-        t (vector): Locations of observations.
-        y (vector): Observations.
-        iters (int, optional): Fixed point iterations. Defaults to `1000`.
-    """
-    raise NotImplementedError()
-
-
-@fit.dispatch
-def fit(model, t, y, method: Val["mean-field-ca"], iters=1000):
-    """Train a model with a mean-field approximation fit using coordinate ascent. This
-    approximation does not train hyperparameters.
-
-    Args:
-        model (:class:`.gpcm.AbstractGPCM`): Model.
-        method (str): Specification of the method. Must be equal to
-            :obj:`plum.Val("mean-field-ca")`.
-        t (vector): Locations of observations.
-        y (vector): Observations.
-        iters (int, optional): Fixed point iterations. Defaults to `1000`.
-    """
-    instance = model()
-    ts = instance.approximation.construct_terms(t, y)
-
-    @B.jit
-    def compute_q_u(lam, prec):
-        lam, prec = instance.approximation.q_u_optimal_mean_field_natural(ts, lam, prec)
-        return B.dense(lam), B.dense(prec)
-
-    @B.jit
-    def compute_q_z(lam, prec):
-        lam, prec = instance.approximation.q_z_optimal_mean_field_natural(ts, lam, prec)
-        return B.dense(lam), B.dense(prec)
-
-    def diff(xs, ys):
-        total = 0
-        for x, y in zip(xs, ys):
-            total += B.sqrt(B.mean((x - y) ** 2))
-        return total
-
-    # Perform fixed point iterations.
-    with wbml.out.Progress(name="Fixed point iterations", total=iters) as progress:
-        q_u = tuple(B.dense(x) for x in instance.approximation.q_u)
-        q_z = tuple(B.dense(x) for x in instance.approximation.q_z)
-        last_q_u = q_u
-        last_q_z = q_z
-
-        for _ in range(iters):
-            q_u = compute_q_u(*q_z)
-            q_z = compute_q_z(*q_u)
-            progress({"Difference": diff(q_u + q_z, last_q_u + last_q_z)})
-            last_q_u = q_u
-            last_q_z = q_z
-
-    # Store result of fixed point iterations.
-    instance.approximation.q_u = q_u
-    instance.approximation.q_z = q_z
-
-
-@fit.dispatch
-def fit(model, t, y, method: Val["structured"], iters=5000):
-    """Train a model using a structured approximation.
-
-    Args:
-        model (:class:`.gpcm.AbstractGPCM`): Model.
-        method (str): Specification of the method. Must be equal to
-            :obj:`plum.Val("structured")`.
-        t (vector): Locations of observations.
-        y (vector): Observations.
-        iters (int, optional): Gibbs sampling iterations. Defaults to `5000`.
-    """
-
-    def gibbs_sample(state, iters, u=None, z=None):
-        """Perform Gibbs sampling."""
-        instance = model()
-        ts = instance.approximation.construct_terms(
-            B.cast(instance.dtype, t),
-            B.cast(instance.dtype, y),
-        )
-
-        @B.jit
-        def sample_u(state, z):
-            q_u = instance.approximation.q_u_optimal_natural(ts, z)
-            state, u = _sample(state, q_u, 1)
-            return state, B.dense(u)
-
-        @B.jit
-        def sample_z(state, u_):
-            q_z = instance.approximation.q_z_optimal_natural(ts, u_)
-            state, z = _sample(state, q_z, 1)
-            return state, B.dense(z)
-
-        # Initialise the state for the Gibbs sampler.
-        if u is None:
-            state, u = _sample(state, instance.approximation.q_u, 1)
-        if z is None:
-            state, z = sample_z(state, u)
-
-        # Perform Gibbs sampling.
-        with wbml.out.Progress(name="Gibbs sampling", total=iters) as progress:
-            us, zs = [], []
-            for i in range(iters):
-                state, u = sample_u(state, z)
-                state, z = sample_z(state, u)
-                us.append(u)
-                zs.append(z)
-                progress()
-
-        return state, us, zs
-
-    # Maintain a random state.
-    state = B.create_random_state(model.dtype)
-
-    # Find a good starting point for the optimisation.
-    state, us, zs = gibbs_sample(state, iters=500)
-    u, z = us[-1], zs[-1]
-
-    def objective(vs_, state, u, z):
-        instance = model(vs_)
-        ts = instance.approximation.construct_terms(
-            B.cast(instance.dtype, t),
-            B.cast(instance.dtype, y),
-        )
-        q_u = instance.approximation.q_u_optimal_natural(ts, z)
-        state, u = _sample(state, q_u, 1)
-        q_z = instance.approximation.q_z_optimal_natural(ts, u)
-        state, z = _sample(state, q_z, 1)
-        u = B.dense(u)
-        elbo = instance.approximation.log_Z_u(ts, stop_gradient(u)) + Normal(
-            instance.K_u
-        ).logpdf(B.mm(instance.K_u, stop_gradient(u)))
-        return -elbo, state, B.dense(u), B.dense(z)
-
-    # Optimise hyperparameters.
-    _, state, u, z = minimise_adam(
-        objective,
-        (model.vs, state, u, z),
-        iters=500,
-        rate=5e-3,
-        trace=True,
-        jit=True,
-        names=["-q_*"],
-    )
-
-    # Fit the mean-field solution for ELBO computation.
-    fit(model, t, y, Val("mean-field-ca"))
-
-    # Produce final Gibbs samples and store those samples.
-    state, us, zs = gibbs_sample(state, iters, u, z)
-    instance = model()
-    instance.approximation.q_u_samples = us
-    instance.approximation.q_z_samples = zs
+    fit(model, t, y, model().approximation, **kw_args)

@@ -1,9 +1,11 @@
 from collections import namedtuple
+from varz import Vars, minimise_l_bfgs_b
 
+import jax
 import lab as B
 import numpy as np
-from matrix import AbstractMatrix, Woodbury
-from plum import Dispatcher, Union
+from plum import Dispatcher
+from stheno import Normal
 
 __all__ = [
     "summarise_samples",
@@ -13,6 +15,9 @@ __all__ = [
     "collect",
     "autocorr",
     "method",
+    "hessian",
+    "maximum_a_posteriori",
+    "laplace_approximation",
 ]
 
 _dispatch = Dispatcher()
@@ -20,7 +25,12 @@ _dispatch = Dispatcher()
 
 @B.matmul.dispatch
 def matmul(
-    a: B.Numeric, b: B.Numeric, c: B.Numeric, tr_a=False, tr_b=False, tr_c=False
+    a: B.Numeric,
+    b: B.Numeric,
+    c: B.Numeric,
+    tr_a=False,
+    tr_b=False,
+    tr_c=False,
 ):
     return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
 
@@ -197,3 +207,59 @@ def method(cls):
         return f
 
     return decorator
+
+
+def hessian(f, x):
+    """Compute the Hessian of a function at a certain input.
+
+    Args:
+        f (function): Function to compute Hessian of.
+        x (column vector): Input to compute Hessian at.
+        differentiable (bool, optional): Make the computation of the Hessian
+            differentiable. Defaults to `False`.
+
+    Returns:
+        matrix: Hessian.
+    """
+    if B.rank(x) != 2 or B.shape(x)[1] != 1:
+        raise ValueError("Input must be a column vector.")
+    # Use RMAD twice to preserve memory.
+    hess = jax.jacrev(jax.jacrev(lambda x: f(x[:, None])))(x[:, 0])
+    return (hess + B.transpose(hess)) / 2  # Symmetrise to counteract numerical errors.
+
+
+def maximum_a_posteriori(f, x_init, iters=2000):
+    """Compute the MAP estimate.
+
+    Args:
+        f (function): Possibly unnormalised log-density.
+        x_init (column vector): Starting point to start the optimisation.
+        iters (int, optional): Number of optimisation iterations. Defaults to `2000`.
+
+    Returns:
+        tensor: MAP estimate.
+    """
+
+    def objective(vs_):
+        return -f(vs_["x"])
+
+    vs = Vars(B.dtype(x_init))
+    vs.unbounded(init=x_init, name="x")
+    minimise_l_bfgs_b(objective, vs, iters=iters, jit=True, trace=True)
+    return vs["x"]
+
+
+def laplace_approximation(f, x_init, f_eval=None):
+    """Perform a Laplace approximation of a density.
+
+    Args:
+        f (function): Possibly unnormalised log-density.
+        x_init (column vector): Starting point to start the optimisation.
+        f_eval (function): Use this log-density for the evaluation at the MAP estimate.
+
+    Returns:
+        tuple[:class:`stheno.Normal`]: Laplace approximation.
+    """
+    x = maximum_a_posteriori(f, x_init)
+    precision = -hessian(f_eval if f_eval is not None else f, x)
+    return Normal(x, closest_psd(precision, inv=True))
