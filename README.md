@@ -51,6 +51,49 @@ posterior = model.condition(t, y)
 mean, var = posterior.predict(t)
 ```
 
+## Available Models and Approximation Schemes
+
+The following models are available:
+
+| Model | Description |
+| - | - |
+| `GPCM` | White noise excitation with a smooth filter |
+| `CGPCM` | White noise excitation with a smooth causal filter |
+| `GPRV` | Ornstein-Uhlenbeck excitation with a white noise filter |
+
+The simplest way of constructing a model is to set the following keywords:
+
+| Keyword | Description |
+| - | - |
+| `window` | Largest length scale of signal |
+| `scale` | Smallest length scale of signal |
+| `t` | Some iterable containing the limits of the inputs of interest |
+
+Example:
+
+```python
+from gpcm import GPRV
+
+model = GPRV(window=4, scale=0.5, t=(0, 10))
+```
+
+The constructors of these models also take in a keyword `scheme`, which can be
+set  to one of the following values:
+
+| `scheme` | Description |
+| - | - |
+| `"structured"` (default) | Structured approximation |
+| `"mean-field-ca"` | Mean-field approximation learned by coordinate ascent. This does not learn hyperparameters. |
+| `"mean-field-gradient"` | Mean-field approximation learned by gradient-based optimisation |
+| `"mean-field-collapsed-gradient"` | Collapsed mean-field approximation learned by gradient-based optimisation |
+
+Example:
+
+```python
+from gpcm import GPRV
+
+model = GPRV(scheme="mean-field-ca", window=4, scale=0.5, t=(0, 10))
+```
 
 ## Experiments
 

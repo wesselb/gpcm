@@ -20,10 +20,6 @@ y /= B.std(y)
 noise = 0.05
 window = min(max(t) / 2, 15)
 scale = 3 / 12
-# Set two points per wiggle of the filter.
-n_u = int(2 * (2 * window) / scale)
-# Set two inducing points per frequency and add Nyquist correction.
-n_z = int(2.2 * 2 * 2 * max(t))
 
 run(
     args=args,
@@ -33,7 +29,5 @@ run(
     scale=scale,
     t=t,
     y=y,
-    n_u=n_u,
-    n_z=n_z,
     y_range={"kernel": (-0.5, 2), "psd": (-30, 20)},
 )
