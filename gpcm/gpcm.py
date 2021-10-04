@@ -54,6 +54,7 @@ class GPCM(AbstractGPCM):
             :math:`x`. Defaults to length scale half the spacing
             between the inducing points.
         n_u (int, optional): Number of inducing points for :math:`u`.
+        n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `150`.
         t_u (vector, optional): Locations of inducing points for :math:`u`.
             Defaults to equally spaced points across twice the filter length
             scale.
@@ -85,6 +86,7 @@ class GPCM(AbstractGPCM):
         scale=None,
         omega=None,
         n_u=None,
+        n_u_cap=150,
         t_u=None,
         n_z=None,
         n_z_cap=150,
@@ -131,6 +133,19 @@ class GPCM(AbstractGPCM):
             else:
                 t_u_max = 2 * factor_to_scale(self.alpha)
 
+            # `n_u` is required to initialise `t_u`.
+            if n_u is None:
+                # Set it to four inducing points per wiggle, multiplied by two to account
+                # for both sides (acausal model) or the extended filter (causal model).
+                n_u = int(np.ceil(4 * 2 * window / scale))
+                if n_u > n_u_cap:
+                    warnings.warn(
+                        f"Using {n_u} inducing points for the filter, which is too "
+                        f"many. It is capped to {n_u_cap}.",
+                        category=UserWarning,
+                    )
+                    n_u = n_u_cap
+
             # For the causal case, only need inducing points on the right side.
             if causal:
                 d_t_u = t_u_max / (n_u - 1)
@@ -148,7 +163,7 @@ class GPCM(AbstractGPCM):
             if n_z is None:
                 # Use two inducing points per wiggle.
                 n_z = int(np.ceil(2 * (max(t) - min(t)) / scale))
-                if n_z > 150:
+                if n_z > n_z_cap:
                     warnings.warn(
                         f"Using {n_z} inducing points, which is too "
                         f"many. It is capped to {n_z_cap}.",

@@ -32,12 +32,13 @@ class GPRV(AbstractGPCM):
         a (scalar, optional): Lower bound of support of the basis.
         b (scalar, optional): Upper bound of support of the basis.
         m_max (int, optional): Defines cosine and sine basis functions.
-        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to 80.
+        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to `100`.
         scale (scalar, alternative): Length scale of the function. This will be used
             to determine `m_max` if it is not given.
         ms (vector, optional): Basis function frequencies. Defaults to
             :math:`0,\\ldots,2M-1`.
         n_u (int, optional): Number of inducing points for :math:`u`.
+        n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `150`.
         t_u (vector, optional): Locations of inducing points for :math:`u`. Defaults
             to equally spaced points across twice the filter length scale.
         t (vector, alternative): Locations of interest. Can be used to automatically
@@ -64,6 +65,7 @@ class GPRV(AbstractGPCM):
         scale=None,
         ms=None,
         n_u=None,
+        n_u_cap=150,
         t_u=None,
         t=None,
     ):
@@ -91,6 +93,20 @@ class GPRV(AbstractGPCM):
         # Then initialise fixed variables.
         if t_u is None:
             t_u_max = 2 / self.alpha
+
+            # `n_u` is required to initialise `t_u`.
+            if n_u is None:
+                # Set it to two inducing points per wiggle, multiplied by two to account
+                # for both sides (acausal model) or the extended filter (causal model).
+                n_u = int(np.ceil(2 * 2 * window / scale))
+                if n_u > n_u_cap:
+                    warnings.warn(
+                        f"Using {n_u} inducing points for the filter, which is too "
+                        f"many. It is capped to {n_u_cap}.",
+                        category=UserWarning,
+                    )
+                    n_u = n_u_cap
+
             # Make lower value very small, so we can restrict `t_u` to be positive.
             t_u = B.linspace(1e-6, t_u_max, n_u)
 

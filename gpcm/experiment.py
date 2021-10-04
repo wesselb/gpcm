@@ -56,7 +56,7 @@ def setup(name):
     return args, wd
 
 
-def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
+def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
     """Run an experiment.
 
     Further takes in keyword arguments for :func:`.experiment.analyse_models`.
@@ -69,8 +69,8 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
-        n_u (int): Number of inducing points for :math:`h`.
-        n_z (int): Number of inducing points for :math:`s` or equivalent.
+        n_u (int, optional): Number of inducing points for :math:`h`.
+        n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
     """
     models = build_models(
         args.model,
@@ -81,7 +81,7 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
         t=t,
         y=y,
         n_u=n_u,
-        n_z=n_z,
+        n_z=n_z
     )
 
     # Setup training.
@@ -97,7 +97,7 @@ def run(args, wd, noise, window, scale, t, y, n_u, n_z, **kw_args):
     analyse_models(models, t, y, wd=wd, **kw_args)
 
 
-def build_models(names, scheme, window, scale, noise, t, y, n_u=40, n_z=None):
+def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
@@ -107,7 +107,7 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u=40, n_z=None):
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
-        n_u (int, optional): Number of inducing points for :math:`h`. Defaults to `40`.
+        n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
     """
     models = []
@@ -149,7 +149,7 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u=40, n_z=None):
                 scale=scale,
                 t=t,
                 n_u=n_u,
-                m_max=int(np.ceil(n_z / 2)),
+                m_max=int(np.ceil(n_z / 2)) if n_z else None,
             )
         )
 
