@@ -18,12 +18,13 @@ class AbstractGPCM(Model):
     """GPCM model.
 
     Args:
-        scheme (str): Approximation scheme. Must be one of `structured`,
+        scheme (str, optional): Approximation scheme. Must be one of `structured`,
             `mean-field-ca`, `mean-field-gradient`, or `mean-field-collapsed-gradient`.
+            Defaults to `structured`.
     """
 
     @_dispatch
-    def __init__(self, scheme: str):
+    def __init__(self, scheme: str = "structured"):
         self.vs = Vars(jnp.float64)
         self.scheme = scheme.lower()
 
