@@ -6,8 +6,8 @@ from .util import approx
 
 
 def test_natural_normal():
-    chol = B.randn(3, 3)
-    dist = Normal(B.randn(3, 1), B.reg(chol @ chol.T, diag=1e-1))
+    chol = B.randn(2, 2)
+    dist = Normal(B.randn(2, 1), B.reg(chol @ chol.T, diag=1e-1))
     nat = NaturalNormal.from_normal(dist)
 
     # Test properties.
@@ -24,11 +24,11 @@ def test_natural_normal():
     approx(dist.var, emp_var, rtol=5e-2)
 
     # Test KL.
-    chol = B.randn(3, 3)
-    other_dist = Normal(B.randn(3, 1), B.reg(chol @ chol.T, diag=1e-2))
+    chol = B.randn(2, 2)
+    other_dist = Normal(B.randn(2, 1), B.reg(chol @ chol.T, diag=1e-2))
     other_nat = NaturalNormal.from_normal(other_dist)
     approx(dist.kl(other_dist), nat.kl(other_nat))
 
     # Test log-pdf.
-    x = B.randn(3, 1)
+    x = B.randn(2, 1)
     approx(dist.logpdf(x), nat.logpdf(x))
