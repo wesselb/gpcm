@@ -54,13 +54,12 @@ class GPCM(AbstractGPCM):
             :math:`x`. Defaults to length scale half the spacing
             between the inducing points.
         n_u (int, optional): Number of inducing points for :math:`u`.
-        n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `150`.
+        n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `300`.
         t_u (vector, optional): Locations of inducing points for :math:`u`.
             Defaults to equally spaced points across twice the filter length
             scale.
         n_z (int, optional): Number of inducing points for :math:`s`.
-        n_z_cap (int, optional): Maximum number of inducing points. Defaults
-            to `150`.
+        n_z_cap (int, optional): Maximum number of inducing points. Defaults to `300`.
         t_z (vector, optional): Locations of inducing points for :math:`s`.
             Defaults to equally spaced points across the span of the data
             extended by twice the filter length scale.
@@ -86,10 +85,10 @@ class GPCM(AbstractGPCM):
         scale=None,
         omega=None,
         n_u=None,
-        n_u_cap=150,
+        n_u_cap=300,
         t_u=None,
         n_z=None,
-        n_z_cap=150,
+        n_z_cap=300,
         t_z=None,
         extend_t_z=False,
         t=None,

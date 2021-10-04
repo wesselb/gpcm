@@ -32,13 +32,13 @@ class GPRV(AbstractGPCM):
         a (scalar, optional): Lower bound of support of the basis.
         b (scalar, optional): Upper bound of support of the basis.
         m_max (int, optional): Defines cosine and sine basis functions.
-        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to `100`.
+        m_max_cap (int, optional): Maximum value for `m_max`. Defaults to `150`.
         scale (scalar, alternative): Length scale of the function. This will be used
             to determine `m_max` if it is not given.
         ms (vector, optional): Basis function frequencies. Defaults to
             :math:`0,\\ldots,2M-1`.
         n_u (int, optional): Number of inducing points for :math:`u`.
-        n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `150`.
+        n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `300`.
         t_u (vector, optional): Locations of inducing points for :math:`u`. Defaults
             to equally spaced points across twice the filter length scale.
         t (vector, alternative): Locations of interest. Can be used to automatically
@@ -61,11 +61,11 @@ class GPRV(AbstractGPCM):
         a=None,
         b=None,
         m_max=None,
-        m_max_cap=100,
+        m_max_cap=150,
         scale=None,
         ms=None,
         n_u=None,
-        n_u_cap=150,
+        n_u_cap=300,
         t_u=None,
         t=None,
     ):
