@@ -40,11 +40,11 @@ model = GPRV(window=2, scale=1, n_u=30, gamma=1, t=(0, 10))
 t = np.linspace(0, 10, 100)
 k, y = model.sample(t)  # Sampled kernel matrix and sampled noisy function
 
-# Fit using a Laplace approximation. You can also use "vi" or "laplace-vi".
-model.fit(t, y, method="laplace")
+# Fit model to the sample.
+model.fit(t, y)
 
 # Compute the ELBO.
-print(model.elbo(t, y, num_samples=100))
+print(model.elbo(t, y))
 
 # Make predictions.
 posterior = model.condition(t, y)

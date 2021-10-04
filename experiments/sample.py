@@ -10,7 +10,7 @@ from wbml.experiment import WorkingDirectory
 
 wd = WorkingDirectory("_experiments", "sample")
 
-B.epsilon = 1e-7
+B.epsilon = 1e-10
 
 
 def sample(model, t, noise_f):

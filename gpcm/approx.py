@@ -384,21 +384,34 @@ class Structured(Approximation):
         self.model.ps.q_z[self._q_i].samples.unbounded(init=samples, visible=False)
 
     @_dispatch
-    def elbo(self, state, t, y, *args, **kw_args):
+    def elbo(
+        self,
+        state: B.RandomState,
+        t: B.Numeric,
+        y: B.Numeric,
+        num_samples: B.Int = 100,
+    ):
         """Fit a mean-field approximation and compute an estimate of the resulting ELBO
         collapsed over :math:`q(z|u)`.
 
         Args:
-            state (random state): Random state.
+            state (random state, optional): Random state.
             t (vector): Locations of observations.
             y (vector): Observations.
             num_samples (int, optional): Number of samples to use. Defaults to `100`.
 
         Returns:
-            tuple[random state, scalar] : Random state and ELBO.
+            scalar: ELBO.
         """
         _fit_mean_field_ca(self.model, t, y)
-        return self.elbo_collapsed_z(state, t, y, *args, **kw_args)
+        return self.elbo_collapsed_z(state, t, y, num_samples=num_samples)
+
+    @_dispatch
+    def elbo(self, t: B.Numeric, y: B.Numeric, num_samples: B.Int = 100):
+        state = B.global_random_state(self.model.dtype)
+        state, elbo = self.elbo(state, t, y, num_samples=num_samples)
+        B.set_global_random_state(state)
+        return elbo
 
     @_dispatch
     def elbo_gibbs(
@@ -541,17 +554,23 @@ class MeanField(Approximation):
         self.fit = fit
 
     @_dispatch
-    def elbo(self, state, t, y, collapsed: Union[None, str] = None):
+    def elbo(
+        self,
+        state: B.RandomState,
+        t: B.Numeric,
+        y: B.Numeric,
+        collapsed: Union[None, str] = None,
+    ):
         """Compute the mean-field ELBO.
 
         Args:
-            state (random state): Random state.
+            state (random state, optional): Random state.
             t (vector): Locations of observations.
             y (vector): Observations.
             collapsed (str, optional): Collapse over :math:`z` or :math:`u`.
 
         Returns:
-            tuple[random state, scalar]: Random state and ELBO.
+            scalar: ELBO,
         """
         ts = self.construct_terms(t, y)
         if collapsed is None:
@@ -583,6 +602,13 @@ class MeanField(Approximation):
             - q_u.kl(self.p_u)
             - q_z.kl(self.p_z)
         )
+
+    @_dispatch
+    def elbo(self, t: B.Numeric, y: B.Numeric, collapsed: Union[None, str] = None):
+        state = B.global_random_state(self.model.dtype)
+        state, elbo = self.elbo(state, t, y, collapsed=collapsed)
+        B.set_global_random_state(state)
+        return elbo
 
     @_dispatch
     def predict(self, t):
