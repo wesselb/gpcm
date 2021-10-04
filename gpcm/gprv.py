@@ -154,7 +154,7 @@ class GPRV(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.ps.positive(self.alpha, name="alpha")
+        self.alpha = self.alpha  # Fix window length.
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         self.lam = self.ps.positive(self.lam, name="lambda")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
