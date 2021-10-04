@@ -135,9 +135,9 @@ class GPCM(AbstractGPCM):
 
             # `n_u` is required to initialise `t_u`.
             if n_u is None:
-                # Set it to four inducing points per wiggle, multiplied by two to account
+                # Set it to two inducing points per wiggle, multiplied by two to account
                 # for both sides (acausal model) or the extended filter (causal model).
-                n_u = int(np.ceil(4 * 2 * window / scale))
+                n_u = int(np.ceil(2 * 2 * window / scale))
                 if n_u > n_u_cap:
                     warnings.warn(
                         f"Using {n_u} inducing points for the filter, which is too "
