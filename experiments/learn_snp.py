@@ -6,8 +6,9 @@ from gpcm.experiment import setup, run
 
 args, wd = setup("snp")
 
+n = 200
 data = load()
-data = data.iloc[-200:]
+data = data.iloc[-n:]
 t = np.array(data.index)
 y = np.array(data["volume"])
 
@@ -21,8 +22,6 @@ y /= B.std(y)
 noise = 0.05
 window = 7 / 365
 scale = 0.5 / 365
-n_u = 50
-n_z = 150
 
 run(
     args=args,
@@ -32,8 +31,8 @@ run(
     scale=scale,
     t=t,
     y=y,
-    n_u=n_u,
-    n_z=n_z,
+    n_u=150,
+    n_z=n,
     x_range={"psd": (0, 500)},
     y_range={"psd": (-60, 0)},
 )
