@@ -56,7 +56,19 @@ def setup(name):
     return args, wd
 
 
-def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
+def run(
+    args,
+    wd,
+    noise,
+    window,
+    scale,
+    t,
+    y,
+    n_u=None,
+    n_z=None,
+    extend_t_z=False,
+    **kw_args,
+):
     """Run an experiment.
 
     Further takes in keyword arguments for :func:`.experiment.analyse_models`.
@@ -71,6 +83,8 @@ def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
         y (vector): Observations.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
+        extend_t_z (bool, optional): Extend `t_z` to account for the white noise process
+            outside of the data range.
     """
     models = build_models(
         args.model,
@@ -81,7 +95,8 @@ def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
         t=t,
         y=y,
         n_u=n_u,
-        n_z=n_z
+        n_z=n_z,
+        extend_t_z=extend_t_z,
     )
 
     # Setup training.
@@ -97,7 +112,7 @@ def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
     analyse_models(models, t, y, wd=wd, **kw_args)
 
 
-def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
+def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z, extend_t_z):
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
@@ -109,6 +124,8 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
         y (vector): Observations.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
+        extend_t_z (bool, optional): Extend `t_z` to account for the white noise process
+            outside of the data range.
     """
     models = []
 
@@ -123,6 +140,7 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
+                extend_t_z=extend_t_z,
             ),
         )
 
@@ -137,6 +155,7 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
+                extend_t_z=extend_t_z,
             )
         )
     if "gprv" in names:
