@@ -64,6 +64,7 @@ def run(
     scale,
     t,
     y,
+    fix_window_scale=False,
     n_u=None,
     n_z=None,
     extend_t_z=False,
@@ -81,6 +82,8 @@ def run(
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
+        fix_window_scale (bool, optional): Do not learn the window length and length
+            scale. Defaults to `False`.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
         extend_t_z (bool, optional): Extend `t_z` to account for the white noise process
@@ -94,6 +97,7 @@ def run(
         scale=scale,
         t=t,
         y=y,
+        fix_window_scale=fix_window_scale,
         n_u=n_u,
         n_z=n_z,
         extend_t_z=extend_t_z,
@@ -112,7 +116,19 @@ def run(
     analyse_models(models, t, y, wd=wd, **kw_args)
 
 
-def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z, extend_t_z):
+def build_models(
+    names,
+    scheme,
+    window,
+    scale,
+    noise,
+    t,
+    y,
+    fix_window_scale,
+    n_u,
+    n_z,
+    extend_t_z,
+):
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
@@ -122,6 +138,7 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z, extend_t_z
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
+        fix_window_scale (bool): Do not learn the window length and length scale.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
         extend_t_z (bool, optional): Extend `t_z` to account for the white noise process
@@ -136,7 +153,9 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z, extend_t_z
                 scheme=scheme,
                 noise=noise,
                 window=window,
+                fix_window=fix_window_scale,
                 scale=scale,
+                fix_scale=fix_window_scale,
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
@@ -151,7 +170,9 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z, extend_t_z
                 scheme=scheme,
                 noise=noise,
                 window=window,
+                fix_window=fix_window_scale,
                 scale=scale,
+                fix_scale=fix_window_scale,
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
@@ -165,7 +186,9 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z, extend_t_z
                 scheme=scheme,
                 noise=noise,
                 window=window,
+                fix_window=fix_window_scale,
                 scale=scale,
+                fix_scale=fix_window_scale,
                 t=t,
                 n_u=n_u,
                 m_max=int(np.ceil(n_z / 2)) if n_z else None,

@@ -22,8 +22,9 @@ class GPRV(AbstractGPCM):
             window to unity power.
         window (scalar, alternative): Length of the window. This will be used to
             determine `alpha` if it is not given.
-        lam (scalar, optional): Decay of the kernel of :math:`x`. Defaults to four
-            times `alpha`.
+        fix_window (bool, optional): Do not learn the window. Defaults to `False`.
+        lam (scalar, optional): Decay of the kernel of :math:`x`. Defaults to
+            `1 / scale`.
         gamma (scalar, optional): Decay of the transform :math:`u` of :math:`x`.
             Defaults to the inverse of ten times the spacing between locations of
             data points.
@@ -34,7 +35,8 @@ class GPRV(AbstractGPCM):
         m_max (int, optional): Defines cosine and sine basis functions.
         m_max_cap (int, optional): Maximum value for `m_max`. Defaults to `150`.
         scale (scalar, alternative): Length scale of the function. This will be used
-            to determine `m_max` if it is not given.
+            to initialise `lam` and determine `m_max` if `m_max` is not given.
+        fix_scale (bool, optional): Do not learn the length scale. Defaults to `False`.
         ms (vector, optional): Basis function frequencies. Defaults to
             :math:`0,\\ldots,2M-1`.
         n_u (int, optional): Number of inducing points for :math:`u`.
@@ -55,6 +57,7 @@ class GPRV(AbstractGPCM):
         alpha=None,
         alpha_t=None,
         window=None,
+        fix_window=False,
         lam=None,
         gamma=None,
         gamma_t=None,
@@ -63,6 +66,7 @@ class GPRV(AbstractGPCM):
         m_max=None,
         m_max_cap=150,
         scale=None,
+        fix_scale=False,
         ms=None,
         n_u=None,
         n_u_cap=300,
@@ -75,6 +79,10 @@ class GPRV(AbstractGPCM):
         if t is not None:
             t = np.array(t)
 
+        # Store whether to fix the length scale and window length.
+        self.fix_scale = fix_scale
+        self.fix_window = fix_window
+
         # First initialise optimisable model parameters.
         if alpha is None:
             alpha = 1 / window
@@ -83,7 +91,7 @@ class GPRV(AbstractGPCM):
             alpha_t = B.sqrt(2 * alpha)
 
         if lam is None:
-            lam = 2 * alpha
+            lam = 1 / scale
 
         self.noise = noise
         self.alpha = alpha
@@ -108,7 +116,7 @@ class GPRV(AbstractGPCM):
                     n_u = n_u_cap
 
             # Make lower value very small, so we can restrict `t_u` to be positive.
-            t_u = B.linspace(1e-6, t_u_max, n_u)
+            t_u = B.linspace(1e-4, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -154,14 +162,19 @@ class GPRV(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.ps.positive(self.alpha, name="alpha")
+        if not self.fix_window:
+            self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
-        self.lam = self.ps.positive(self.lam, name="lambda")
+        if not self.fix_scale:
+            self.lam = self.ps.positive(self.lam, name="lambda")
         self.gamma = self.ps.positive(self.gamma, name="gamma")
-        # `gamma_t` overparametrises the model, but we still learn it to hopefully ease
-        # the optimisation.
-        self.gamma_t = self.ps.positive(self.gamma_t, name="gamma_t")
-        self.t_u = self.ps.positive(self.t_u, name="t_u")
+        self.gamma_t = self.gamma_t  # Fix `gamma_t`: overparametrised.
+        self.t_u = self.ps.bounded(
+            self.t_u,
+            lower=min(self.t_u) / 100,
+            upper=max(self.t_u) * 1.5,
+            name="t_u",
+        )
 
         AbstractGPCM.__prior__(self)
 

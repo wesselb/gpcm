@@ -47,9 +47,11 @@ class GPCM(AbstractGPCM):
             normalise the window to unity power.
         window (scalar, alternative): Length of the window. This will be used
             to determine `alpha` if it is not given.
+        fix_window (bool, optional): Do not learn the window. Defaults to `False`.
         gamma (scalar, optional): Decay on the prior of :math:`h`.
         scale (scalar, alternative): Length scale of the function. This will be
             used to determine `gamma` if it is not given.
+        fix_scale (bool, optional): Do not learn the length scale. Defaults to `False`.
         omega (scalar, optional): Decay of the transform :math:`s` of
             :math:`x`. Defaults to length scale half the spacing
             between the inducing points.
@@ -81,8 +83,10 @@ class GPCM(AbstractGPCM):
         alpha=None,
         alpha_t=None,
         window=None,
+        fix_window=False,
         gamma=None,
         scale=None,
+        fix_scale=False,
         omega=None,
         n_u=None,
         n_u_cap=300,
@@ -97,6 +101,10 @@ class GPCM(AbstractGPCM):
 
         # Store whether this is the CGPCM instead of the GPCM.
         self.causal = causal
+
+        # Store whether to fix the length scale and window length.
+        self.fix_scale = fix_scale
+        self.fix_window = fix_window
 
         # Ensure that `t` is a vector.
         if t is not None:
@@ -243,9 +251,11 @@ class GPCM(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
-        self.alpha = self.ps.positive(self.alpha, name="alpha")
+        if not self.fix_window:
+            self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
-        self.gamma = self.ps.positive(self.gamma, name="gamma")
+        if not self.fix_scale:
+            self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.omega = self.ps.positive(self.omega, name="omega")
         self.t_u = self.ps.unbounded(self.t_u, name="t_u")
         self.t_z = self.ps.unbounded(self.t_z, name="t_z")
