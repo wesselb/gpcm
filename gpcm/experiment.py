@@ -56,7 +56,19 @@ def setup(name):
     return args, wd
 
 
-def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
+def run(
+    args,
+    wd,
+    noise,
+    window,
+    scale, 
+    t,
+    y,
+    fix_window_scale=False,
+    n_u=None,
+    n_z=None,
+    **kw_args,
+):
     """Run an experiment.
 
     Further takes in keyword arguments for :func:`.experiment.analyse_models`.
@@ -69,6 +81,8 @@ def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
+        fix_window_scale (bool, optional): Do not learn the window length and length
+            scale. Defaults to `False`.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
     """
@@ -80,6 +94,7 @@ def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
         scale=scale,
         t=t,
         y=y,
+        fix_window_scale=fix_window_scale,
         n_u=n_u,
         n_z=n_z
     )
@@ -97,7 +112,18 @@ def run(args, wd, noise, window, scale, t, y, n_u=None, n_z=None, **kw_args):
     analyse_models(models, t, y, wd=wd, **kw_args)
 
 
-def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
+def build_models(
+    names,
+    scheme,
+    window,
+    scale,
+    noise,
+    t,
+    y,
+    fix_window_scale,
+    n_u,
+    n_z
+):
     """Construct the GPCM, CGPCM, and GP-RV.
 
     Args:
@@ -107,6 +133,7 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
         scale (scalar): Length scale of the function.
         t (vector): Time points of data.
         y (vector): Observations.
+        fix_window_scale (bool): Do not learn the window length and length scale.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
     """
@@ -119,7 +146,9 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
                 scheme=scheme,
                 noise=noise,
                 window=window,
+                fix_window=fix_window_scale,
                 scale=scale,
+                fix_scale=fix_window_scale,
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
@@ -133,7 +162,9 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
                 scheme=scheme,
                 noise=noise,
                 window=window,
+                fix_window=fix_window_scale,
                 scale=scale,
+                fix_scale=fix_window_scale,
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
@@ -146,7 +177,9 @@ def build_models(names, scheme, window, scale, noise, t, y, n_u, n_z):
                 scheme=scheme,
                 noise=noise,
                 window=window,
+                fix_window=fix_window_scale,
                 scale=scale,
+                fix_scale=fix_window_scale,
                 t=t,
                 n_u=n_u,
                 m_max=int(np.ceil(n_z / 2)) if n_z else None,
