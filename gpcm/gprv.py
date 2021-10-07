@@ -100,12 +100,12 @@ class GPRV(AbstractGPCM):
 
         # Then initialise fixed variables.
         if t_u is None:
-            t_u_max = 2 / self.alpha
+            t_u_max = B.pi / self.alpha
 
             # `n_u` is required to initialise `t_u`.
             if n_u is None:
                 # Set it to two inducing points per wiggle, multiplied by two to account
-                # for both sides (acausal model) or the extended filter (causal model).
+                # for the longer range (`pi` compared to `2`).
                 n_u = int(np.ceil(2 * 2 * window / scale))
                 if n_u > n_u_cap:
                     warnings.warn(
@@ -156,10 +156,13 @@ class GPRV(AbstractGPCM):
         if gamma_t is None:
             gamma_t = B.sqrt(2 * gamma)
 
-        self.gamma = gamma
+        # Must ensure that `gamma < alpha`.
+        self.gamma = min(gamma, self.alpha / 1.5)
         self.gamma_t = gamma_t
 
     def __prior__(self):
+        gamma_factor_init = self.alpha / self.gamma
+
         # Make parameters learnable:
         self.noise = self.ps.positive(self.noise, name="noise")
         if not self.fix_window:
@@ -167,11 +170,19 @@ class GPRV(AbstractGPCM):
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
         if not self.fix_scale:
             self.lam = self.ps.positive(self.lam, name="lambda")
-        self.gamma = self.ps.positive(self.gamma, name="gamma")
+        # We must ensure that `gamma < alpha`.
+        gamma_factor = self.ps.bounded(
+            gamma_factor_init,
+            lower=1,
+            upper=1e4,
+            name="gamma_factor",
+        )
+        self.gamma = self.alpha / gamma_factor
         self.gamma_t = self.gamma_t  # Fix `gamma_t`: overparametrised.
+        # Bound the inducing points so they don't move away too far.
         self.t_u = self.ps.bounded(
             self.t_u,
-            lower=min(self.t_u) / 100,
+            lower=0,
             upper=max(self.t_u) * 1.5,
             name="t_u",
         )

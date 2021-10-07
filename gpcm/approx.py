@@ -432,21 +432,21 @@ class Structured(Approximation):
             y (vector): Observations.
             u (matrix): Current sample for :math:`u`.
             z (matrix): Current sample for :math:`z`.
-            num_samples (int, optional): Number of samples to use. Defaults to `5`.
+            num_samples (int, optional): Number of Gibbs samples. Defaults to `5`.
 
         Returns:
             tuple[random state, scalar, matrix, matrix]: Random state, ELBO, updated
                 sample for :math:`u`, and updated sample for :math:`z`.
         """
         ts = self.construct_terms(t, y)
-        elbos = []
         for _ in range(num_samples):
             state, u = self.q_u_optimal(ts, z).sample(state)
             state, z = self.q_z_optimal(ts, u).sample(state)
-            elbos.append(
-                self.log_Z_u(ts, stop_gradient(u)) + self.p_u.logpdf(stop_gradient(u))
-            )
-        return state, sum(elbos) / len(elbos), u, z
+        elbo = (
+            self.log_Z_u(ts, stop_gradient(u))
+            + self.p_u.logpdf(stop_gradient(u))
+        )
+        return state, elbo, u, z
 
     @_dispatch
     def log_Z_u(self, ts: SimpleNamespace, u: B.Numeric):
@@ -717,7 +717,7 @@ def fit(model, t, y, approximation: Structured, iters: B.Int = 5000):
         objective,
         (model.vs, state, u, z),
         iters=(2 * iters) // 5,  # Spend twice the sampling budget.
-        rate=5e-2,
+        rate=1e-2,
         trace=True,
         jit=True,
         names=model().approximation.ignore_qs(previous=True, current=True),
