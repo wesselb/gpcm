@@ -57,16 +57,18 @@ def summarise_samples(x, samples, db=False):
         else:
             return x
 
+    perm = tuple(reversed(range(B.rank(samples))))  # Reverse all dimensions.
     return collect(
         x=B.to_numpy(x),
         mean=transform(B.mean(samples, axis=0)),
-        err_68_lower=transform(np.percentile(samples, 32, axis=0)),
-        err_68_upper=transform(np.percentile(samples, 100 - 32, axis=0)),
-        err_95_lower=transform(np.percentile(samples, 2.5, axis=0)),
-        err_95_upper=transform(np.percentile(samples, 100 - 2.5, axis=0)),
-        err_99_lower=transform(np.percentile(samples, 0.15, axis=0)),
-        err_99_upper=transform(np.percentile(samples, 100 - 0.15, axis=0)),
-        samples=transform(B.transpose(samples)[..., random_inds]),
+        err_68_lower=transform(B.quantile(samples, 0.32, axis=0)),
+        err_68_upper=transform(B.quantile(samples, 1 - 0.32, axis=0)),
+        err_95_lower=transform(B.quantile(samples, 0.025, axis=0)),
+        err_95_upper=transform(B.quantile(samples, 1 - 0.025, axis=0)),
+        err_99_lower=transform(B.quantile(samples, 0.0015, axis=0)),
+        err_99_upper=transform(B.quantile(samples, 1 - 0.0015, axis=0)),
+        samples=transform(B.transpose(samples, perm=perm)[..., random_inds]),
+        all_samples=transform(B.transpose(samples, perm=perm)),
     )
 
 

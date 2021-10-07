@@ -79,7 +79,8 @@ class NaturalNormal:
             self._m2 = B.cholsolve(B.chol(self.prec), B.transpose(self._m2))
         return self._m2
 
-    def sample(self, state, num=1):
+    @_dispatch
+    def sample(self, state: B.RandomState, num: int = 1):
         """Sample.
 
         Args:
@@ -96,6 +97,13 @@ class NaturalNormal:
         if not structured(sample):
             sample = B.dense(sample)
         return state, sample
+
+    @_dispatch
+    def sample(self, num: int = 1):
+        state = B.global_random_state(self.dtype)
+        state, samples = self.sample(state, num=num)
+        B.set_global_random_state(state)
+        return samples
 
     @_dispatch
     def kl(self, other: "NaturalNormal"):

@@ -1,6 +1,6 @@
 from itertools import product
 
-import gpcm.gprv as gprv
+import gpcm.gprvm as gprv
 import lab as B
 import numpy as np
 import pytest
@@ -17,7 +17,7 @@ def t():
 
 @pytest.fixture()
 def model(t):
-    return gprv.GPRV(window=0.5, scale=0.2, t=t, n_u=3, m_max=2)
+    return gprv.GPRVM(window=0.5, scale=0.2, t=t, n_u=3, m_max=2)
 
 
 def signed_pairs(num):

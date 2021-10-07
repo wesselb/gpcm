@@ -8,11 +8,11 @@ from varz import Vars
 from .model import AbstractGPCM
 from .util import invert_perm, method
 
-__all__ = ["GPRV"]
+__all__ = ["GPRVM"]
 
 
-class GPRV(AbstractGPCM):
-    """GP-RV variation of the GPCM.
+class GPRVM(AbstractGPCM):
+    """Gaussian Process Rough Volatility Model.
 
     Args:
         scheme (str, optional): Approximation scheme. Defaults to `structured`.
@@ -47,7 +47,7 @@ class GPRV(AbstractGPCM):
             initialise quantities.
     """
 
-    name = "GP-RV"
+    name = "GPRVM"
     """str: Formatted name."""
 
     def __init__(
@@ -98,14 +98,18 @@ class GPRV(AbstractGPCM):
         self.alpha_t = alpha_t
         self.lam = lam
 
+        # For convenience, also store the extent of the filter.
+        self.extent = 4 / self.alpha
+
         # Then initialise fixed variables.
         if t_u is None:
+            # Place inducing points until the filter is `exp(-pi) = 4.32%`.
             t_u_max = B.pi / self.alpha
 
             # `n_u` is required to initialise `t_u`.
             if n_u is None:
                 # Set it to two inducing points per wiggle, multiplied by two to account
-                # for the longer range (`pi` compared to `2`).
+                # for the longer range.
                 n_u = int(np.ceil(2 * 2 * window / scale))
                 if n_u > n_u_cap:
                     warnings.warn(
@@ -115,8 +119,7 @@ class GPRV(AbstractGPCM):
                     )
                     n_u = n_u_cap
 
-            # Make lower value very small, so we can restrict `t_u` to be positive.
-            t_u = B.linspace(1e-4, t_u_max, n_u)
+            t_u = B.linspace(0, t_u_max, n_u)
 
         if n_u is None:
             n_u = B.shape(t_u)[0]
@@ -182,7 +185,7 @@ class GPRV(AbstractGPCM):
         # Bound the inducing points so they don't move away too far.
         self.t_u = self.ps.bounded(
             self.t_u,
-            lower=0,
+            lower=-1e-4,  # First inducing point is at the origin.
             upper=max(self.t_u) * 1.5,
             name="t_u",
         )
@@ -190,7 +193,7 @@ class GPRV(AbstractGPCM):
         AbstractGPCM.__prior__(self)
 
 
-@method(GPRV)
+@method(GPRVM)
 def compute_K_u(model):
     """Covariance matrix of inducing variables :math:`u` associated with
     :math:`h`.
@@ -221,7 +224,7 @@ def psd_matern_12(omega, lam, lam_t):
     return 2 * lam_t * lam / (lam ** 2 + omega ** 2)
 
 
-@method(GPRV)
+@method(GPRVM)
 def compute_K_z(model):
     """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\\ldots,2M`.
 
@@ -244,7 +247,7 @@ def compute_K_z(model):
     return Diagonal(alpha) + LowRank(left=beta[:, None])
 
 
-@method(GPRV)
+@method(GPRVM)
 def compute_i_hx(model, t1=None, t2=None):
     """Compute the :math:`I_{hx}` integral.
 
@@ -263,7 +266,7 @@ def compute_i_hx(model, t1=None, t2=None):
     return model.alpha_t ** 2 / 2 / model.alpha * B.exp(-model.lam * B.abs(t1 - t2))
 
 
-@method(GPRV)
+@method(GPRVM)
 def compute_I_ux(model, t1=None, t2=None):
     """Compute the :math:`I_{ux}` integral.
 
@@ -361,7 +364,7 @@ def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
     )
 
 
-@method(GPRV)
+@method(GPRVM)
 def compute_I_hz(model, t):
     """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in `t`.
 
@@ -475,7 +478,7 @@ def _I_hx_0_sin(model, n, t):
     )
 
 
-@method(GPRV)
+@method(GPRVM)
 def compute_I_uz(model, t):
     """Compute the :math:`I_{uz,t_i}` matrix for :math:`t_i` in `t`.
 

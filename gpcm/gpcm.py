@@ -131,19 +131,21 @@ class GPCM(AbstractGPCM):
         self.alpha_t = alpha_t
         self.gamma = gamma
 
+        # For convenience, also store the extent of the filter.
+        if causal:
+            self.extent = 2 * factor_to_scale(self.alpha)
+        else:
+            self.extent = 4 * factor_to_scale(self.alpha)
+
         # Then initialise fixed variables.
         if t_u is None:
-            # For the causal case, decay is less quick, and we want `t_u_max` to be the
-            # same in both cases.
-            if causal:
-                t_u_max = factor_to_scale(self.alpha)
-            else:
-                t_u_max = 2 * factor_to_scale(self.alpha)
+            # Place inducing points until the filter is `exp(-pi) = 4.32%`.
+            t_u_max = 2 * factor_to_scale(self.alpha)
 
             # `n_u` is required to initialise `t_u`.
             if n_u is None:
                 # Set it to two inducing points per wiggle, multiplied by two to account
-                # for both sides (acausal model) or the extended filter (causal model).
+                # for both sides (acausal model) or the longer range (causal model).
                 n_u = int(np.ceil(2 * 2 * window / scale))
                 if n_u > n_u_cap:
                     warnings.warn(
@@ -184,11 +186,8 @@ class GPCM(AbstractGPCM):
             n_z = B.shape(t_z)[0]
 
         if extend_t_z:
-            # Again, decay is less quick for the causal case. See above.
-            if causal:
-                t_z_extra = factor_to_scale(self.alpha)
-            else:
-                t_z_extra = 2 * factor_to_scale(self.alpha)
+            # See above.
+            t_z_extra = 2 * factor_to_scale(self.alpha)
 
             d_t_u = (max(t) - min(t)) / (n_z - 1)
             n_z_extra = int(np.ceil(t_z_extra / d_t_u))

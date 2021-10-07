@@ -67,34 +67,36 @@ class AbstractGPCM(Model):
         return self.approximation.predict(*args, **kw_args)
 
     @instancemethod
-    def predict_kernel(self, **kw_args):
-        """Predict kernel and normalise prediction.
-
-        Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
-
-        Returns:
-            :class:`collections.namedtuple`: The prediction.
-        """
-        return summarise_samples(*self.sample_kernel(**kw_args))
-
-    @instancemethod
-    def sample_kernel(self, t_k=None, **kw_args):
+    def predict_kernel(self, t_k=None, num_samples=1000):
         """Predict kernel and normalise prediction.
 
         Args:
             t_k (vector, optional): Inputs to sample kernel at. Will be automatically
                 determined if not given.
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
+
+        Returns:
+            :class:`collections.namedtuple`: The prediction.
+        """
+        return summarise_samples(*self.sample_kernel(t_k=t_k, num_samples=num_samples))
+
+    @instancemethod
+    def sample_kernel(self, t_k=None, num_samples=1000):
+        """Predict kernel and normalise prediction.
+
+        Args:
+            t_k (vector, optional): Inputs to sample kernel at. Will be automatically
+                determined if not given.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple[vector, tensor]: Tuple containing the inputs of the samples and the
                 samples.
         """
         if t_k is None:
-            t_k = B.linspace(self.dtype, 0, 1.2 * B.max(self.t_u), 300)
+            t_k = B.linspace(self.dtype, 0, self.extent, 300)
 
-        ks = self.approximation.sample_kernel(t_k, **kw_args)
+        ks = self.approximation.sample_kernel(t_k, num_samples=num_samples)
 
         # Normalise predicted kernel.
         var_mean = B.mean(ks[:, 0])
@@ -108,7 +110,7 @@ class AbstractGPCM(Model):
         """Predict the PSD in dB.
 
         Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             :class:`collections.namedtuple`: Predictions.
@@ -127,7 +129,7 @@ class AbstractGPCM(Model):
         """Predict Fourier features.
 
         Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `50`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple: Marginals of the predictions.

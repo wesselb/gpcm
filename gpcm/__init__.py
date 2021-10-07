@@ -1,3 +1,3 @@
 from .gpcm import *
-from .gprv import *
+from .gprvm import *
 from .model import *

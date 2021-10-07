@@ -389,7 +389,7 @@ class Structured(Approximation):
         state: B.RandomState,
         t: B.Numeric,
         y: B.Numeric,
-        num_samples: B.Int = 100,
+        num_samples: B.Int = 1000,
     ):
         """Fit a mean-field approximation and compute an estimate of the resulting ELBO
         collapsed over :math:`q(z|u)`.
@@ -398,7 +398,7 @@ class Structured(Approximation):
             state (random state, optional): Random state.
             t (vector): Locations of observations.
             y (vector): Observations.
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             scalar: ELBO.
@@ -407,7 +407,7 @@ class Structured(Approximation):
         return self.elbo_collapsed_z(state, t, y, num_samples=num_samples)
 
     @_dispatch
-    def elbo(self, t: B.Numeric, y: B.Numeric, num_samples: B.Int = 100):
+    def elbo(self, t: B.Numeric, y: B.Numeric, num_samples: B.Int = 1000):
         state = B.global_random_state(self.model.dtype)
         state, elbo = self.elbo(state, t, y, num_samples=num_samples)
         B.set_global_random_state(state)
@@ -442,10 +442,7 @@ class Structured(Approximation):
         for _ in range(num_samples):
             state, u = self.q_u_optimal(ts, z).sample(state)
             state, z = self.q_z_optimal(ts, u).sample(state)
-        elbo = (
-            self.log_Z_u(ts, stop_gradient(u))
-            + self.p_u.logpdf(stop_gradient(u))
-        )
+        elbo = self.log_Z_u(ts, stop_gradient(u)) + self.p_u.logpdf(stop_gradient(u))
         return state, elbo, u, z
 
     @_dispatch
@@ -470,14 +467,14 @@ class Structured(Approximation):
         )
 
     @_dispatch
-    def elbo_collapsed_z(self, state: B.RandomState, t, y, num_samples: B.Int = 100):
+    def elbo_collapsed_z(self, state: B.RandomState, t, y, num_samples: B.Int = 1000):
         """Compute an estimate of the ELBO collapsed over :math:`q(z|u)`.
 
         Args:
             state (random state): Random state.
             t (vector): Locations of observations.
             y (vector): Observations.
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple[random state, scalar] : Random state and ELBO.
@@ -485,57 +482,76 @@ class Structured(Approximation):
         ts = self.construct_terms(t, y)
         q_u = self.q_u
         state, us = q_u.sample(state, num_samples)
-        recs = [self.log_Z_u(ts, u) for u in _columns(us)]
+
+        @B.jit
+        def rec(u):
+            return self.log_Z_u(ts, u)
+
+        recs = [rec(ts, u) for u in _columns(us)]
         return state, sum(recs) / len(recs) - q_u.kl(self.p_u)
 
+    def _sample_p_u(self, num_samples):
+        if self._q_i == 0:
+            return _columns(self.p_u.sample(num_samples))
+        else:
+            return _columns(self.p_u_samples, num_samples)
+
     @_dispatch
-    def predict(self, t, num_samples: B.Int = 100):
+    def predict(self, t, num_samples: B.Int = 1000):
         """Predict.
 
         Args:
             t (vector): Points to predict at.
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
                 predictions.
         """
         ts = self.construct_terms(t)
-        m1s, m2s = [], []
-        for u in _columns(self.p_u_samples, num_samples):
+
+        @B.jit
+        def predict_moments(u):
             q_z = self.q_z_optimal(self.ts, u)
-            m1, m2 = self._predict_moments(ts, u, B.outer(u), q_z.mean, q_z.m2)
-            m1s.append(m1)
-            m2s.append(m2)
+            return self._predict_moments(ts, u, B.outer(u), q_z.mean, q_z.m2)
+
+        m1s, m2s = zip(*[predict_moments(u) for u in self._sample_p_u(num_samples)])
         m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
         m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
         return m1, m2 - m1 ** 2
 
     @_dispatch
-    def sample_kernel(self, t_k, num_samples: B.Int = 100):
+    def sample_kernel(self, t_k, num_samples: B.Int = 1000):
         """Sample kernel.
 
         Args:
             t_k (vector): Time point to sample at.
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tensor: Samples.
         """
-        us = _columns(self.p_u_samples, num_samples)
-        return B.stack(*[self._sample_kernel(t_k, u) for u in us], axis=0)
+        us = self._sample_p_u(num_samples)
+        sample_kernel = B.jit(self._sample_kernel)
+        return B.stack(*[sample_kernel(t_k, u) for u in us], axis=0)
+
+    def _sample_p_z(self, num_samples):
+        if self._q_i == 0:
+            return _columns(self.p_z.sample(num_samples))
+        else:
+            return _columns(self.p_z_samples, num_samples)
 
     @_dispatch
-    def predict_z(self, num_samples: B.Int = 100):
+    def predict_z(self, num_samples: B.Int = 1000):
         """Predict Fourier features.
 
         Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `100`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple[vector, vector]: Marginals of the predictions.
         """
-        zs = [B.flatten(x) for x in _columns(self.p_z_samples, num_samples)]
+        zs = [B.flatten(x) for x in self._sample_p_z(num_samples)]
         m1 = B.mean(B.stack(*zs, axis=0), axis=0)
         m2 = B.mean(B.stack(*[z ** 2 for z in zs], axis=0), axis=0)
         return m1, m2 - m1 ** 2
