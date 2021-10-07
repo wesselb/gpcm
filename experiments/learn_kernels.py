@@ -2,7 +2,7 @@ import lab as B
 from gpcm.experiment import run, setup
 from stheno import Matern12, GP, Delta, Measure
 
-args, wd = setup("kernels")
+args, wd = setup("_experiments", "kernels")
 
 # Setup experiment.
 n = 500 + 1  # Need to add the last point for the call to `linspace`.
