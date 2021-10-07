@@ -30,7 +30,7 @@ y = y[inds]
 
 
 def comparative_kernel(vs_):
-    return vs_.pos(1) * EQ().stretch(vs_.pos(1.0)) + vs_.pos(noise) * Delta()
+    return vs_.pos(1) * kernel.stretch(vs_.pos(1.0)) + vs_.pos(noise) * Delta()
 
 
 run(
