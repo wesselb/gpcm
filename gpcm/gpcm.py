@@ -257,7 +257,13 @@ class GPCM(AbstractGPCM):
         if not self.fix_scale:
             self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.omega = self.ps.positive(self.omega, name="omega")
-        self.t_u = self.ps.unbounded(self.t_u, name="t_u")
+        # Bound the inducing points so they don't move away too far.
+        self.t_u = self.ps.bounded(
+            self.t_u,
+            lower=min(self.t_u) * 1.5,
+            upper=max(self.t_u) * 1.5,
+            name="t_u",
+        )
         self.t_z = self.ps.unbounded(self.t_z, name="t_z")
 
         AbstractGPCM.__prior__(self)
