@@ -48,6 +48,6 @@ run(
     comparative_kernel=comparative_kernel,
     t_plot=t_plot,
     truth=(t_plot, truth),
-    x_range={"psd": (0, 3)},
-    y_range={"kernel": (-0.5, 1.5), "psd": (-100, 10)},
+    x_range={"psd": (0, 0.5)},
+    y_range={"kernel": (-0.5, 1.5), "psd": (-20, 10)},
 )
