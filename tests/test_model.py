@@ -6,14 +6,7 @@ from gpcm import GPCM, CGPCM, GPRV
 from .util import approx
 
 
-@pytest.mark.parametrize(
-    "Model",
-    [
-        lambda **kw_args: GPCM(**kw_args),
-        lambda **kw_args: CGPCM(**kw_args),
-        lambda **kw_args: GPRV(gamma=1, **kw_args),
-    ],
-)
+@pytest.mark.parametrize("Model", [GPCM, CGPCM, GPRV])
 def test_prior_power(Model):
     t_u = B.zeros(1)
     model = Model(window=2, scale=1, n_u=10, t=(0, 10))

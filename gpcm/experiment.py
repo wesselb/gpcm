@@ -61,12 +61,13 @@ def run(
     wd,
     noise,
     window,
-    scale, 
+    scale,
     t,
     y,
     fix_window_scale=False,
     n_u=None,
     n_z=None,
+    extend_t_z=False,
     **kw_args,
 ):
     """Run an experiment.
@@ -85,6 +86,8 @@ def run(
             scale. Defaults to `False`.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
+        extend_t_z (bool, optional): Extend `t_z` to account for the white noise process
+            outside of the data range.
     """
     models = build_models(
         args.model,
@@ -96,7 +99,8 @@ def run(
         y=y,
         fix_window_scale=fix_window_scale,
         n_u=n_u,
-        n_z=n_z
+        n_z=n_z,
+        extend_t_z=extend_t_z,
     )
 
     # Setup training.
@@ -122,7 +126,8 @@ def build_models(
     y,
     fix_window_scale,
     n_u,
-    n_z
+    n_z,
+    extend_t_z,
 ):
     """Construct the GPCM, CGPCM, and GP-RV.
 
@@ -136,6 +141,8 @@ def build_models(
         fix_window_scale (bool): Do not learn the window length and length scale.
         n_u (int, optional): Number of inducing points for :math:`h`.
         n_z (int, optional): Number of inducing points for :math:`s` or equivalent.
+        extend_t_z (bool, optional): Extend `t_z` to account for the white noise process
+            outside of the data range.
     """
     models = []
 
@@ -152,6 +159,7 @@ def build_models(
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
+                extend_t_z=extend_t_z,
             ),
         )
 
@@ -168,6 +176,7 @@ def build_models(
                 t=t,
                 n_u=n_u,
                 n_z=n_z,
+                extend_t_z=extend_t_z,
             )
         )
     if "gprv" in names:

@@ -17,7 +17,7 @@ def t():
 
 @pytest.fixture()
 def model(t):
-    return gprv.GPRV(window=0.5, t=t, n_u=3, m_max=2)
+    return gprv.GPRV(window=0.5, scale=0.2, t=t, n_u=3, m_max=2)
 
 
 def signed_pairs(num):
