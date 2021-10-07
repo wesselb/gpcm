@@ -33,8 +33,8 @@ run(
     scale=scale,
     t=t,
     y=y,
-    n_u=100,
-    n_z=300,
+    n_u=75,
+    n_z=250,
     x_range={"psd": (0, 0.5)},
     y_range={"psd": (-20, 20)},
 )
