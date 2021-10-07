@@ -35,13 +35,14 @@ def matmul(
     return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
 
 
-def summarise_samples(x, samples):
+def summarise_samples(x, samples, db=False):
     """Summarise samples.
 
     Args:
         x (vector): Inputs of samples.
         samples (tensor): Samples, with the first dimension corresponding
             to different samples.
+        db (bool, optional): Convert to decibels.
 
     Returns:
         :class:`collections.namedtuple`: Named tuple containing various
@@ -49,16 +50,23 @@ def summarise_samples(x, samples):
     """
     x, samples = B.to_numpy(x, samples)
     random_inds = np.random.permutation(B.shape(samples)[0])[:3]
+
+    def transform(x):
+        if db:
+            return 10 * np.log10(x)
+        else:
+            return x
+
     return collect(
         x=B.to_numpy(x),
-        mean=B.mean(samples, axis=0),
-        err_68_lower=np.percentile(samples, 32, axis=0),
-        err_68_upper=np.percentile(samples, 100 - 32, axis=0),
-        err_95_lower=np.percentile(samples, 2.5, axis=0),
-        err_95_upper=np.percentile(samples, 100 - 2.5, axis=0),
-        err_99_lower=np.percentile(samples, 0.15, axis=0),
-        err_99_upper=np.percentile(samples, 100 - 0.15, axis=0),
-        samples=B.transpose(samples)[..., random_inds],
+        mean=transform(B.mean(samples, axis=0)),
+        err_68_lower=transform(np.percentile(samples, 32, axis=0)),
+        err_68_upper=transform(np.percentile(samples, 100 - 32, axis=0)),
+        err_95_lower=transform(np.percentile(samples, 2.5, axis=0)),
+        err_95_upper=transform(np.percentile(samples, 100 - 2.5, axis=0)),
+        err_99_lower=transform(np.percentile(samples, 0.15, axis=0)),
+        err_99_upper=transform(np.percentile(samples, 100 - 0.15, axis=0)),
+        samples=transform(B.transpose(samples)[..., random_inds]),
     )
 
 

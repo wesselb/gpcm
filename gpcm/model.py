@@ -116,11 +116,11 @@ class AbstractGPCM(Model):
         t_k, ks = self.sample_kernel(**kw_args)
 
         # Estimate PSDs.
-        freqs, psds = zip(*[estimate_psd(t_k, k, db=True) for k in ks])
+        freqs, psds = zip(*[estimate_psd(t_k, k, db=False) for k in ks])
         freqs = freqs[0]
         psds = B.stack(*psds, axis=0)
 
-        return summarise_samples(freqs, psds)
+        return summarise_samples(freqs, psds, db=True)
 
     @instancemethod
     def predict_fourier(self, **kw_args):
