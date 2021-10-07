@@ -4,15 +4,17 @@ from wbml.data.snp import load
 
 from gpcm.experiment import setup, run
 
+B.epsilon = 1e-6   # This experiment requires a bit of help to not `NaN` out.
+
 args, wd = setup("snp")
 
-n = 200
 data = load()
-data = data.iloc[-n:]
+data = data.iloc[-300:]
 t = np.array(data.index)
 y = np.array(data["volume"])
 
-t = t - t[0]  # Why does this help the numerics? Avoid cancellations?
+# Convert to days since start.
+t = (t - t[0]) * 365
 
 # Normalise to zero mean and unity variance.
 y -= B.mean(y)
@@ -20,8 +22,8 @@ y /= B.std(y)
 
 # Setup GPCM models.
 noise = 0.05
-window = 7 / 365
-scale = 0.5 / 365
+window = 7
+scale = 0.1
 
 run(
     args=args,
@@ -31,8 +33,8 @@ run(
     scale=scale,
     t=t,
     y=y,
-    n_u=150,
-    n_z=n,
-    x_range={"psd": (0, 500)},
-    y_range={"psd": (-60, 0)},
+    n_u=100,
+    n_z=300,
+    x_range={"psd": (0, 0.5)},
+    y_range={"psd": (-20, 20)},
 )
