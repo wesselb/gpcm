@@ -1,21 +1,21 @@
 import lab as B
 from gpcm.experiment import run, setup
-from stheno import Matern12, GP, Delta, Measure
+from stheno import CEQ, GP, Delta, Measure, Exp
 
 args, wd = setup("kernels")
 
 # Setup experiment.
-n = 500 + 1  # Need to add the last point for the call to `linspace`.
-noise = 0.05
-t = B.linspace(0, 10, n)
-t_plot = B.linspace(0, 10, 500)
+n = 100 + 1  # Need to add the last point for the call to `linspace`.
+noise = 0.2
+t = B.linspace(0, 20, n)
+t_plot = B.linspace(0, 20, 500)
 
 # Setup true model and GPCM models.
-kernel = Matern12()
+kernel = Exp()
 window = 2
-scale = 0.05
-n_u = 40
-n_z = 100
+scale = 1
+n_u = 30
+n_z = 80
 
 # Sample data.
 m = Measure()
