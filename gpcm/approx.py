@@ -293,14 +293,14 @@ class Approximation:
 
 
 @_dispatch
-def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 1000):
+def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 5000):
     """Train an instance with a mean-field approximation using coordinate ascent.
 
     Args:
         instance (:class:`.gpcm.AbstractGPCM`): Instantiated model.
         t (vector): Locations of observations.
         y (vector): Observations.
-        iters (int, optional): Fixed point iterations. Defaults to `1000`.
+        iters (int, optional): Fixed point iterations. Defaults to `5000`.
     """
     ts = instance.approximation.construct_terms(t, y)
 
@@ -335,9 +335,14 @@ def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 1000):
         for _ in range(iters):
             q_u = compute_q_u(*q_z)
             q_z = compute_q_z(*q_u)
-            progress({"Difference": diff(q_u + q_z, last_q_u + last_q_z)})
+            current_diff = diff(q_u + q_z, last_q_u + last_q_z)
+            progress({"Difference": current_diff})
             last_q_u = q_u
             last_q_z = q_z
+
+            # Early stop if possible.
+            if current_diff < 1e-6:
+                break
 
     # Store result of fixed point iterations.
     instance.approximation.q_u = NaturalNormal(*q_u)
@@ -671,7 +676,14 @@ class MeanField(Approximation):
 
 
 @fit.dispatch
-def fit(model, t, y, approximation: Structured, iters: B.Int = 5000):
+def fit(
+    model,
+    t,
+    y,
+    approximation: Structured,
+    iters: B.Int = 5000,
+    optimise_hypers: bool = True,
+):
     """Fit a structured approximation.
 
     Args:
@@ -680,6 +692,8 @@ def fit(model, t, y, approximation: Structured, iters: B.Int = 5000):
         t (vector): Locations of observations.
         y (vector): Observations.
         iters (int, optional): Gibbs sampling iterations. Defaults to `5000`.
+        optimise_hypers (bool, optional): Optimise the hyperparameters.
+            Defaults to `True`.
     """
 
     def gibbs_sample(state, iters, subsample=None, u=None, z=None):
@@ -719,35 +733,37 @@ def fit(model, t, y, approximation: Structured, iters: B.Int = 5000):
     # Maintain a random state.
     state = B.create_random_state(model.dtype, seed=0)
 
-    # Find a good starting point for the optimisation.
-    state, us, zs = gibbs_sample(state, iters=200)  # `200` should be roughly good.
+    # Find a good starting points for the samples.
+    state, us, zs = gibbs_sample(state, iters=5000)
     u, z = us[-1], zs[-1]
 
-    def objective(vs_, state, u, z):
-        state, elbo, u, z = model(vs_).approximation.elbo_gibbs(state, t, y, u, z)
-        return -elbo, state, u, z
+    if optimise_hypers:
 
-    # Optimise hyperparameters.
-    _, state, u, z = minimise_adam(
-        objective,
-        (model.vs, state, u, z),
-        iters=(2 * iters) // 5,  # Spend twice the sampling budget.
-        rate=1e-2,
-        trace=True,
-        jit=True,
-        names=model().approximation.ignore_qs(previous=True, current=True),
-    )
+        def objective(vs_, state, u, z):
+            state, elbo, u, z = model(vs_).approximation.elbo_gibbs(state, t, y, u, z)
+            return -elbo, state, u, z
+
+        # Optimise hyperparameters.
+        _, state, u, z = minimise_adam(
+            objective,
+            (model.vs, state, u, z),
+            iters=iters // 5,  # Spend the sampling budget.
+            rate=5e-2,
+            trace=True,
+            jit=True,
+            names=model().approximation.ignore_qs(previous=True, current=True),
+        )
 
     # Produce 1000 final Gibbs samples and store those samples.
     thousands = iters // 1000 if iters > 1000 else 1
-    state, us, zs = gibbs_sample(state, thousands * 1000, subsample=thousands)
+    state, us, zs = gibbs_sample(state, thousands * 1000, subsample=thousands, u=u, z=z)
     instance = model()
     instance.approximation.q_u_samples = us
     instance.approximation.q_z_samples = zs
 
 
 @fit.dispatch
-def fit(model, t, y, approximation: MeanField, iters: B.Int = 1000):
+def fit(model, t, y, approximation: MeanField, iters: B.Int = 5000):
     """Fit a mean-field approximation.
 
     Args:
@@ -755,7 +771,8 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 1000):
         approximation (:class:`.MeanField`): Approximation.
         t (vector): Locations of observations.
         y (vector): Observations.
-        iters (int, optional): Fixed point iterations. Defaults to `1000`.
+        iters (int, optional): Fixed point iterations. Defaults to `5000`.
+            Will be divided by `5` to convert to BFGS iterations.
     """
     # Maintain a random state.
     state = B.create_random_state(model.dtype, seed=0)
@@ -772,7 +789,7 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 1000):
         _, state = minimise_l_bfgs_b(
             objective,
             (model.vs, state),
-            iters=iters,
+            iters=iters // 5,
             trace=True,
             jit=True,
             names=model().approximation.ignore_qs(previous=True),
@@ -786,7 +803,7 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 1000):
         # Optimise hyperparameters.
         _, state = minimise_l_bfgs_b(
             objective,
-            (model.vs, state),
+            (model.vs, state // 5),
             iters=iters,
             trace=True,
             jit=True,

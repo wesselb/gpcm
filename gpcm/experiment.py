@@ -42,6 +42,7 @@ def setup(name):
     parser.add_argument("--iters", type=int)
     parser.add_argument("--scheme", type=str, default="structured")
     parser.add_argument("--load", action="store_true")
+    parser.add_argument("--fix-hypers", action="store_true")
     parser.add_argument(
         "--model",
         choices=["gpcm", "gprv", "cgpcm"],
@@ -106,9 +107,14 @@ def run(
 
     # Setup training.
     train_config = {}
-    for name in ["iters"]:
+    for name in ["iters", "fix_hypers"]:
         if getattr(args, name):
             train_config[name] = getattr(args, name)
+
+    # Negate some parameters.
+    if "fix_hypers" in train_config:
+        train_config["optimise_hypers"] = not train_config["fix_hypers"]
+        del train_config["fix_hypers"]
 
     # Perform training.
     train_models(models, t, y, train_config, args.load, wd=wd)
