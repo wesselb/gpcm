@@ -1,16 +1,22 @@
+import argparse
+
 import lab as B
-import lab.jax as B
 import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out
 import wbml.plot
-from gpcm import GPCM, CGPCM, GPRV
-from gpcm.util import estimate_psd, closest_psd
 from wbml.experiment import WorkingDirectory
 
-wd = WorkingDirectory("_experiments", "sample")
+from gpcm import GPCM, CGPCM, GPRVM
+from gpcm.util import estimate_psd, closest_psd
+
+wd = WorkingDirectory("_experiments", "sample", seed=17)
 
 B.epsilon = 1e-10
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--train", action="store_true")
+args = parser.parse_args()
 
 
 def sample(model, t, noise_f):
@@ -29,8 +35,6 @@ def sample(model, t, noise_f):
 
     with wbml.out.Progress(name="Sampling", total=5) as progress:
         for i in range(5):
-            progress()
-
             # Sample kernel.
             u = B.sample(model.compute_K_u())[:, 0]
             K = model.kernel_approx(t, t, u)
@@ -42,27 +46,33 @@ def sample(model, t, noise_f):
             f = B.matmul(B.chol(closest_psd(K)), noise_f)
             fs.append(f)
 
+            progress()
+
     return ks, fs
 
 
-t = np.linspace(0, 10, 200)
+t = np.linspace(0, 10, 400)
 noise_f = np.random.randn(len(t), 1)
 
 # Construct models.
 models = [
-    GPCM(window=2, scale=1, n_u=30, t=t),
-    CGPCM(window=2, scale=1, n_u=30, t=t),
-    GPRV(window=2, scale=1, n_u=30, t=t, gamma=1)
+    GPCM(window=2, scale=0.5, n_u=30, t=t),
+    CGPCM(window=2, scale=0.5, n_u=30, t=t),
+    GPRVM(window=2, scale=0.5, n_u=30, t=t),
 ]
 
 # Instantiate models.
 models = [model() for model in models]
 
 # Perform sampling.
-model_ks, model_fs = zip(*[sample(model, t, noise_f) for model in models])
+if args.train:
+    model_ks, model_fs = zip(*[sample(model, t, noise_f) for model in models])
+    wd.save((model_ks, model_fs), "samples.pickle")
+else:
+    model_ks, model_fs = wd.load("samples.pickle")
 
 # Plot.
-plt.figure(figsize=(15, 9))
+plt.figure(figsize=(15, 6))
 
 for i, (model, ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     plt.subplot(3, 2, 1 + 2 * i)
@@ -70,15 +80,17 @@ for i, (model, ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     if hasattr(model, "t_z"):
         plt.scatter(model.t_z, model.t_z * 0, s=5, marker="o", c="black")
     plt.title(model.name)
-    plt.xlabel("Time (s)")
-    plt.xlim(0, 10)
+    if i == 2:
+        plt.xlabel("Time (s)")
+    plt.xlim(0, 8)
     wbml.plot.tweak(legend=False)
 
     plt.subplot(3, 4, 3 + 4 * i)
     plt.plot(t, np.stack(ks).T, lw=1)
     plt.scatter(model.t_u, model.t_u * 0, s=5, marker="o", c="black")
     plt.title("Kernel")
-    plt.xlabel("Lag (s)")
+    if i == 2:
+        plt.xlabel("Lag (s)")
     plt.xlim(0, 6)
     wbml.plot.tweak(legend=False)
 
@@ -90,13 +102,15 @@ for i, (model, ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     plt.subplot(3, 4, 4 + 4 * i)
     plt.title("PSD (dB)")
     inds = np.arange(int(len(freqs) / 2))
-    inds = inds[freqs[inds] <= 1]
+    inds = inds[freqs[inds] <= 2]
     plt.plot(freqs[inds], psds[inds, :], lw=1)
-    plt.xlabel("Frequency (Hz)")
-    plt.xlim(0, 1)
-    plt.ylim(-40, 20)
+    if i == 2:
+        plt.xlabel("Frequency (Hz)")
+    plt.xlim(0, 2)
+    plt.ylim(-40, 10)
     wbml.plot.tweak(legend=False)
 
 plt.tight_layout()
 plt.savefig(wd.file("sample.pdf"))
+wbml.plot.pdfcrop(wd.file("sample.pdf"))
 plt.show()
