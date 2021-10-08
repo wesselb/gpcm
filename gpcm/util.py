@@ -61,6 +61,7 @@ def summarise_samples(x, samples, db=False):
     return collect(
         x=B.to_numpy(x),
         mean=transform(B.mean(samples, axis=0)),
+        var=transform(B.std(samples, axis=0)) ** 2,
         err_68_lower=transform(B.quantile(samples, 0.32, axis=0)),
         err_68_upper=transform(B.quantile(samples, 1 - 0.32, axis=0)),
         err_95_lower=transform(B.quantile(samples, 0.025, axis=0)),
