@@ -79,7 +79,7 @@ for kernel in [EQ(), CEQ(1), Exp()]:
             elbo = model.elbo(t, y)
             posterior = model.condition(t, y)
             f_pred = posterior.predict(t)
-            k_pred = posterior.predict_kernel(t)
+            k_pred = posterior.predict_kernel(t_k)
 
             # Save stuff.
             model.save(wd.file(*prefix, "model.pickle"))
