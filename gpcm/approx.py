@@ -738,9 +738,9 @@ def fit(model, t, y, approximation: Structured, iters: B.Int = 5000):
         names=model().approximation.ignore_qs(previous=True, current=True),
     )
 
-    # Produce 100 final Gibbs samples and store those samples.
-    hunderds = iters // 100
-    state, us, zs = gibbs_sample(state, hunderds * 100, subsample=hunderds)
+    # Produce 1000 final Gibbs samples and store those samples.
+    thousands = iters // 1000 if iters > 1000 else 1
+    state, us, zs = gibbs_sample(state, thousands * 1000, subsample=thousands)
     instance = model()
     instance.approximation.q_u_samples = us
     instance.approximation.q_z_samples = zs
