@@ -222,13 +222,12 @@ def train_models(models, t, y, train_config, load, wd=None):
         for model in models:
             model.load(wd.file("models", model.name + ".pickle"))
     else:
-        for model in models:
-            # Print the initial variables to keep track of them.
-            with wbml.out.Section("Variables before optimisation"):
-                for model in models:
-                    with wbml.out.Section(model.name):
-                        model()
-                        model.vs.print()
+        # Print the initial variables to keep track of them.
+        with wbml.out.Section("Variables before optimisation"):
+            for model in models:
+                with wbml.out.Section(model.name):
+                    model()
+                    model.vs.print()
 
         for model in models:
             with wbml.out.Section(f"Training {model.name}"):
