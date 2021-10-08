@@ -657,7 +657,6 @@ class MeanField(Approximation):
             tensor: Samples.
         """
         us = self.p_u.sample(num_samples)
-        print(num_samples)
         sample_kernel = B.jit(self._sample_kernel)
         return B.stack(*[sample_kernel(t_k, u) for u in _columns(us)], axis=0)
 
