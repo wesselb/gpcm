@@ -218,11 +218,11 @@ def train_models(models, t, y, train_config, load, wd=None):
     Returns:
         list[:class:`stheno.Normal`]: Approximate posteriors.
     """
-
-    for model in models:
-        if load:
+    if load:
+        for model in models:
             model.load(wd.file("models", model.name + ".pickle"))
-        else:
+    else:
+        for model in models:
             # Print the initial variables to keep track of them.
             with wbml.out.Section("Variables before optimisation"):
                 for model in models:
@@ -230,6 +230,7 @@ def train_models(models, t, y, train_config, load, wd=None):
                         model()
                         model.vs.print()
 
+        for model in models:
             with wbml.out.Section(f"Training {model.name}"):
                 model.fit(t, y, **train_config)
                 if wd:
