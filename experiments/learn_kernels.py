@@ -6,6 +6,8 @@ from wbml.experiment import WorkingDirectory
 
 wd = WorkingDirectory("_experiments", "kernels")
 
+B.epsilon = 1e-8
+
 # Setup experiment.
 noise = 0.2
 t = B.linspace(0, 20, 100)
@@ -33,29 +35,50 @@ for kernel in [EQ(), CEQ(1), Exp()]:
         "data.pickle",
     )
 
-    for scheme in ["mean-field-ca", "structured"]:
+    for scheme, fit_args in [
+        ("mean-field-ca", {}),
+        ("structured", {"optimise_hypers": False}),
+    ]:
         for model in [
-            GPCM(scheme=scheme, window=window, scale=scale, n_u=n_u, n_z=n_z),
-            CGPCM(scheme=scheme, window=window, scale=scale, n_u=n_u, n_z=n_z),
-            GPRVM(scheme=scheme, window=window, scale=scale, n_u=n_u, m_max=n_z // 2),
+            GPCM(
+                scheme=scheme,
+                window=window,
+                scale=scale,
+                noise=noise,
+                n_u=n_u,
+                n_z=n_z,
+                t=t,
+            ),
+            CGPCM(
+                scheme=scheme,
+                window=window,
+                scale=scale,
+                noise=noise,
+                n_u=n_u,
+                n_z=n_z,
+                t=t,
+            ),
+            GPRVM(
+                scheme=scheme,
+                window=window,
+                scale=scale,
+                noise=noise,
+                n_u=n_u,
+                m_max=n_z // 2,
+                t=t,
+            ),
         ]:
             prefix = (slugify(str(kernel)), scheme, slugify(model.name))
 
-            # Setup fit arguments.
-            if scheme == "structured":
-                fit_kw_args = {"optimise_hypers": False}
-            else:
-                fit_kw_args = {}
-
-            # Fit and predict model.
-            model.fit(t, y, **fit_kw_args)
+            # Fit model and predict function and kernel.
+            model.fit(t, y, **fit_args)
             elbo = model.elbo(t, y)
             posterior = model.condition(t, y)
-            f_pred = model.predict(t)
-            k_pred = model.predict_kernel(t)
+            f_pred = posterior.predict(t)
+            k_pred = posterior.predict_kernel(t)
 
             # Save stuff.
             model.save(wd.file(*prefix, "model.pickle"))
             wd.save(elbo, *prefix, "elbo.pickle")
-            wd.save((f_pred.x, f_pred.mean, f_pred.var), *prefix, "f_pred.pickle")
+            wd.save((t,) + f_pred, *prefix, "f_pred.pickle")
             wd.save((k_pred.x, k_pred.mean, k_pred.var), *prefix, "k_pred.pickle")
