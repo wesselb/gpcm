@@ -487,7 +487,7 @@ class Structured(Approximation):
         def rec(u):
             return self.log_Z_u(ts, u)
 
-        recs = [rec(ts, u) for u in _columns(us)]
+        recs = [rec(u) for u in _columns(us)]
         return state, sum(recs) / len(recs) - q_u.kl(self.p_u)
 
     def _sample_p_u(self, num_samples):
