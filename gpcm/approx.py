@@ -389,7 +389,7 @@ class Structured(Approximation):
         state: B.RandomState,
         t: B.Numeric,
         y: B.Numeric,
-        num_samples: B.Int = 200,
+        num_samples: B.Int = 1000,
     ):
         """Fit a mean-field approximation and compute an estimate of the resulting ELBO
         collapsed over :math:`q(z|u)`.
@@ -398,7 +398,7 @@ class Structured(Approximation):
             state (random state, optional): Random state.
             t (vector): Locations of observations.
             y (vector): Observations.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             scalar: ELBO.
@@ -407,7 +407,7 @@ class Structured(Approximation):
         return self.elbo_collapsed_z(state, t, y, num_samples=num_samples)
 
     @_dispatch
-    def elbo(self, t: B.Numeric, y: B.Numeric, num_samples: B.Int = 200):
+    def elbo(self, t: B.Numeric, y: B.Numeric, num_samples: B.Int = 1000):
         state = B.global_random_state(self.model.dtype)
         state, elbo = self.elbo(state, t, y, num_samples=num_samples)
         B.set_global_random_state(state)
@@ -467,14 +467,14 @@ class Structured(Approximation):
         )
 
     @_dispatch
-    def elbo_collapsed_z(self, state: B.RandomState, t, y, num_samples: B.Int = 200):
+    def elbo_collapsed_z(self, state: B.RandomState, t, y, num_samples: B.Int = 1000):
         """Compute an estimate of the ELBO collapsed over :math:`q(z|u)`.
 
         Args:
             state (random state): Random state.
             t (vector): Locations of observations.
             y (vector): Observations.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple[random state, scalar] : Random state and ELBO.
@@ -497,12 +497,12 @@ class Structured(Approximation):
             return _columns(self.p_u_samples, num_samples)
 
     @_dispatch
-    def predict(self, t, num_samples: B.Int = 200):
+    def predict(self, t, num_samples: B.Int = 1000):
         """Predict.
 
         Args:
             t (vector): Points to predict at.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple: Tuple containing the mean and standard deviation of the
@@ -521,12 +521,12 @@ class Structured(Approximation):
         return m1, m2 - m1 ** 2
 
     @_dispatch
-    def sample_kernel(self, t_k, num_samples: B.Int = 200):
+    def sample_kernel(self, t_k, num_samples: B.Int = 1000):
         """Sample kernel.
 
         Args:
             t_k (vector): Time point to sample at.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tensor: Samples.
@@ -542,11 +542,11 @@ class Structured(Approximation):
             return _columns(self.p_z_samples, num_samples)
 
     @_dispatch
-    def predict_z(self, num_samples: B.Int = 200):
+    def predict_z(self, num_samples: B.Int = 1000):
         """Predict Fourier features.
 
         Args:
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple[vector, vector]: Marginals of the predictions.
@@ -646,20 +646,20 @@ class MeanField(Approximation):
         return m1, m2 - m1 ** 2
 
     @_dispatch
-    def sample_kernel(self, t_k, num_samples: B.Int = 200):
+    def sample_kernel(self, t_k, num_samples: B.Int = 1000):
         """Sample kernel under the mean-field approximation.
 
         Args:
             t_k (vector): Time point to sample at.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tensor: Samples.
         """
-        state = B.global_random_state(self.model.dtype)
-        state, us = self.p_u.sample(state, num_samples)
-        B.set_global_random_state(state)
-        return B.stack(*[self._sample_kernel(t_k, u) for u in _columns(us)], axis=0)
+        us = self.p_u.sample(num_samples)
+        print(num_samples)
+        sample_kernel = B.jit(self._sample_kernel)
+        return B.stack(*[sample_kernel(t_k, u) for u in _columns(us)], axis=0)
 
     @_dispatch
     def predict_z(self):

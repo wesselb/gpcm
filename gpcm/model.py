@@ -67,13 +67,13 @@ class AbstractGPCM(Model):
         return self.approximation.predict(*args, **kw_args)
 
     @instancemethod
-    def predict_kernel(self, t_k=None, num_samples=200):
+    def predict_kernel(self, t_k=None, num_samples=1000):
         """Predict kernel and normalise prediction.
 
         Args:
             t_k (vector, optional): Inputs to sample kernel at. Will be automatically
                 determined if not given.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             :class:`collections.namedtuple`: The prediction.
@@ -81,13 +81,13 @@ class AbstractGPCM(Model):
         return summarise_samples(*self.sample_kernel(t_k=t_k, num_samples=num_samples))
 
     @instancemethod
-    def sample_kernel(self, t_k=None, num_samples=200):
+    def sample_kernel(self, t_k=None, num_samples=1000):
         """Predict kernel and normalise prediction.
 
         Args:
             t_k (vector, optional): Inputs to sample kernel at. Will be automatically
                 determined if not given.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             tuple[vector, tensor]: Tuple containing the inputs of the samples and the
@@ -106,13 +106,13 @@ class AbstractGPCM(Model):
         return t_k, ks
 
     @instancemethod
-    def predict_psd(self, t_k=None, num_samples=200):
+    def predict_psd(self, t_k=None, num_samples=1000):
         """Predict the PSD in dB.
 
         Args:
             t_k (vector, optional): Inputs to sample kernel at. Will be automatically
                 determined if not given.
-            num_samples (int, optional): Number of samples to use. Defaults to `200`.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
 
         Returns:
             :class:`collections.namedtuple`: Predictions.
