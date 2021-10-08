@@ -41,6 +41,7 @@ def setup(name):
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--iters", type=int)
     parser.add_argument("--scheme", type=str, default="structured")
+    parser.add_argument("--load", action="store_true")
     parser.add_argument(
         "--model",
         choices=["gpcm", "gprv", "cgpcm"],
@@ -110,7 +111,7 @@ def run(
             train_config[name] = getattr(args, name)
 
     # Perform training.
-    train_models(models, t, y, train_config, wd)
+    train_models(models, t, y, train_config, args.load, wd=wd)
 
     # Perform analysis.
     analyse_models(models, t, y, wd=wd, **kw_args)
@@ -202,7 +203,7 @@ def build_models(
     return models
 
 
-def train_models(models, t, y, train_config, wd=None):
+def train_models(models, t, y, train_config, load, wd=None):
     """Train models.
 
     Args:
@@ -210,34 +211,29 @@ def train_models(models, t, y, train_config, wd=None):
         t (vector): Time points of data.
         y (vector): Observations.
         train_train (dict): Training configuration.
+        load (bool): Load the models rather than training them.
         wd (:class:`wbml.experiment.WorkingDirectory`, optional): Working
             directory to save samples to.
 
     Returns:
         list[:class:`stheno.Normal`]: Approximate posteriors.
     """
-    # Print the initial variables.
-    with wbml.out.Section("Variables before optimisation"):
-        for model in models:
-            with wbml.out.Section(model.name):
-                model()
-                model.vs.print()
 
     for model in models:
-        with wbml.out.Section(f"Training {model.name}"):
-            model.fit(t, y, **train_config)
+        if load:
+            model.load(wd.file("models", model.name + ".pickle"))
+        else:
+            # Print the initial variables to keep track of them.
+            with wbml.out.Section("Variables before optimisation"):
+                for model in models:
+                    with wbml.out.Section(model.name):
+                        model()
+                        model.vs.print()
 
-    # Save results.
-    if wd:
-        wd.save(
-            {
-                model.name: {
-                    var_name: model.vs[var_name] for var_name in model.vs.names
-                }
-                for model in models
-            },
-            "variables.pickle",
-        )
+            with wbml.out.Section(f"Training {model.name}"):
+                model.fit(t, y, **train_config)
+                if wd:
+                    model.save(wd.file("models", model.name + ".pickle"))
 
 
 def analyse_models(

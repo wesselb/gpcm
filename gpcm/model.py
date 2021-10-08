@@ -1,3 +1,5 @@
+import pickle
+
 import jax.numpy as jnp
 import lab.jax as B
 import wbml.out
@@ -185,6 +187,33 @@ class AbstractGPCM(Model):
         f = B.sample(closest_psd(K))[:, 0]
         y = f + B.sqrt(self.noise) * B.randn(f)
         return K, y
+
+    def save(self, path):
+        """Save model and inference results to a file.
+
+        Args:
+            path (str): Path to save to.
+        """
+        data = {name: B.to_numpy(B.dense(self.vs[name])) for name in self.vs.names}
+        with open(path, "wb") as f:
+            pickle.dump(data, f)
+
+    def load(self, path):
+        """Load model from a file.
+
+        Args:
+            path (str): Path to load from.
+        """
+        with open(path, "rb") as f:
+            data = pickle.load(f)
+        for name, value in data.items():
+            if name in self.vs:
+                # Overwrite existing values.
+                self.vs.assign(name, value)
+            else:
+                # Assign an invisible bounded variable: we lost the information about
+                # the constraints.
+                self.vs.unbounded(init=value, visible=False, name=name)
 
 
 @fit.dispatch
