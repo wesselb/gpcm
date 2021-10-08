@@ -3,6 +3,9 @@ from gpcm import GPCM, CGPCM, GPRVM
 from slugify import slugify
 from stheno import EQ, CEQ, Exp, GP, Delta
 from wbml.experiment import WorkingDirectory
+import wbml.out as out
+
+out.report_time = True
 
 wd = WorkingDirectory("_experiments", "kernels")
 
@@ -21,11 +24,12 @@ for kernel in [EQ(), CEQ(1), Exp()]:
     # Sample data.
     gp_f = GP(kernel)
     gp_y = gp_f + GP(noise * Delta(), measure=gp_f.measure)
-    truth, y = map(B.flatten, gp_f.measure.sample(gp_f(t), gp_y(t)))
+    f, y = map(B.flatten, gp_f.measure.sample(gp_f(t), gp_y(t)))
     wd.save(
         {
             "t": t,
-            "truth": truth,
+            "f": f,
+            "k": B.flatten(kernel(t_k, 0)),
             "y": y,
             "true_logpdf": gp_y(t).logpdf(y),
         },
