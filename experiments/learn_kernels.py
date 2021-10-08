@@ -3,11 +3,13 @@ from gpcm import GPCM, CGPCM, GPRVM
 from slugify import slugify
 from stheno import EQ, CEQ, Exp, GP, Delta
 from wbml.experiment import WorkingDirectory
+import sys
 import wbml.out as out
 
 out.report_time = True
 
-wd = WorkingDirectory("_experiments", "kernels")
+seed = sys.argv[1]
+wd = WorkingDirectory("_experiments", "kernels", seed)
 
 B.epsilon = 1e-8
 
