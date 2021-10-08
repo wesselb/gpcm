@@ -9,7 +9,7 @@ import wbml.out as out
 out.report_time = True
 
 seed = sys.argv[1]
-wd = WorkingDirectory("_experiments", "kernels", seed, seed=seed)
+wd = WorkingDirectory("_experiments", "kernels", seed, seed=int(seed))
 
 B.epsilon = 1e-8
 
