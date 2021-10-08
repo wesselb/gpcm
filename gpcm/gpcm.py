@@ -112,10 +112,7 @@ class GPCM(AbstractGPCM):
 
         # First initialise optimisable model parameters.
         if alpha is None:
-            if causal:
-                alpha = scale_to_factor(2 * window)
-            else:
-                alpha = scale_to_factor(window)
+            alpha = scale_to_factor(window)
 
         if alpha_t is None:
             if causal:
@@ -132,10 +129,7 @@ class GPCM(AbstractGPCM):
         self.gamma = gamma
 
         # For convenience, also store the extent of the filter.
-        if causal:
-            self.extent = 2 * factor_to_scale(self.alpha)
-        else:
-            self.extent = 4 * factor_to_scale(self.alpha)
+        self.extent = 4 * factor_to_scale(self.alpha)
 
         # Then initialise fixed variables.
         if t_u is None:
