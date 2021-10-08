@@ -1,49 +1,61 @@
 import lab as B
-from gpcm.experiment import run, setup
-from stheno import CEQ, GP, Delta, Measure, Exp
+from gpcm import GPCM, CGPCM, GPRVM
+from slugify import slugify
+from stheno import EQ, CEQ, Exp, GP, Delta
+from wbml.experiment import WorkingDirectory
 
-args, wd = setup("kernels")
+wd = WorkingDirectory("_experiments", "kernels")
 
 # Setup experiment.
-n = 100 + 1  # Need to add the last point for the call to `linspace`.
 noise = 0.2
-t = B.linspace(0, 20, n)
-t_plot = B.linspace(0, 20, 500)
+t = B.linspace(0, 20, 100)
+t_k = B.linspace(0, 4, 200)
 
-# Setup true model and GPCM models.
-kernel = Exp()
+# Setup GPCM models.
 window = 2
 scale = 1
 n_u = 30
 n_z = 80
 
-# Sample data.
-m = Measure()
-gp_f = GP(kernel, measure=m)
-gp_y = gp_f + GP(noise * Delta(), measure=m)
-truth, y = map(B.flatten, m.sample(gp_f(t_plot), gp_y(t)))
+for kernel in [EQ(), CEQ(1), Exp()]:
+    # Sample data.
+    gp_f = GP(kernel)
+    gp_y = gp_f + GP(noise * Delta(), measure=gp_f.measure)
+    truth, y = map(B.flatten, gp_f.measure.sample(gp_f(t), gp_y(t)))
+    wd.save(
+        {
+            "t": t,
+            "truth": truth,
+            "y": y,
+            "true_logpdf": gp_y(t).logpdf(y),
+        },
+        slugify(str(kernel)),
+        "data.pickle",
+    )
 
+    for scheme in ["mean-field-ca", "structured"]:
+        for model in [
+            GPCM(scheme=scheme, window=window, scale=scale, n_u=n_u, n_z=n_z),
+            CGPCM(scheme=scheme, window=window, scale=scale, n_u=n_u, n_z=n_z),
+            GPRVM(scheme=scheme, window=window, scale=scale, n_u=n_u, m_max=n_z // 2),
+        ]:
+            prefix = (slugify(str(kernel)), scheme, slugify(model.name))
 
-def comparative_kernel(vs_):
-    return vs_.pos(1) * kernel.stretch(vs_.pos(1.0)) + vs_.pos(noise) * Delta()
+            # Setup fit arguments.
+            if scheme == "structured":
+                fit_kw_args = {"optimise_hypers": False}
+            else:
+                fit_kw_args = {}
 
+            # Fit and predict model.
+            model.fit(t, y, **fit_kw_args)
+            elbo = model.elbo(t, y)
+            posterior = model.condition(t, y)
+            f_pred = model.predict(t)
+            k_pred = model.predict_kernel(t)
 
-run(
-    args=args,
-    wd=wd,
-    noise=noise,
-    window=window,
-    scale=scale,
-    t=t,
-    y=y,
-    n_u=n_u,
-    n_z=n_z,
-    extend_t_z=True,
-    true_kernel=kernel,
-    true_noisy_kernel=kernel + noise * Delta(),
-    comparative_kernel=comparative_kernel,
-    t_plot=t_plot,
-    truth=(t_plot, truth),
-    x_range={"psd": (0, 3)},
-    y_range={"kernel": (-0.5, 1.5), "psd": (-100, 10)},
-)
+            # Save stuff.
+            model.save(wd.file(*prefix, "model.pickle"))
+            wd.save(elbo, *prefix, "elbo.pickle")
+            wd.save((f_pred.x, f_pred.mean, f_pred.var), *prefix, "f_pred.pickle")
+            wd.save((k_pred.x, k_pred.mean, k_pred.var), *prefix, "k_pred.pickle")
