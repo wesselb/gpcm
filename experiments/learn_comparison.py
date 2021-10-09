@@ -8,20 +8,20 @@ import wbml.out as out
 
 out.report_time = True
 B.epsilon = 1e-8
-wd = WorkingDirectory("_experiments", "comparison")
+wd = WorkingDirectory("_experiments", "comparison_long")
 
 # Setup experiment.
 noise = 1.0
-t = B.linspace(0, 30, 600)
+t = B.linspace(0, 40, 400)
 t_k = B.linspace(0, 4, 200)
 
 # Setup GPCM models.
 window = 2
 scale = 0.5
 n_u = 30
-n_z = 60
+n_z = 80
 
-for kernel in [EQ(), CEQ(1), Exp()]:
+for kernel in [CEQ(1), EQ(), Exp()]:
     # Sample data.
     gp_f = GP(kernel)
     gp_y = gp_f + GP(noise * Delta(), measure=gp_f.measure)
@@ -71,7 +71,7 @@ for kernel in [EQ(), CEQ(1), Exp()]:
             prefix = (slugify(str(kernel)), scheme, slugify(model.name))
 
             # Fit model and predict function and kernel.
-            model.fit(t, y)
+            model.fit(t, y, iters=20_000)
             elbo = model.elbo(t, y)
             posterior = model.condition(t, y)
             f_pred = posterior.predict(t)
