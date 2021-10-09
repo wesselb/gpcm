@@ -9,7 +9,7 @@ requirements = [
     "stheno>=1.1.7",
     "mlkernels>=0.3.3",
     "varz>=0.7.4",
-    "wbml>=0.3",
+    "wbml>=0.3.11",
     "probmods>=0.3.0",
     "jax",
     "jaxlib",
