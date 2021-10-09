@@ -10,8 +10,7 @@ from wbml.plot import tweak
 
 out.report_time = True
 B.epsilon = 1e-8
-wd = WorkingDirectory("_experiments", "exchange")
-
+wd = WorkingDirectory("_experiments", "crude_oil")
 
 # Setup experiment.
 data = load()
