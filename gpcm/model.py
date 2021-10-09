@@ -21,7 +21,8 @@ class AbstractGPCM(Model):
 
     Args:
         scheme (str, optional): Approximation scheme. Must be one of `structured`,
-            `mean-field-ca`, `mean-field-gradient`, or `mean-field-collapsed-gradient`.
+            `mean-field-ca`, `mean-field-gradient`, `mean-field-collapsed-gradient`,
+            `mean-field-ca-gradient`, or `mean-field-ca-collapsed-gradient`.
             Defaults to `structured`.
     """
 
@@ -44,12 +45,19 @@ class AbstractGPCM(Model):
         # Construct approximation scheme.
         if self.scheme == "structured":
             self.approximation = Structured(self)
+        elif self.scheme == "mean-field":
+            # Use the best mean-field scheme.
+            self.approximation = MeanField(self, fit="ca-collapsed-bfgs")
         elif self.scheme == "mean-field-ca":
             self.approximation = MeanField(self, fit="ca")
         elif self.scheme == "mean-field-gradient":
             self.approximation = MeanField(self, fit="bfgs")
         elif self.scheme == "mean-field-collapsed-gradient":
             self.approximation = MeanField(self, fit="collapsed-bfgs")
+        elif self.scheme == "mean-field-ca-gradient":
+            self.approximation = MeanField(self, fit="ca-bfgs")
+        elif self.scheme == "mean-field-ca-collapsed-gradient":
+            self.approximation = MeanField(self, fit="ca-collapsed-bfgs")
         else:
             raise ValueError(
                 f'Invalid value "{self.scheme}" for the approximation scheme.'
@@ -102,7 +110,6 @@ class AbstractGPCM(Model):
 
         # Normalise predicted kernel.
         var_mean = B.mean(ks[:, 0])
-        ks = ks / var_mean
         wbml.out.kv("Mean variance of kernel samples", var_mean)
 
         return t_k, ks

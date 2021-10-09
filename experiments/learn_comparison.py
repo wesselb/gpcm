@@ -7,22 +7,19 @@ import sys
 import wbml.out as out
 
 out.report_time = True
-
-seed = sys.argv[1]
-wd = WorkingDirectory("_experiments", "kernels", seed, seed=int(seed))
-
 B.epsilon = 1e-8
+wd = WorkingDirectory("_experiments", "comparison")
 
 # Setup experiment.
-noise = 0.2
-t = B.linspace(0, 20, 100)
+noise = 1.0
+t = B.linspace(0, 30, 600)
 t_k = B.linspace(0, 4, 200)
 
 # Setup GPCM models.
 window = 2
-scale = 1
+scale = 0.5
 n_u = 30
-n_z = 80
+n_z = 60
 
 for kernel in [EQ(), CEQ(1), Exp()]:
     # Sample data.
@@ -41,10 +38,7 @@ for kernel in [EQ(), CEQ(1), Exp()]:
         "data.pickle",
     )
 
-    for scheme, fit_args in [
-        ("mean-field-ca", {}),
-        ("structured", {"optimise_hypers": False}),
-    ]:
+    for scheme in ["mean-field", "structured"]:
         for model in [
             GPCM(
                 scheme=scheme,
@@ -77,7 +71,7 @@ for kernel in [EQ(), CEQ(1), Exp()]:
             prefix = (slugify(str(kernel)), scheme, slugify(model.name))
 
             # Fit model and predict function and kernel.
-            model.fit(t, y, **fit_args)
+            model.fit(t, y)
             elbo = model.elbo(t, y)
             posterior = model.condition(t, y)
             f_pred = posterior.predict(t)
