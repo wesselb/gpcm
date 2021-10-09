@@ -776,10 +776,13 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 5000):
     """
     # Maintain a random state.
     state = B.create_random_state(model.dtype, seed=0)
-
+    
     if approximation.fit == "ca":
         _fit_mean_field_ca(model(), t, y, iters)
     elif approximation.fit == "bfgs":
+        # Pre-fit a CA solution, if applicable.
+        if approximation.fit == "ca-bfgs":
+            _fit_mean_field_ca(model(), t, y, iters)
 
         def objective(vs_, state):
             state, elbo = model(vs_).approximation.elbo(state, t, y)
@@ -794,7 +797,14 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 5000):
             jit=True,
             names=model().approximation.ignore_qs(previous=True),
         )
-    elif approximation.fit == "collapsed-bfgs":
+
+        # Post-fit a CA solution, if applicable.
+        if approximation.fit == "ca-bfgs":
+            _fit_mean_field_ca(model(), t, y, iters)
+    elif approximation.fit in {"ca-collapsed-bfgs", "collapsed-bfgs"}:
+        # Pre-fit a CA solution, if applicable.
+        if approximation.fit == "ca-collapsed-bfgs":
+            _fit_mean_field_ca(model(), t, y, iters)
 
         def objective(vs_, state):
             state, elbo = model(vs_).approximation.elbo(state, t, y, collapsed="z")
@@ -803,8 +813,8 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 5000):
         # Optimise hyperparameters.
         _, state = minimise_l_bfgs_b(
             objective,
-            (model.vs, state // 5),
-            iters=iters,
+            (model.vs, state),
+            iters=iters // 5,
             trace=True,
             jit=True,
             names=model().approximation.ignore_qs(previous=True, current="z"),
@@ -816,5 +826,9 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 5000):
         q_u = instance.approximation.q_u
         q_z = instance.approximation.q_z_optimal_mean_field(ts, q_u)
         instance.approximation.q_z = q_z
+
+        # Post-fit a CA solution, if applicable.
+        if approximation.fit == "ca-collapsed-bfgs":
+            _fit_mean_field_ca(model(), t, y, iters)
     else:
         raise ValueError(f'Invalid value "{approximation.fit}" for `fit`.')
