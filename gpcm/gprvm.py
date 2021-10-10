@@ -34,6 +34,8 @@ class GPRVM(AbstractGPCM):
         b (scalar, optional): Upper bound of support of the basis.
         m_max (int, optional): Defines cosine and sine basis functions.
         m_max_cap (int, optional): Maximum value for `m_max`. Defaults to `150`.
+        n_z (int, optional): Number of inducing points for :math:`z`. Will be used
+            to determine `m_max`.
         scale (scalar, alternative): Length scale of the function. This will be used
             to initialise `lam` and determine `m_max` if `m_max` is not given.
         fix_scale (bool, optional): Do not learn the length scale. Defaults to `False`.
@@ -65,6 +67,7 @@ class GPRVM(AbstractGPCM):
         b=None,
         m_max=None,
         m_max_cap=150,
+        n_z=None,
         scale=None,
         fix_scale=False,
         ms=None,
@@ -131,6 +134,10 @@ class GPRVM(AbstractGPCM):
             b = B.max(t)
 
         if m_max is None:
+            # Try to determine `m_max` from `n_z`.
+            if n_z is not None:
+                m_max = int(np.ceil(n_z / 2))
+
             freq = 1 / scale
             m_max = int(np.ceil(freq * (b - a)))
             if m_max > m_max_cap:
