@@ -16,12 +16,17 @@ from wbml.plot import tweak
 # Setup experiment.
 out.report_time = True
 B.epsilon = 1e-8
-wd = WorkingDirectory("_experiments", "crude_oil")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
+parser.add_argument("--server", action="store_true")
 args = parser.parse_args()
+
+if args.server:
+    wd = WorkingDirectory("server", "_experiments", "crude_oil", observe=True)
+else:
+    wd = WorkingDirectory("_experiments", "crude_oil")
 
 # Load and process data.
 data = load()
@@ -108,21 +113,21 @@ else:
         preds_f_test.append(wd.load(slugify(model.name), "pred_f_test.pickle"))
         preds_k.append(wd.load(slugify(model.name), "pred_k.pickle"))
 
-# TODO
-# mean, var = predictions[0]
+model = models[0]
+mean, var = preds_f[0]
 
 # Plot result.
 plt.figure(figsize=(12, 3))
-# plt.title(model.name)
+plt.title(model.name)
 plt.scatter(t_train, normaliser.untransform(y_train), style="train")
 plt.scatter(t_test, y_test, style="test")
-# plt.plot(t_pred, mean, style="pred")
-# plt.fill_between(
-#     t_pred,
-#     mean - 1.96 * B.sqrt(var),
-#     mean + 1.96 * B.sqrt(var),
-#     style="pred",
-# )
+plt.plot(t_pred, mean, style="pred")
+plt.fill_between(
+    t_pred,
+    mean - 1.96 * B.sqrt(var),
+    mean + 1.96 * B.sqrt(var),
+    style="pred",
+)
 tweak()
 plt.savefig(wd.file("crude_oil.pdf"))
 plt.show()
