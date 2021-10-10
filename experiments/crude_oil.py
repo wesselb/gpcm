@@ -79,12 +79,12 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [GPCM, GPRVM]
+    for Model in [GPCM, CGPCM, GPRVM]
     for scheme in ["structured", "mean-field"]
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=10_000)
+        model.fit(t_train, y_train, iters=50_000)
         model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
