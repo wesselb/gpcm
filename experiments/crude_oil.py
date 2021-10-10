@@ -30,7 +30,7 @@ else:
 
 # Load and process data.
 data = load()
-data = data[(2012 <= data.index) & (data.index < 2014)]  # Years 2012 and 2013
+data = data[(2012 <= data.index) & (data.index < 2013)]  # Year 2012
 t = np.array(data.index)
 y = np.array(data.open)
 t = (t - t[0]) * 365  # Start at day zero.
@@ -42,7 +42,7 @@ test_inds.fill(False)
 for lower, upper in [
     (datetime(2012, 2, 1), datetime(2012, 4, 1)),  # 2012 Feb and March
     (datetime(2012, 10, 1), datetime(2012, 12, 1)),  # 2012 Oct and Nov
-    (datetime(2013, 6, 1), datetime(2013, 8, 1)),  # 2013 June and July
+    #  (datetime(2013, 6, 1), datetime(2013, 8, 1)),  # 2013 June and July
 ]:
     lower_mask = date_to_decimal_year(lower) <= data.index
     upper_mask = date_to_decimal_year(upper) > data.index
@@ -83,7 +83,7 @@ models = [
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=10_000)
+        model.fit(t_train, y_train, iters=100)
         model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
