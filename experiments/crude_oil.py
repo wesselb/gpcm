@@ -12,6 +12,7 @@ from wbml.data import date_to_decimal_year
 from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak
+import wbml.metric as metric
 
 # Setup experiment.
 out.report_time = True
@@ -40,9 +41,9 @@ t_pred = B.linspace(min(t), max(t), 500)
 test_inds = np.empty(t.shape, dtype=bool)
 test_inds.fill(False)
 for lower, upper in [
-    (datetime(2012, 2, 1), datetime(2012, 3, 1)),  # Feb
-    (datetime(2012, 6, 1), datetime(2012, 7, 1)),  # June
-    (datetime(2012, 10, 1), datetime(2012, 11, 1)),  # Oct
+    (datetime(2012, 3, 1), datetime(2012, 4, 1)),  # Mar
+    (datetime(2012, 7, 1), datetime(2012, 8, 1)),  # July
+    (datetime(2012, 9, 1), datetime(2012, 10, 1)),  # Sept
 ]:
     lower_mask = date_to_decimal_year(lower) <= data.index
     upper_mask = date_to_decimal_year(upper) > data.index
@@ -120,8 +121,16 @@ else:
         preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
 
 i = 2
+mean, var = preds_f_test[i][1:]
+var += model().noise * normaliser._scale ** 2
+
+print(metric.smse(mean, y_test))
+print(metric.smll(mean, var, y_test))
+
 model = models[i]
 mean, var = preds_f[i][1:]
+var += model().noise * normaliser._scale ** 2
+
 
 # Plot result.
 plt.figure(figsize=(12, 3))
