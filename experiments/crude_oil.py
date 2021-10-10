@@ -62,6 +62,11 @@ scale = 7
 n_u = 50
 n_z = 150
 
+
+def model_path(model):
+    return (slugify(model.name), slugify(model.scheme))
+
+
 # Setup, fit, and save models.
 models = [
     Model(
@@ -73,16 +78,16 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [GPCM, CGPCM, GPRVM]
+    for Model in [GPCM, GPRVM]
     for scheme in ["structured", "mean-field"]
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=50_000)
-        model.save(wd.file(slugify(model.name), "model.pickle"))
+        model.fit(t_train, y_train, iters=10_000)
+        model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
-        model.load(wd.file(slugify(model.name), "model.pickle"))
+        model.load(wd.file(*model_path(model), "model.pickle"))
 
 # Make and save predictions.
 preds_f = []
@@ -95,6 +100,7 @@ if args.predict:
         pred_f = (t_pred,) + normaliser.untransform(posterior.predict(t_pred))
         pred_f_test = (t_test,) + normaliser.untransform(posterior.predict(t_test))
         pred_k = posterior.predict_kernel()
+        # Carefully untransform kernel prediction.
         pred_k = (
             pred_k.x,
             pred_k.mean * normaliser._scale,
@@ -104,14 +110,14 @@ if args.predict:
         preds_f.append(pred_f)
         preds_f_test.append(pred_f_test)
         preds_k.append(pred_k)
-        wd.save(pred_f, slugify(model.name), "pred_f.pickle")
-        wd.save(pred_f_test, slugify(model.name), "pred_f_test.pickle")
-        wd.save(preds_k, slugify(model.name), "pred_k.pickle")
+        wd.save(pred_f, *model_path(model), "pred_f.pickle")
+        wd.save(pred_f_test, *model_path(model), "pred_f_test.pickle")
+        wd.save(preds_k, *model_path(model), "pred_k.pickle")
 else:
     for model in models:
-        preds_f.append(wd.load(slugify(model.name), "pred_f.pickle"))
-        preds_f_test.append(wd.load(slugify(model.name), "pred_f_test.pickle"))
-        preds_k.append(wd.load(slugify(model.name), "pred_k.pickle"))
+        preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
+        preds_f_test.append(wd.load(*model_path(model), "pred_f_test.pickle"))
+        preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
 
 model = models[0]
 mean, var = preds_f[0]
