@@ -120,7 +120,7 @@ else:
         preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
 
 model = models[0]
-mean, var = preds_f[0]
+mean, var = preds_f[0][1:]
 
 # Plot result.
 plt.figure(figsize=(12, 3))
