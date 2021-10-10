@@ -45,6 +45,8 @@ class GPRVM(AbstractGPCM):
         n_u_cap (int, optional): Maximum value for `n_u`. Defaults to `300`.
         t_u (vector, optional): Locations of inducing points for :math:`u`. Defaults
             to equally spaced points across twice the filter length scale.
+        extend_t_z (bool, optional): Does nothing. Provided to ensure a consistent
+            interface between all models.
         t (vector, alternative): Locations of interest. Can be used to automatically
             initialise quantities.
     """
@@ -74,6 +76,7 @@ class GPRVM(AbstractGPCM):
         n_u=None,
         n_u_cap=300,
         t_u=None,
+        extend_t_z=None,
         t=None,
     ):
         AbstractGPCM.__init__(self, scheme)
