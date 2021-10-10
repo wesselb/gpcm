@@ -293,7 +293,7 @@ class Approximation:
 
 
 @_dispatch
-def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 5000):
+def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 5000, callback=None):
     """Train an instance with a mean-field approximation using coordinate ascent.
 
     Args:
@@ -301,6 +301,8 @@ def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 5000):
         t (vector): Locations of observations.
         y (vector): Observations.
         iters (int, optional): Fixed point iterations. Defaults to `5000`.
+        callback (function, optional): Callback to call after every fixed-point
+            iteration.
     """
     ts = instance.approximation.construct_terms(t, y)
 
@@ -339,6 +341,10 @@ def _fit_mean_field_ca(instance: Model, t, y, iters: B.Int = 5000):
             progress({"Difference": current_diff})
             last_q_u = q_u
             last_q_z = q_z
+
+            # Perform callback, if given.
+            if callback:
+                callback(NaturalNormal(*q_u), NaturalNormal(*q_z))
 
             # Early stop if possible.
             if current_diff < 1e-6:
