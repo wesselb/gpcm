@@ -40,9 +40,9 @@ t_pred = B.linspace(min(t), max(t), 500)
 test_inds = np.empty(t.shape, dtype=bool)
 test_inds.fill(False)
 for lower, upper in [
-    (datetime(2012, 2, 1), datetime(2012, 3, 1)),  # Feb
-    (datetime(2012, 6, 1), datetime(2012, 7, 1)),  # June
-    (datetime(2012, 10, 1), datetime(2012, 11, 1)),  # Oct
+    (datetime(2012, 3, 1), datetime(2012, 4, 1)),  # Mar
+    (datetime(2012, 7, 1), datetime(2012, 8, 1)),  # July
+    (datetime(2012, 9, 1), datetime(2012, 10, 1)),  # Sept
 ]:
     lower_mask = date_to_decimal_year(lower) <= data.index
     upper_mask = date_to_decimal_year(upper) > data.index
@@ -78,12 +78,12 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [GPCM, GPRVM]
+    for Model in [GPCM, CGPCM, GPRVM]
     for scheme in ["structured", "mean-field"]
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=10_000)
+        model.fit(t_train, y_train, iters=50_000)
         model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
