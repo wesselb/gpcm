@@ -98,32 +98,6 @@ else:
         preds_h.append(wd.load(*model_path(model), "pred_h.pickle"))
 
 
-def get_kernel_pred(model, scheme):
-    i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
-    t, mean, var = preds_k[i]
-    return t, mean, var
-
-
-def get_pred(model, scheme, test=False):
-    i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
-    model = models[i]
-    if test:
-        t, mean, var = preds_f_test[i]
-    else:
-        t, mean, var = preds_f[i]
-    # Add observation noise to the prediction.
-    var += model().noise * normaliser._scale ** 2
-    return t, mean, var
-
-
-for model in ["gpcm", "gprvm"]:
-    print("SMSE", metric.smse(get_pred(model, "structured", test=True)[1], y_test))
-    print("SMLL", metric.smll(*get_pred(model, "structured", test=True)[1:], y_test))
-
-
-mean1, var1 = get_pred("gpcm", "structured")[1:]
-mean2, var2 = get_pred("gprvm", "structured")[1:]
-
 
 # Plot result.
 plt.figure(figsize=(12, 3))
