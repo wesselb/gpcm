@@ -3,19 +3,17 @@ import argparse
 import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
-import wbml.metric as metric
+import scipy.io.wavfile as sio_wav
 import wbml.out as out
-from gpcm import GPCM
+from gpcm import GPCM, CGPCM
 from gpcm.util import min_phase
 from slugify import slugify
-from wbml.data.kemar import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak
 
-
 # Setup experiment.
 out.report_time = True
-B.epsilon = 1e-8
+B.epsilon = 1e-6
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
@@ -24,27 +22,29 @@ parser.add_argument("--server", action="store_true")
 args = parser.parse_args()
 
 if args.server:
-    wd = WorkingDirectory("server", "_experiments", "hrir", observe=True)
+    wd = WorkingDirectory("server", "_experiments", "hrir3", observe=True)
 else:
-    wd = WorkingDirectory("_experiments", "hrir")
+    wd = WorkingDirectory("_experiments", "hrir3")
 
 # Load and process data.
-data = load()["right"][45, 45]
-t_h = np.array(data.index)
-h = min_phase(np.array(data))
+fs, h = sio_wav.read("experiments/R20e280a.wav")
+t_h = np.arange(len(h)) / float(fs)
+h = h[t_h <= 4e-3]  # Get rid of noisy tail
+t_h = t_h[t_h <= 4e-3]
+h = min_phase(h)
 
 # Generate data.
-n = 300
+n = 400
 x = np.random.randn(n + 200)
 y = np.convolve(h, x)[100 : 100 + n]
 y = y / np.std(y)  # Normalise to unity variance
 t = (t_h[1] - t_h[0]) * np.arange(len(y))
 
 # Configure GPCM models.
-window = 0.1e-3
-scale = 0.01e-3
+window = 1.5
+scale = 0.05
 n_u = 100
-n_z = 150
+n_z = 200
 
 
 def model_path(model):
@@ -61,11 +61,11 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [GPCM]  # , CGPCM]
+    for Model in [CGPCM, GPCM]
 ]
 if args.train:
     for model in models:
-        model.fit(t, y, iters=5000)
+        model.fit(t, y, iters=20_000, optimise_hypers=False)
         model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
@@ -79,54 +79,56 @@ if args.predict:
     for model in models:
         # Perform predictions.
         posterior = model.condition(t, y)
-        pred_f = (t,) + posterior.predict(t)
-        pred_k = posterior.predict_kernel()
-        pred_k = (pred_k.x, pred_k.mean, pred_k.var)
+        # pred_f = (t,) + posterior.predict(t)
+        # pred_k = posterior.predict_kernel()
+        # pred_k = (pred_k.x, pred_k.mean, pred_k.var)
         pred_h = posterior.predict_filter(min_phase=True)
         pred_h = (pred_h.x, pred_h.mean, pred_h.var)
         # Save predictions.
-        preds_f.append(pred_f)
-        preds_k.append(pred_k)
+        # preds_f.append(pred_f)
+        # preds_k.append(pred_k)
         preds_h.append(pred_h)
-        wd.save(pred_f, *model_path(model), "pred_f.pickle")
-        wd.save(pred_k, *model_path(model), "pred_k.pickle")
+        # wd.save(pred_f, *model_path(model), "pred_f.pickle")
+        # wd.save(pred_k, *model_path(model), "pred_k.pickle")
         wd.save(pred_h, *model_path(model), "pred_h.pickle")
 else:
     for model in models:
-        preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
-        preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
+        # preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
+        # preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
         preds_h.append(wd.load(*model_path(model), "pred_h.pickle"))
 
 
+plt.figure()
+plt.subplot(1, 2, 1)
+plt.plot(t_h, h / max(h), label="HRIR", style="train")
 
-# Plot result.
-plt.figure(figsize=(12, 3))
-plt.scatter(t_train, normaliser.untransform(y_train), style="train", label="Train")
-plt.scatter(t_test, y_test, style="test", label="Test")
+t, mean, var = preds_h[0]
+err = 1.96 * B.sqrt(var)
+model = models[0]()
+plt.scatter(model.t_u, model.t_u * 0, c="k", s=5)
+plt.plot(t, mean / max(mean), label=models[0].name, style="pred")
+plt.fill_between(t, (mean - err) / max(mean), (mean + err) / max(mean), style="pred")
+plt.plot(t, (mean - err) / max(mean), style="pred", lw=1)
+plt.plot(t, (mean + err) / max(mean), style="pred", lw=1)
 
-plt.plot(t_pred, mean1, style="pred", label="GPCM")
-plt.fill_between(
-    t_pred,
-    mean1 - 1.96 * B.sqrt(var1),
-    mean1 + 1.96 * B.sqrt(var1),
-    style="pred",
-)
-plt.plot(t_pred, mean1 - 1.96 * B.sqrt(var1), style="pred", lw=0.5)
-plt.plot(t_pred, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
+plt.xlim(0, window * 2)
+plt.xlabel("Time (ms)")
+plt.ylabel("Filter (normalised)")
 
-plt.plot(t_pred, mean2, style="pred2", label="GPRVM")
-plt.fill_between(
-    t_pred,
-    mean2 - 1.96 * B.sqrt(var2),
-    mean2 + 1.96 * B.sqrt(var2),
-    style="pred2",
-)
-plt.plot(t_pred, mean2 - 1.96 * B.sqrt(var2), style="pred2", lw=0.5)
-plt.plot(t_pred, mean2 + 1.96 * B.sqrt(var2), style="pred2", lw=0.5)
-
-plt.xlim(150, 300)
-plt.xlabel("Time (Days Into 2012)")
-plt.ylabel("Crude Oil (USD)")
 tweak()
-plt.savefig(wd.file("crude_oil.pdf"))
+plt.subplot(1, 2, 2)
+plt.plot(t_h, h / max(h), label="HRIR", style="train")
+
+t, mean, var = preds_h[1]
+err = 1.96 * B.sqrt(var)
+plt.plot(t, mean / max(mean), label=models[1].name, style="pred2")
+plt.fill_between(t, (mean - err) / max(mean), (mean + err) / max(mean), style="pred2")
+plt.plot(t, (mean - err) / max(mean), style="pred2", lw=1)
+plt.plot(t, (mean + err) / max(mean), style="pred2", lw=1)
+
+plt.xlim(0, window * 2)
+plt.xlabel("Time (ms)")
+plt.ylabel("Filter (normalised)")
+tweak()
+
 plt.show()
