@@ -26,7 +26,7 @@ parser.add_argument("--server", action="store_true")
 args = parser.parse_args()
 
 if args.server:
-    wd = WorkingDirectory("server", "_experiments", "crude_oil_full", observe=True)
+    wd = WorkingDirectory("server", "_experiments", "crude_oil", observe=True)
 else:
     wd = WorkingDirectory("_experiments", "crude_oil")
 
@@ -179,14 +179,17 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True):
     plt.gca().add_artist(
         Ellipse((190, 85), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
     )
-    plt.gca().add_artist(
-        Ellipse((203, 89), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
-    )
+    # plt.gca().add_artist(
+    #     Ellipse((203, 89), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
+    # )
     plt.gca().add_artist(
         Ellipse((219, 93), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
     )
     plt.gca().add_artist(
         Ellipse((260, 92), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
+    )
+    plt.gca().add_artist(
+        Ellipse((273, 93), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
     )
 
     plt.xlim(150, 300)
