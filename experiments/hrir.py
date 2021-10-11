@@ -82,7 +82,7 @@ if args.predict:
         pred_f = (t,) + posterior.predict(t)
         pred_k = posterior.predict_kernel()
         pred_k = (pred_k.x, pred_k.mean, pred_k.var)
-        pred_h = posterior.predict_filter()
+        pred_h = posterior.predict_filter(min_phase=True)
         pred_h = (pred_h.x, pred_h.mean, pred_h.var)
         # Save predictions.
         preds_f.append(pred_f)
