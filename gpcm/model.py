@@ -154,19 +154,25 @@ class AbstractGPCM(Model):
         return self.approximation.predict_z(num_samples=num_samples)
 
     @instancemethod
-    def predict_filter(self, t_h=None, num_samples=1000, min_phase=False):
+    def predict_filter(self, t_h=None, num_samples=1000, min_phase=True):
         """Predict the learned filter.
 
         Args:
             t_h (vector, optional): Inputs to sample filter at.
             num_samples (int, optional): Number of samples to use. Defaults to `1000`.
             min_phase (bool, optional): Predict a minimum-phase version of the filter.
+                Defaults to `True`.
 
         Returns:
             :class:`collections.namedtuple`: Predictions.
         """
         if t_h is None:
-            t_h = B.linspace(self.dtype, -self.extent, self.extent, 601)
+            t_h = B.linspace(
+                self.dtype,
+                0 if min_phase else -self.extent,
+                self.extent,
+                601
+            )
 
         @B.jit
         def sample_h(state):
