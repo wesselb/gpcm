@@ -232,6 +232,7 @@ class GPCM(AbstractGPCM):
             ),
         )
 
+    @_dispatch
     def k_h(self):
         """Get the kernel function of the filter.
 
