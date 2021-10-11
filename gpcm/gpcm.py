@@ -3,13 +3,16 @@ import warnings
 import lab as B
 import numpy as np
 from matrix import Dense
-from varz import Vars
+from mlkernels import EQ
+from plum import Dispatcher
 
 from .exppoly import ExpPoly, const, var
 from .model import AbstractGPCM
 from .util import method
 
 __all__ = ["GPCM", "CGPCM"]
+
+_dispatch = Dispatcher()
 
 
 def scale_to_factor(scale):
@@ -210,6 +213,7 @@ class GPCM(AbstractGPCM):
         self.omega = omega
         self.omega_t = omega_t
 
+    @_dispatch
     def k_h(self, t1, t2):
         """Kernel function associated to the filter :math:`h`.
 
@@ -218,7 +222,7 @@ class GPCM(AbstractGPCM):
             t2 (tensor): Second input :math:`t_2`.
 
         Returns:
-            tensor: Kernel tensor :math:`k_h(t_1, t_2)`.
+            :class:`.exppoly.ExpPoly`: Expression for :math:`k_h(t_1, t_2)`.
         """
         return ExpPoly(
             self.alpha_t ** 2,
@@ -227,6 +231,20 @@ class GPCM(AbstractGPCM):
                 + const(self.gamma) * (t1 - t2) ** 2
             ),
         )
+
+    def k_h(self):
+        """Get the kernel function of the filter.
+
+        Returns:
+            :class:`mlkernels.Kernel`: Kernel for :math:`h`.
+        """
+        # Convert `self.gamma` to a regular length scale.
+        gamma_scale = B.sqrt(1 / (2 * self.gamma))
+        k_h = EQ().stretch(gamma_scale)  # Kernel of filter before window
+        k_h *= lambda t: B.exp(-self.alpha * t ** 2)  # Window
+        if self.causal:
+            k_h *= lambda t: B.cast(self.dtype, t >= 0)  # Causality constraint
+        return k_h
 
     def k_xs(self, t1, t2):
         """Covariance function between to the white noise :math:`x` and its interdomain
@@ -237,7 +255,7 @@ class GPCM(AbstractGPCM):
             t2 (tensor): Second input :math:`t_2`.
 
         Returns:
-            tensor: Kernel tensor :math:`k_{xs}(t_1, t_2)`.
+            :class:`.exppoly.ExpPoly`: Expression for :math:`k_{xs}(t_1, t_2)`.
         """
         return ExpPoly(self.omega_t, -const(self.omega) * (t1 - t2) ** 2)
 

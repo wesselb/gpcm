@@ -34,7 +34,7 @@ import numpy as np
 
 from gpcm import GPRVM
 
-model = GPRVM(window=2, scale=1, n_u=30, gamma=1, t=(0, 10))
+model = GPRVM(window=2, scale=1, n_u=30, t=(0, 10))
 
 # Sample from the prior.
 t = np.linspace(0, 10, 100)

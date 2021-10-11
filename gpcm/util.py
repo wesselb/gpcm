@@ -6,8 +6,10 @@ import lab as B
 import numpy as np
 from plum import Dispatcher
 from stheno import Normal
+from scipy.signal import hilbert
 
 __all__ = [
+    "min_phase",
     "summarise_samples",
     "estimate_psd",
     "invert_perm",
@@ -33,6 +35,21 @@ def matmul(
     tr_c=False,
 ):
     return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
+
+
+def min_phase(h):
+    """Minimum phase transform using the Hilbert transform.
+
+    Args:
+        h (vector): Filter to transform.
+
+    Returns:
+        vector: Minimum phase filter version of `h`.
+    """
+    h = B.to_numpy(h)
+    spec = np.fft.fft(h)
+    phase = np.imag(-hilbert(np.log(np.abs(spec))))
+    return np.real(np.fft.ifft(np.abs(spec) * np.exp(1j * phase)))
 
 
 def summarise_samples(x, samples, db=False):

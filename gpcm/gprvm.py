@@ -3,7 +3,7 @@ import warnings
 import lab as B
 import numpy as np
 from matrix import Dense, Diagonal, LowRank
-from varz import Vars
+from mlkernels import Exp
 
 from .model import AbstractGPCM
 from .util import invert_perm, method
@@ -172,6 +172,17 @@ class GPRVM(AbstractGPCM):
         # Must ensure that `gamma < alpha`.
         self.gamma = min(gamma, self.alpha / 1.5)
         self.gamma_t = gamma_t
+
+    def k_h(self):
+        """Get the kernel function of the filter.
+
+        Returns:
+            :class:`mlkernels.Kernel`: Kernel for :math:`h`.
+        """
+        k_h = Exp().stretch(1 / self.lam)  # Kernel of filter before window
+        k_h *= lambda t: B.exp(-self.alpha * B.abs(t))  # Window
+        k_h *= lambda t: B.cast(self.dtype, t >= 0)  # Causality constraint
+        return k_h
 
     def __prior__(self):
         gamma_factor_init = self.alpha / self.gamma

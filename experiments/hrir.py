@@ -6,25 +6,11 @@ import numpy as np
 import wbml.metric as metric
 import wbml.out as out
 from gpcm import GPCM
-from scipy.signal import hilbert
+from gpcm.util import min_phase
 from slugify import slugify
 from wbml.data.kemar import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak
-
-
-def min_phase(h):
-    """Minimum phase transform using the Hilbert transform.
-
-    Args:
-        h (vector): Filter to transform.
-
-    Returns:
-        vector: Minimum phase filter version of `h`.
-    """
-    spec = np.fft.fft(h)
-    phase = np.imag(-hilbert(np.log(np.abs(spec))))
-    return np.fft.ifft(np.abs(spec) * np.exp(1j * phase))
 
 
 # Setup experiment.
@@ -54,7 +40,6 @@ y = np.convolve(h, x)[100 : 100 + n]
 y = y / np.std(y)  # Normalise to unity variance
 t = (t_h[1] - t_h[0]) * np.arange(len(y))
 
-
 # Configure GPCM models.
 window = 0.1e-3
 scale = 0.01e-3
@@ -76,7 +61,7 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [GPCM]  # , GPRVM]
+    for Model in [GPCM]  # , CGPCM]
 ]
 if args.train:
     for model in models:
@@ -88,33 +73,29 @@ else:
 
 # Make and save predictions.
 preds_f = []
-preds_f_test = []
 preds_k = []
+preds_h = []
 if args.predict:
     for model in models:
         # Perform predictions.
-        posterior = model.condition(t_train, y_train)
-        pred_f = (t_pred,) + normaliser.untransform(posterior.predict(t_pred))
-        pred_f_test = (t_test,) + normaliser.untransform(posterior.predict(t_test))
+        posterior = model.condition(t, y)
+        pred_f = (t,) + posterior.predict(t)
         pred_k = posterior.predict_kernel()
-        # Carefully untransform kernel prediction.
-        pred_k = (
-            pred_k.x,
-            pred_k.mean * normaliser._scale,
-            pred_k.var * normaliser._scale ** 2,
-        )
+        pred_k = (pred_k.x, pred_k.mean, pred_k.var)
+        pred_h = posterior.predict_filter()
+        pred_h = (pred_h.x, pred_h.mean, pred_h.var)
         # Save predictions.
         preds_f.append(pred_f)
-        preds_f_test.append(pred_f_test)
         preds_k.append(pred_k)
+        preds_h.append(pred_h)
         wd.save(pred_f, *model_path(model), "pred_f.pickle")
-        wd.save(pred_f_test, *model_path(model), "pred_f_test.pickle")
         wd.save(pred_k, *model_path(model), "pred_k.pickle")
+        wd.save(pred_h, *model_path(model), "pred_h.pickle")
 else:
     for model in models:
         preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
-        preds_f_test.append(wd.load(*model_path(model), "pred_f_test.pickle"))
         preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
+        preds_h.append(wd.load(*model_path(model), "pred_h.pickle"))
 
 
 def get_kernel_pred(model, scheme):

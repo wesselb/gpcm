@@ -7,9 +7,15 @@ from plum import Dispatcher
 from probmods import Model, cast, fit, instancemethod, priormethod
 from stheno.jax import Normal
 from varz import Vars
+from stheno import GP
 
 from .approx import MeanField, Structured
-from .util import closest_psd, estimate_psd, summarise_samples
+from .util import (
+    closest_psd,
+    estimate_psd,
+    summarise_samples,
+    min_phase as transform_min_phase,
+)
 
 __all__ = ["AbstractGPCM"]
 
@@ -136,7 +142,7 @@ class AbstractGPCM(Model):
         return summarise_samples(freqs, psds, db=True)
 
     @instancemethod
-    def predict_fourier(self, **kw_args):
+    def predict_fourier(self, num_samples=1000):
         """Predict Fourier features.
 
         Args:
@@ -145,7 +151,46 @@ class AbstractGPCM(Model):
         Returns:
             tuple: Marginals of the predictions.
         """
-        return self.approximation.predict_z(**kw_args)
+        return self.approximation.predict_z(num_samples=num_samples)
+
+    @instancemethod
+    def predict_filter(self, t_h=None, num_samples=1000, min_phase=False):
+        """Predict the learned filter.
+
+        Args:
+            t_h (vector, optional): Inputs to sample filter at.
+            num_samples (int, optional): Number of samples to use. Defaults to `1000`.
+            min_phase (bool, optional): Predict a minimum-phase version of the filter.
+
+        Returns:
+            :class:`collections.namedtuple`: Predictions.
+        """
+        if t_h is None:
+            t_h = B.linspace(self.dtype, -self.extent, self.extent, 601)
+
+        @B.jit
+        def sample_h(state):
+            state, u = self.approximation.p_u.sample(state)
+            u = B.mm(self.K_u, u)  # Transform :math:`\hat u` into :math:`u`.
+            h = GP(self.k_h())
+            h = h | (h(self.t_u), u)  # Condition on sample.
+            state, h = h(t_h).sample(state)  # Sample at desired points.
+            return state, B.flatten(h)
+
+        # Perform sampling.
+        state = B.global_random_state(self.dtype)
+        samples = []
+        for _ in range(num_samples):
+            state, h = sample_h(state)
+
+            # Transform sample according to specification.
+            if min_phase:
+                h = transform_min_phase(h)
+
+            samples.append(h)
+        B.set_global_random_state(state)
+
+        return summarise_samples(t_h, B.stack(*samples, axis=0))
 
     @instancemethod
     @cast
