@@ -687,8 +687,10 @@ def fit(
     t,
     y,
     approximation: Structured,
-    iters: B.Int = 5000,
+    iters: int = 5000,
+    rate: float = 5e-2,
     optimise_hypers: bool = True,
+    num_samples: int = 5,
 ):
     """Fit a structured approximation.
 
@@ -698,8 +700,11 @@ def fit(
         t (vector): Locations of observations.
         y (vector): Observations.
         iters (int, optional): Gibbs sampling iterations. Defaults to `5000`.
+        rate (float, optional): Learning rate. Defaults to `5e-2`.
         optimise_hypers (bool, optional): Optimise the hyperparameters.
             Defaults to `True`.
+        num_samples (int, optional): Number of Gibbs samples for the gradients.
+            Defaults to `5`.
     """
 
     def gibbs_sample(state, iters, subsample=None, u=None, z=None):
@@ -740,21 +745,28 @@ def fit(
     state = B.create_random_state(model.dtype, seed=0)
 
     # Find a good starting points for the samples.
-    state, us, zs = gibbs_sample(state, iters=5000)
+    state, us, zs = gibbs_sample(state, iters=iters // 2)
     u, z = us[-1], zs[-1]
 
     if optimise_hypers:
 
+        if isinstance(optimise_hypers, bool):
+            iters_hypers = iters // num_samples  # Spend the sampling budget.
+        else:
+            iters_hypers = optimise_hypers
+
         def objective(vs_, state, u, z):
-            state, elbo, u, z = model(vs_).approximation.elbo_gibbs(state, t, y, u, z)
+            state, elbo, u, z = model(vs_).approximation.elbo_gibbs(
+                state, t, y, u, z, num_samples=num_samples
+            )
             return -elbo, state, u, z
 
         # Optimise hyperparameters.
         _, state, u, z = minimise_adam(
             objective,
             (model.vs, state, u, z),
-            iters=iters // 5,  # Spend the sampling budget.
-            rate=5e-2,
+            iters=iters_hypers,  
+            rate=rate,
             trace=True,
             jit=True,
             names=model().approximation.ignore_qs(previous=True, current=True),

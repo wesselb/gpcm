@@ -132,6 +132,8 @@ class AbstractGPCM(Model):
         Returns:
             :class:`collections.namedtuple`: Predictions.
         """
+        if t_k is None:
+            t_k = B.linspace(self.dtype, 0, 2 * self.extent, 1000)
         t_k, ks = self.sample_kernel(t_k, num_samples=num_samples)
 
         # Estimate PSDs.
