@@ -30,21 +30,20 @@ else:
 fs, h = sio_wav.read("experiments/R20e280a.wav")
 t_h = np.arange(len(h)) / float(fs)
 h = h[t_h <= 4e-3]  # Get rid of noisy tail
-t_h = t_h[t_h <= 4e-3]
-h = min_phase(h)
+t_h = t_h[t_h <= 4e-3] * 1000
 
 # Generate data.
-n = 400
+n = 300
 x = np.random.randn(n + 200)
 y = np.convolve(h, x)[100 : 100 + n]
 y = y / np.std(y)  # Normalise to unity variance
 t = (t_h[1] - t_h[0]) * np.arange(len(y))
 
 # Configure GPCM models.
-window = 1.5
+window = 1.0
 scale = 0.05
 n_u = 100
-n_z = 200
+n_z = 300
 
 
 def model_path(model):
@@ -56,7 +55,7 @@ models = [
     Model(
         window=window,
         scale=scale,
-        noise=0.05,
+        noise=0.1,
         n_u=n_u,
         n_z=n_z,
         t=t,
@@ -65,7 +64,7 @@ models = [
 ]
 if args.train:
     for model in models:
-        model.fit(t, y, iters=20_000, optimise_hypers=False)
+        model.fit(t, y, iters=200_000, rate=5e-2, optimise_hypers=500, num_samples=10)
         model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
@@ -98,18 +97,26 @@ else:
         preds_h.append(wd.load(*model_path(model), "pred_h.pickle"))
 
 
+h = min_phase(h)
+
 plt.figure()
 plt.subplot(1, 2, 1)
-plt.plot(t_h, h / max(h), label="HRIR", style="train")
+energy = np.trapz(h ** 2, t_h)
+h = h / energy ** 0.5
+plt.plot(t_h, h, label="HRIR", style="train")
 
 t, mean, var = preds_h[0]
 err = 1.96 * B.sqrt(var)
+energy = np.trapz(mean ** 2, t)
+err /= energy ** 0.5
+mean /= energy ** 0.5
+
 model = models[0]()
 plt.scatter(model.t_u, model.t_u * 0, c="k", s=5)
-plt.plot(t, mean / max(mean), label=models[0].name, style="pred")
-plt.fill_between(t, (mean - err) / max(mean), (mean + err) / max(mean), style="pred")
-plt.plot(t, (mean - err) / max(mean), style="pred", lw=1)
-plt.plot(t, (mean + err) / max(mean), style="pred", lw=1)
+plt.plot(t, mean, label=models[0].name, style="pred")
+plt.fill_between(t, mean - err, mean + err, style="pred")
+plt.plot(t, mean - err, style="pred", lw=1)
+plt.plot(t, mean + err, style="pred", lw=1)
 
 plt.xlim(0, window * 2)
 plt.xlabel("Time (ms)")
@@ -117,14 +124,18 @@ plt.ylabel("Filter (normalised)")
 
 tweak()
 plt.subplot(1, 2, 2)
-plt.plot(t_h, h / max(h), label="HRIR", style="train")
+plt.plot(t_h, h, label="HRIR", style="train")
 
 t, mean, var = preds_h[1]
 err = 1.96 * B.sqrt(var)
-plt.plot(t, mean / max(mean), label=models[1].name, style="pred2")
-plt.fill_between(t, (mean - err) / max(mean), (mean + err) / max(mean), style="pred2")
-plt.plot(t, (mean - err) / max(mean), style="pred2", lw=1)
-plt.plot(t, (mean + err) / max(mean), style="pred2", lw=1)
+energy = np.trapz(mean ** 2, t)
+err /= energy ** 0.5
+mean /= energy ** 0.5
+
+plt.plot(t, mean, label=models[1].name, style="pred2")
+plt.fill_between(t, mean - err, mean + err, style="pred2")
+plt.plot(t, mean - err, style="pred2", lw=1)
+plt.plot(t, mean + err, style="pred2", lw=1)
 
 plt.xlim(0, window * 2)
 plt.xlabel("Time (ms)")
