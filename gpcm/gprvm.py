@@ -136,11 +136,11 @@ class GPRVM(AbstractGPCM):
         if b is None:
             b = B.max(t)
 
-        if m_max is None:
-            # Try to determine `m_max` from `n_z`.
-            if n_z is not None:
-                m_max = int(np.ceil(n_z / 2))
+        # First, try to determine `m_max` from `n_z`.
+        if m_max is None and n_z is not None:
+            m_max = int(np.ceil(n_z / 2))
 
+        if m_max is None:
             freq = 1 / scale
             m_max = int(np.ceil(freq * (b - a)))
             if m_max > m_max_cap:
