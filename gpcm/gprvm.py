@@ -17,6 +17,8 @@ class GPRVM(AbstractGPCM):
     Args:
         scheme (str, optional): Approximation scheme. Defaults to `structured`.
         noise (scalar, optional): Observation noise. Defaults to `1e-4`.
+        fix_noise (bool, optional): Do not learn the observation noise. Defaults
+            to `False`.
         alpha (scalar, optional): Decay of the window.
         alpha_t (scalar, optional): Scale of the window. Defaults to normalise the
             window to unity power.
@@ -85,9 +87,10 @@ class GPRVM(AbstractGPCM):
         if t is not None:
             t = np.array(t)
 
-        # Store whether to fix the length scale and window length.
+        # Store whether to fix the length scale, window length, and noise.
         self.fix_scale = fix_scale
         self.fix_window = fix_window
+        self.fix_noise = fix_noise
 
         # First initialise optimisable model parameters.
         if alpha is None:
@@ -188,7 +191,8 @@ class GPRVM(AbstractGPCM):
         gamma_factor_init = self.alpha / self.gamma
 
         # Make parameters learnable:
-        self.noise = self.ps.positive(self.noise, name="noise")
+        if not self.fix_noise:
+            self.noise = self.ps.positive(self.noise, name="noise")
         if not self.fix_window:
             self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
