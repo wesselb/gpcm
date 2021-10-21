@@ -169,12 +169,7 @@ class AbstractGPCM(Model):
             :class:`collections.namedtuple`: Predictions.
         """
         if t_h is None:
-            t_h = B.linspace(
-                self.dtype,
-                0 if min_phase else -self.extent,
-                self.extent,
-                601
-            )
+            t_h = B.linspace(self.dtype, -self.extent, self.extent, 601)
 
         @B.jit
         def sample_h(state):
@@ -198,6 +193,9 @@ class AbstractGPCM(Model):
             samples.append(h)
         B.set_global_random_state(state)
 
+        if min_phase:
+            # Start at zero.
+            t_h = t_h - t_h[0]
         return summarise_samples(t_h, B.stack(*samples, axis=0))
 
     @instancemethod
