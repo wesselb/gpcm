@@ -2,6 +2,7 @@ from setuptools import find_packages, setup
 
 requirements = [
     "numpy>=1.16",
+    "scipy",
     "matplotlib",
     "plum-dispatch>=1",
     "backends>=1.4.9",
