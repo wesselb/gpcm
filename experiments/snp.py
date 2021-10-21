@@ -3,15 +3,14 @@ import argparse
 import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
-import wbml.metric as metric
 import wbml.out as out
-from gpcm import GPRVM
-from gpcm.util import min_phase
-from slugify import slugify
+from scipy.stats import linregress
 from wbml.data.snp import load
 from wbml.experiment import WorkingDirectory
-from wbml.plot import tweak
+from wbml.plot import tweak, pdfcrop
 
+from gpcm import GPRVM
+from gpcm.util import autocorr
 
 # Setup experiment.
 out.report_time = True
@@ -32,14 +31,17 @@ else:
 n = 500
 data = load()
 t = np.array(data.index)[-n:]
-y = np.log(np.array(data)[-n:])
+t = (t - t[0]) * 365
+y = np.log(np.array(data)[-n:, 0])
+
+# Normalise.
+y = (y - y.mean()) / y.std()
 
 # Configure GPCM models.
-window = 7
+window = 30
 scale = 3
-n_u = 80
-n_z = 250
-
+n_u = 50
+n_z = 200
 
 # Setup, fit, and save models.
 model = GPRVM(
@@ -51,7 +53,7 @@ model = GPRVM(
     t=t,
 )
 if args.train:
-    model.fit(t, y, iters=5000)
+    model.fit(t, y, iters=50_000, rate=2e-2, optimise_hypers=10_000)
     model.save(wd.file("model.pickle"))
 else:
     model.load(wd.file("model.pickle"))
@@ -67,63 +69,100 @@ if args.predict:
 else:
     pred_f = wd.load("pred_f.pickle")
     pred_psd = wd.load("pred_psd.pickle")
+    pred_k = wd.load("pred_k.pickle")
 
 
-plt.figure()
-plt.plot(t_h + 5e-3, h / max(h), label="HRIR", style="train")
+plt.figure(figsize=(12, 3.5))
 
-t, mean, var = preds_h[0]
+plt.subplot(1, 2, 1)
+plt.title("Kernel")
+freqs, mean, var = pred_k
 err = 1.96 * B.sqrt(var)
-plt.plot(t, mean / max(mean), label=models[0].name, style="pred")
-plt.fill_between(t, (mean - err) / max(mean), (mean + err) / max(mean), style="pred")
-plt.plot(t, (mean - err) / max(mean), style="pred", lw=1)
-plt.plot(t, (mean + err) / max(mean), style="pred", lw=1)
+mean *= scale ** 2
+err *= scale ** 2
+var_mean = mean[0] + model().noise * scale ** 2
+var_err = err[0]
+plt.plot(freqs, mean, label="Kernel", style="pred", zorder=0)
+plt.fill_between(freqs, mean - err, mean + err, style="pred", zorder=0)
+plt.plot(freqs, mean - err, style="pred", lw=1, zorder=0)
+plt.plot(freqs, mean + err, style="pred", lw=1, zorder=0)
 
-# t, mean, var = preds_h[1]
-# err = 1.96 * B.sqrt(var)
-# plt.plot(t, mean / max(mean), label=models[1].name, style="pred2")
-# plt.fill_between(t, (mean - err) / max(mean), (mean + err) / max(mean), style="pred2")
-# plt.plot(t, (mean - err) / max(mean), style="pred2", lw=1)
-# plt.plot(t, (mean + err) / max(mean), style="pred2", lw=1)
-
-plt.xlim(0, window * 2)
-plt.xlabel("Time (ms)")
-plt.ylabel("Filter (normalised)")
-tweak()
-plt.show()
-
-
-exit()
-
-
-# Plot result.
-plt.figure(figsize=(12, 3))
-plt.scatter(t_train, normaliser.untransform(y_train), style="train", label="Train")
-plt.scatter(t_test, y_test, style="test", label="Test")
-
-plt.plot(t_pred, mean1, style="pred", label="GPCM")
-plt.fill_between(
-    t_pred,
-    mean1 - 1.96 * B.sqrt(var1),
-    mean1 + 1.96 * B.sqrt(var1),
-    style="pred",
+ones = B.ones(freqs)
+mean = var_mean * ones
+err = var_err * ones
+plt.plot(freqs, mean, style="pred2", zorder=0, label="Variance")
+plt.fill_between(freqs, mean - err, mean + err, style="pred2", zorder=0, alpha=0.15)
+plt.plot(freqs, mean - err, style="pred2", lw=1, zorder=0)
+plt.plot(freqs, mean + err, style="pred2", lw=1, zorder=0)
+plt.plot(
+    t - t[0],
+    autocorr(y * scale, cov=True, lags=len(t)),
+    style="train",
+    label="Empirical",
+    zorder=0,
+    lw=1,
 )
-plt.plot(t_pred, mean1 - 1.96 * B.sqrt(var1), style="pred", lw=0.5)
-plt.plot(t_pred, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
+plt.xlim(0, 60)
+plt.ylim(-0.05, 0.25)
+plt.xlabel("Time (days)")
+plt.ylabel("Covariance (USD${}^{2}$)")
+tweak(legend_loc="center right")
 
-# plt.plot(t_pred, mean2, style="pred2", label="GPRVM")
-# plt.fill_between(
-#     t_pred,
-#     mean2 - 1.96 * B.sqrt(var2),
-#     mean2 + 1.96 * B.sqrt(var2),
-#     style="pred2",
-# )
-# plt.plot(t_pred, mean2 - 1.96 * B.sqrt(var2), style="pred2", lw=0.5)
-# plt.plot(t_pred, mean2 + 1.96 * B.sqrt(var2), style="pred2", lw=0.5)
 
-plt.xlim(150, 300)
-plt.xlabel("Time (Days Into 2012)")
-plt.ylabel("Crude Oil (USD)")
-tweak()
-plt.savefig(wd.file("crude_oil.pdf"))
+def estimate_H(freqs, psd):
+    inds = (0.15 <= freqs) & (freqs <= 0.5)
+
+    slope, intercept = linregress(
+        10 * np.log10(2 * np.pi * freqs[inds]),
+        psd[inds],
+    )[:2]
+    c = 10 ** (intercept / 10)
+    H = 0.5 * (1 - slope)
+    return c, H
+
+
+freqs, mean, lower, upper, samps = pred_psd
+
+samps = samps[freqs <= 0.5, :]
+mean = mean[freqs <= 0.5]
+lower = lower[freqs <= 0.5]
+upper = upper[freqs <= 0.5]
+freqs = freqs[freqs <= 0.5]
+err = 1.96 * B.sqrt(var)
+
+instance = model()
+spec_x = (2 * instance.lam) / (instance.lam ** 2 + (2 * B.pi * freqs) ** 2)
+spec_x *= instance.alpha_t ** 2 / (2 * instance.alpha)
+spec_x = 10 * B.log(spec_x) / B.log(10)
+
+c, H = estimate_H(freqs, mean - spec_x)
+print("H:", H)
+rough_spec = c * (2 * np.pi * freqs) ** (1 - 2 * H)
+rough_spec = 10 * B.log(rough_spec) / B.log(10)
+
+mean -= spec_x
+lower -= spec_x
+upper -= spec_x
+
+plt.subplot(1, 2, 2)
+plt.title("PSD")
+plt.plot(freqs, mean, label="$|g(2\pi f)|^2$", style="pred")
+plt.plot(freqs, spec_x, style="pred2", label="$\phi_x(2\pi f)$")
+plt.fill_between(freqs, lower, upper, style="pred")
+plt.plot(freqs, lower, style="pred", lw=1)
+plt.plot(freqs, upper, style="pred", lw=1)
+plt.plot(
+    freqs,
+    rough_spec,
+    c="k",
+    label=f"${c:.2f} \cdot |2\pi f|^{{1 - 2 \cdot {H:.3f}}}$",
+    lw=1,
+)
+plt.xlim(0, 0.5)
+plt.xlabel("Frequency $f$ (Hz)")
+plt.ylabel("Spectral density (dB)")
+tweak(legend_loc="lower left")
+plt.savefig(wd.file("psd.pdf"))
+pdfcrop(wd.file("psd.pdf"))
+
 plt.show()

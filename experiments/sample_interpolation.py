@@ -6,11 +6,12 @@ import numpy as np
 import wbml.out
 import wbml.plot
 from wbml.experiment import WorkingDirectory
+from stheno import GP
 
 from gpcm import CGPCM
 from gpcm.util import closest_psd
 
-wd = WorkingDirectory("_experiments", "sample_interpolate", seed=1)
+wd = WorkingDirectory("_experiments", "sample_interpolate", seed=14)
 
 B.epsilon = 1e-10
 
@@ -29,9 +30,10 @@ def sample(model, t, noise_f):
             same size as `t`.
 
     Returns:
-        tuple[vector]: Tuple containing kernel samples and function samples.
+        tuple[vector, ...]: Tuple containing kernel samples, filter samples, and
+            function samples.
     """
-    ks, fs = [], []
+    ks, us, fs = [], [], []
 
     # In the below, we look at the third inducing point, because that is the one
     # determining the value of the filter at zero: the CGPCM adds two extra inducing
@@ -41,19 +43,28 @@ def sample(model, t, noise_f):
     u1 = B.ones(model.n_u)
     while B.abs(u1[2]) > 1e-2:
         u1 = B.sample(model.compute_K_u())[:, 0]
+    u = GP(model.k_h())
+    u = u | (u(model.t_u), u1)
+    u1_full = u(t).mean.flatten()
 
     # Get a rough sample.
     u2 = B.zeros(model.n_u)
-    while u2[2] < 1:
+    while u2[2] < 0.5:
         u2 = B.sample(model.compute_K_u())[:, 0]
+    u = GP(model.k_h())
+    u = u | (u(model.t_u), u2)
+    u2_full = u(t).mean.flatten()
 
     with wbml.out.Progress(name="Sampling", total=5) as progress:
-        for c in [0, 0.15, 0.3, 0.5, 1]:
+        for c in [0, 0.1, 0.23, 0.33, 0.5]:
             # Sample kernel.
             K = model.kernel_approx(t, t, c * u2 + (1 - c) * u1)
             wbml.out.kv("Sampled variance", K[0, 0])
             K = K / K[0, 0]
             ks.append(K[0, :])
+
+            # Store filter.
+            us.append(c * u2_full + (1 - c) * u1_full)
 
             # Sample function.
             f = B.matmul(B.chol(closest_psd(K)), noise_f)
@@ -61,30 +72,45 @@ def sample(model, t, noise_f):
 
             progress()
 
-    return ks, fs
+    return ks, us, fs
 
 
 t = np.linspace(0, 10, 300)
 noise_f = np.random.randn(len(t), 1)
 
 # Construct model.
-model = CGPCM(window=2, scale=1, n_u=30, t=t)
+model = CGPCM(window=2, scale=1, n_u=10, t=t)
 
 # Instantiate model.
 models = model()
 
 # Perform sampling.
 if args.train:
-    ks, fs = sample(model, t, noise_f)
-    wd.save((ks, fs), "samples.pickle")
+    ks, us, fs = sample(model, t, noise_f)
+    wd.save((ks, us, fs), "samples.pickle")
 else:
-    ks, fs = wd.load("samples.pickle")
+    ks, us, fs = wd.load("samples.pickle")
 
 # Plot.
-plt.figure(figsize=(15, 3))
+plt.figure(figsize=(15, 4))
 
-for i, (k, f) in enumerate(zip(ks, fs)):
-    plt.subplot(2, 5, 1 + i)
+for i, (k, u, f) in enumerate(zip(ks, us, fs)):
+    plt.subplot(3, 5, 1 + i)
+    plt.plot(
+        B.concat(-t[::-1][:-1], t),
+        B.concat(u[:-1] * 0, u),
+        lw=1,
+    )
+    if hasattr(model, "t_u"):
+        plt.scatter(model.t_u, model.t_u * 0, s=5, marker="o", c="black")
+    # plt.xlabel("Time (s)")
+    if i == 0:
+        plt.ylabel("$h$")
+    plt.xlim(-6, 6)
+    plt.ylim(-0.5, 1)
+    wbml.plot.tweak(legend=False)
+
+    plt.subplot(3, 5, 6 + i)
     plt.plot(
         B.concat(-t[::-1][:-1], t),
         B.concat(k[::-1][:-1], k),
@@ -93,14 +119,19 @@ for i, (k, f) in enumerate(zip(ks, fs)):
     if hasattr(model, "t_u"):
         plt.scatter(model.t_u, model.t_u * 0, s=5, marker="o", c="black")
     # plt.xlabel("Time (s)")
+    if i == 0:
+        plt.ylabel("$k_{f\,|\,h}$")
     plt.xlim(-6, 6)
+    plt.ylim(-0.35, 1.2)
     wbml.plot.tweak(legend=False)
 
-    plt.subplot(2, 5, 6 + i)
+    plt.subplot(3, 5, 11 + i)
     plt.plot(t, f, lw=1)
     if hasattr(model, "t_z"):
         plt.scatter(model.t_z, model.t_z * 0, s=5, marker="o", c="black")
-    plt.xlabel("Time (s)")
+    # plt.xlabel("Time (s)")
+    if i == 0:
+        plt.ylabel("$f$")
     plt.xlim(0, 8)
     wbml.plot.tweak(legend=False)
 

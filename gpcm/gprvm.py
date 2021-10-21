@@ -60,6 +60,7 @@ class GPRVM(AbstractGPCM):
         self,
         scheme="structured",
         noise=1e-4,
+        fix_noise=False,
         alpha=None,
         alpha_t=None,
         window=None,

@@ -8,9 +8,8 @@ args, wd = setup("mauna_loa")
 n = 200
 data = load(detrend_method="gp")
 t = np.array(data.index)[-n:]
+t = t - t[0]
 y = np.array(data["ppm_detrended"])[-n:]
-
-t = t - t[0]  # Why does this help the numerics? Avoid cancellations?
 
 # Normalise to zero mean and unity variance.
 y -= B.mean(y)

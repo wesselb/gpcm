@@ -26,7 +26,6 @@ source venv/bin/activate
 pip install -r requirements.txt -e .
 ```
 
-
 ## Example
 
 ```python
@@ -106,9 +105,9 @@ PYTHONPATH=. python experiments/sample.py
 ### Learn a GP With a Known Kernel
 
 ```bash
-PYTHONPATH=. python experiments/learn_eq.py
+PYTHONPATH=. python experiments/eq.py
 ```
 
 ```bash
-PYTHONPATH=. python experiments/learn_smk.py
+PYTHONPATH=. python experiments/smk.py
 ```

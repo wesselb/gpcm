@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wbml.metric as metric
 import wbml.out as out
-from gpcm import GPCM, CGPCM, GPRVM
 from matplotlib.patches import Ellipse
 from probmods.bijection import Normaliser
 from slugify import slugify
@@ -14,6 +13,8 @@ from wbml.data import date_to_decimal_year
 from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop
+
+from gpcm import GPCM, CGPCM, GPRVM
 
 # Setup experiment.
 out.report_time = True
@@ -29,6 +30,7 @@ if args.server:
     wd = WorkingDirectory("server", "_experiments", "crude_oil", observe=True)
 else:
     wd = WorkingDirectory("_experiments", "crude_oil")
+
 
 # Load and process data.
 data = load()
@@ -62,8 +64,8 @@ normaliser = Normaliser()
 y_train = normaliser.transform(y_train)
 
 # Configure GPCM models.
-window = 7 * 3
-scale = 4
+window = 30
+scale = 3
 n_u = 50
 n_z = 150
 
@@ -75,6 +77,7 @@ def model_path(model):
 # Setup, fit, and save models.
 models = [
     Model(
+        scheme="mean-field",
         window=window,
         scale=scale,
         noise=0.05,
@@ -83,11 +86,11 @@ models = [
         extend_t_z=True,
         t=t,
     )
-    for Model in [GPCM, CGPCM, GPRVM]
+    for Model in [CGPCM, GPCM, GPRVM]
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=50_000)
+        model.fit(t_train, y_train, iters=5_000)
         model.save(wd.file(*model_path(model), "model.pickle"))
 else:
     for model in models:
@@ -97,6 +100,7 @@ else:
 preds_f = []
 preds_f_test = []
 preds_k = []
+preds_psd = []
 if args.predict:
     for model in models:
         # Perform predictions.
@@ -110,6 +114,14 @@ if args.predict:
             pred_k.mean * normaliser._scale,
             pred_k.var * normaliser._scale ** 2,
         )
+        pred_psd = posterior.predict_psd()
+        # Carefully untransform kernel prediction.
+        pred_psd = (
+            pred_psd.x,
+            pred_psd.mean + 20 * B.log(normaliser._scale),
+            pred_psd.err_95_lower + 20 * B.log(normaliser._scale),
+            pred_psd.err_95_upper + 20 * B.log(normaliser._scale),
+        )
         # Save predictions.
         preds_f.append(pred_f)
         preds_f_test.append(pred_f_test)
@@ -117,17 +129,24 @@ if args.predict:
         wd.save(pred_f, *model_path(model), "pred_f.pickle")
         wd.save(pred_f_test, *model_path(model), "pred_f_test.pickle")
         wd.save(pred_k, *model_path(model), "pred_k.pickle")
+        wd.save(pred_psd, *model_path(model), "pred_psd.pickle")
 else:
     for model in models:
         preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
         preds_f_test.append(wd.load(*model_path(model), "pred_f_test.pickle"))
         preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
+        preds_psd.append(wd.load(*model_path(model), "pred_psd.pickle"))
 
 
 def get_kernel_pred(model, scheme):
     i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
     t, mean, var = preds_k[i]
     return t, mean, var
+
+
+def get_psd_pred(model, scheme):
+    i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
+    return preds_psd[i]
 
 
 def get_pred(model, scheme, test=False):
@@ -142,10 +161,52 @@ def get_pred(model, scheme, test=False):
     return t, mean, var
 
 
+print("Structured")
 for model in ["gpcm", "cgpcm", "gprvm"]:
     print(model)
     print("RMSE", metric.rmse(get_pred(model, "structured", test=True)[1], y_test))
     print("MLL", metric.mll(*get_pred(model, "structured", test=True)[1:], y_test))
+
+print("MF")
+for model in ["gpcm", "cgpcm", "gprvm"]:
+    print(model)
+    print("RMSE", metric.rmse(get_pred(model, "mean-field", test=True)[1], y_test))
+    print("MLL", metric.mll(*get_pred(model, "mean-field", test=True)[1:], y_test))
+
+
+def model_name_map(name):
+    if name == "GPRVM":
+        return "RGPCM"
+    else:
+        return name
+
+
+def plot_psd(model, y_label=True):
+    freqs, mean, lower, upper = get_psd_pred(model, "structured")
+    freqs -= freqs[0]
+
+    inds = freqs <= 0.2
+    freqs = freqs[inds]
+    mean = mean[inds]
+    lower = lower[inds]
+    upper = upper[inds]
+
+    if y_label:
+        plt.ylabel("PSD (dB)")
+
+    plt.plot(freqs, mean, style="pred", label=model_name_map(model.upper()))
+    plt.fill_between(
+        freqs,
+        lower,
+        upper,
+        style="pred",
+    )
+    plt.plot(freqs, lower, style="pred", lw=0.5)
+    plt.plot(freqs, upper, style="pred", lw=0.5)
+    plt.xlim(0, 0.2)
+    plt.ylim(0, 60)
+    plt.xlabel("Frequency (day${}^{-1}$)")
+    tweak()
 
 
 def plot_compare(model1, model2, y_label=True, y_ticks=True):
@@ -155,7 +216,7 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True):
     mean1, var1 = get_pred(model1, "structured")[1:]
     mean2, var2 = get_pred(model2, "structured")[1:]
 
-    plt.plot(t_pred, mean1, style="pred", label=model1.upper())
+    plt.plot(t_pred, mean1, style="pred", label=model_name_map(model1.upper()))
     plt.fill_between(
         t_pred,
         mean1 - 1.96 * B.sqrt(var1),
@@ -165,7 +226,7 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True):
     plt.plot(t_pred, mean1 - 1.96 * B.sqrt(var1), style="pred", lw=0.5)
     plt.plot(t_pred, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
 
-    plt.plot(t_pred, mean2, style="pred2", label=model2.upper())
+    plt.plot(t_pred, mean2, style="pred2", label=model_name_map(model2.upper()))
     plt.fill_between(
         t_pred,
         mean2 - 1.96 * B.sqrt(var2),
@@ -179,17 +240,11 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True):
     plt.gca().add_artist(
         Ellipse((190, 85), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
     )
-    # plt.gca().add_artist(
-    #     Ellipse((203, 89), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
-    # )
     plt.gca().add_artist(
         Ellipse((219, 93), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
     )
     plt.gca().add_artist(
         Ellipse((260, 92), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
-    )
-    plt.gca().add_artist(
-        Ellipse((273, 93), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
     )
 
     plt.xlim(150, 300)
@@ -202,11 +257,20 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True):
 
 
 # Plot result.
-plt.figure(figsize=(12, 3))
-plt.subplot(1, 2, 1)
+plt.figure(figsize=(12, 5))
+
+plt.subplot2grid((5, 6), (0, 0), colspan=3, rowspan=3)
 plot_compare("gpcm", "cgpcm")
-plt.subplot(1, 2, 2)
+plt.subplot2grid((5, 6), (0, 3), colspan=3, rowspan=3)
 plot_compare("gpcm", "gprvm", y_label=False, y_ticks=False)
+
+plt.subplot2grid((5, 6), (3, 0), colspan=2, rowspan=2)
+plot_psd("gpcm")
+plt.subplot2grid((5, 6), (3, 2), colspan=2, rowspan=2)
+plot_psd("cgpcm", y_label=False)
+plt.subplot2grid((5, 6), (3, 4), colspan=2, rowspan=2)
+plot_psd("gprvm", y_label=False)
+
 plt.savefig(wd.file("crude_oil.pdf"))
 pdfcrop(wd.file("crude_oil.pdf"))
 

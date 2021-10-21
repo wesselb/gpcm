@@ -71,17 +71,11 @@ def print_estimates(estimates, show_error=False):
     return out[2:]
 
 
-def _estimate(x):
-    return np.mean(x), 1.96 * np.std(x) / np.sqrt(len(x))
-
-
 wd_out = WorkingDirectory("_experiments", "comparison")
-
-
 wd = WorkingDirectory(
     "server",
     "_experiments",
-    "comparison_long",
+    "comparison",
     observe=True,
 )
 
@@ -115,45 +109,45 @@ def gp_logpdf(data_name):
 out = "\\toprule \n"
 out += (
     "\\textsc{Model} "
-    "& \\multicolumn{2}{c}{\\textsc{EQ}} "
-    "& \\multicolumn{2}{c}{\\textsc{CEQ}} "
-    "& \\multicolumn{2}{c}{\\textsc{Matern--$\\frac12$}} "
+    " & \\textsc{Data} "
+    "& \\multicolumn{2}{c}{\\textsc{MLL}} "
+    "& \\multicolumn{2}{c}{\\textsc{RMSE}} "
     "\\\\ \n"
-    " & \\textsc{MF} & \\textsc{S}"
+    " & "
     " & \\textsc{MF} & \\textsc{S}"
     " & \\textsc{MF} & \\textsc{S}"
     "\\\\ "
     "\\midrule \n"
 )
-for mode in [
-    "elbo",
-    "mll",
-    "rmse",
-]:
-    out += " & \\textsc{" + mode.upper() + "} \\\\[0.25em] \n"
+out += "\\textsc{GPCM}"
+out += " & \\textsc{EQ} & "
+estimates = [
+    kernel_analysis("eq", "gpcm", mode="mean-field-mll"),
+    kernel_analysis("eq", "gpcm", mode="structured-mll"),
+    kernel_analysis("eq", "gpcm", mode="mean-field-rmse"),
+    kernel_analysis("eq", "gpcm", mode="structured-rmse"),
+]
+out += print_estimates(estimates) + "\\\\ \n"
 
-    if mode == "elbo":
-        out += "\\textsc{GP}"
-        for estimate in [
-            print_estimates([gp_logpdf(data)]) for data in ["eq", "ceq-1", "matern12"]
-        ]:
-            out += " & \\multicolumn{2}{c}{" + estimate + "}"
-        out += "\\\\ \n"
+out += "\\textsc{CGPCM}"
+out += " & \\textsc{CEQ} & "
+estimates = [
+    kernel_analysis("ceq-1", "cgpcm", mode="mean-field-mll"),
+    kernel_analysis("ceq-1", "cgpcm", mode="structured-mll"),
+    kernel_analysis("ceq-1", "cgpcm", mode="mean-field-rmse"),
+    kernel_analysis("ceq-1", "cgpcm", mode="structured-rmse"),
+]
+out += print_estimates(estimates) + "\\\\ \n"
 
-    for model in ["gpcm", "cgpcm", "gprvm"]:
-        out += "\\textsc{" + model.upper() + "}"
-        estimates = [
-            kernel_analysis("eq", model, mode="mean-field-" + mode),
-            kernel_analysis("eq", model, mode="structured-" + mode),
-            kernel_analysis("ceq-1", model, mode="mean-field-" + mode),
-            kernel_analysis("ceq-1", model, mode="structured-" + mode),
-            kernel_analysis("matern12", model, mode="mean-field-" + mode),
-            kernel_analysis("matern12", model, mode="structured-" + mode),
-        ]
-        out += " & " + print_estimates(estimates) + "\\\\ \n"
-
-    if mode != "rmse":
-        out = out[:-4] + "\\\\[0.5em] \n"
+out += "\\textsc{GPRVM}"
+out += " & \\textsc{Matern–$\\frac{1}{2}$} & "
+estimates = [
+    kernel_analysis("matern12", "gprvm", mode="mean-field-mll"),
+    kernel_analysis("matern12", "gprvm", mode="structured-mll"),
+    kernel_analysis("matern12", "gprvm", mode="mean-field-rmse"),
+    kernel_analysis("matern12", "gprvm", mode="structured-rmse"),
+]
+out += print_estimates(estimates) + "\\\\ \n"
 
 out += "\\bottomrule \n"
 print(out)
@@ -199,22 +193,8 @@ plt.subplot(1, 3, 2)
 plt.title("CGPCM on CEQ")
 plot_kernel_predictions(wd, "cgpcm", "ceq-1", legend=False)
 plt.subplot(1, 3, 3)
-plt.title("GPRVM on Matern–$\\frac{1}{2}$")
+plt.title("RGPCM on Matern–$\\frac{1}{2}$")
 plot_kernel_predictions(wd, "gprvm", "matern12")
 plt.savefig(wd_out.file("comparison.pdf"))
 pdfcrop(wd_out.file("comparison.pdf"))
 plt.show()
-
-# plt.figure(figsize=(7.5, 3))
-# plt.subplot(1, 3, 1)
-# plt.title("GPCM on Matern–$\\frac{1}{2}$")
-# plot_kernel_predictions(wd, "gpcm", "matern12", legend=False, first=True)
-# plt.subplot(1, 3, 2)
-# plt.title("CGPCM on EQ")
-# plot_kernel_predictions(wd, "cgpcm", "eq", legend=False)
-# plt.subplot(1, 3, 3)
-# plt.title("GPRVM on EQ")
-# plot_kernel_predictions(wd, "gprvm", "eq")
-# plt.savefig(wd_out.file("comparison_misfit.pdf"))
-# pdfcrop(wd_out.file("comparison_misfit.pdf"))
-# plt.show()

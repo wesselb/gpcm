@@ -2,13 +2,10 @@ import argparse
 
 import lab as B
 import matplotlib.pyplot as plt
-import numpy as np
-import wbml.out
 import wbml.plot
 from wbml.experiment import WorkingDirectory
 
 from gpcm import GPCM, CGPCM, GPRVM
-from gpcm.util import estimate_psd, closest_psd
 
 wd = WorkingDirectory("_experiments", "priors", seed=0)
 
@@ -96,31 +93,6 @@ for i, (model, (freqs, psds)) in enumerate(zip(models, model_psds)):
     plt.xlim(-3, 3)
     plt.ylim(-30, 5)
     wbml.plot.tweak(legend=False)
-
-# plt.subplot(3, 4, 3 + 4 * i)
-# plt.plot(t, np.stack(ks).T, lw=1)
-# plt.scatter(model.t_u, model.t_u * 0, s=5, marker="o", c="black")
-# plt.title("Kernel")
-# if i == 2:
-#     plt.xlabel("Lag (s)")
-# plt.xlim(0, 6)
-# wbml.plot.tweak(legend=False)
-#
-# # Estimate PSD.
-# freqs, psds = zip(*[estimate_psd(t, k, db=True) for k in ks])
-# freqs = freqs[0]
-# psds = np.stack(psds).T
-#
-# plt.subplot(3, 4, 4 + 4 * i)
-# plt.title("PSD (dB)")
-# inds = np.arange(int(len(freqs) / 2))
-# inds = inds[freqs[inds] <= 2]
-# plt.plot(freqs[inds], psds[inds, :], lw=1)
-# if i == 2:
-#     plt.xlabel("Frequency (Hz)")
-# plt.xlim(0, 2)
-# plt.ylim(-40, 10)
-# wbml.plot.tweak(legend=False)
 
 plt.tight_layout()
 plt.savefig(wd.file("priors.pdf"))

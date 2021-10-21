@@ -1,18 +1,19 @@
 import lab as B
-from gpcm.experiment import run, setup
 from stheno import EQ, GP, Delta, Measure
+
+from gpcm.experiment import run, setup
 
 args, wd = setup("smk")
 
 # Setup experiment.
-n = 880 + 1  # Need to add the last point for the call to `linspace`.
+n = 801  # Need to add the last point for the call to `linspace`.
 noise = 1.0
 t = B.linspace(-44, 44, n)
-t_plot = B.linspace(-44, 44, 500)
+t_plot = B.linspace(0, 10, 500)
 
 # Setup true model and GPCM models.
-kernel = EQ().stretch(3) * (lambda x: B.cos(2 * B.pi * x * 0.25))
-kernel = kernel + EQ().stretch(3) * (lambda x: B.sin(2 * B.pi * x * 0.25))
+kernel = EQ().stretch(1) * (lambda x: B.cos(2 * B.pi * x))
+kernel = kernel + EQ().stretch(1) * (lambda x: B.sin(2 * B.pi * x))
 
 window = 4
 scale = 0.5

@@ -1,14 +1,15 @@
 import lab as B
-from gpcm.experiment import run, setup
 from stheno import EQ, GP, Delta, Measure
+
+from gpcm.experiment import run, setup
 
 args, wd = setup("eq")
 
 # Setup experiment.
-n = 880 + 1  # Need to add the last point for the call to `linspace`.
-noise = 1.0
+n = 880
+noise = 0.1
 t = B.linspace(-44, 44, n)
-t_plot = B.linspace(-44, 44, 500)
+t_plot = B.linspace(44, 44, 500)
 
 # Setup true model and GPCM models.
 kernel = EQ()

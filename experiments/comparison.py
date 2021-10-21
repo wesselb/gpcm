@@ -1,14 +1,14 @@
 import lab as B
-from gpcm import GPCM, CGPCM, GPRVM
+import wbml.out as out
 from slugify import slugify
 from stheno import EQ, CEQ, Exp, GP, Delta
 from wbml.experiment import WorkingDirectory
-import sys
-import wbml.out as out
+
+from gpcm import GPCM, CGPCM, GPRVM
 
 out.report_time = True
 B.epsilon = 1e-8
-wd = WorkingDirectory("_experiments", "comparison_long")
+wd = WorkingDirectory("_experiments", "comparison")
 
 # Setup experiment.
 noise = 1.0
