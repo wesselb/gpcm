@@ -24,17 +24,19 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
 parser.add_argument("--server", action="store_true")
+parser.add_argument("--year", required=True, type=int)
 args = parser.parse_args()
+year = args.year
 
 if args.server:
-    wd = WorkingDirectory("server", "_experiments", "crude_oil", observe=True)
+    wd = WorkingDirectory("server", "_experiments", "crude_oil", str(year), observe=True)
 else:
-    wd = WorkingDirectory("_experiments", "crude_oil")
+    wd = WorkingDirectory("_experiments", "crude_oil", str(year))
 
 
 # Load and process data.
 data = load()
-data = data[(2012 <= data.index) & (data.index < 2013)]  # Year 2012
+data = data[(year <= data.index) & (data.index < year)]  # Year 2012
 t = np.array(data.index)
 y = np.array(data.open)
 t = (t - t[0]) * 365  # Start at day zero.
@@ -45,8 +47,8 @@ test_inds = np.empty(t.shape, dtype=bool)
 test_inds.fill(False)
 for lower, upper in [
     (
-        datetime(2012, 1, 1) + i * timedelta(days=7),
-        datetime(2012, 1, 1) + (i + 1) * timedelta(days=7),
+        datetime(year, 1, 1) + i * timedelta(days=7),
+        datetime(year, 1, 1) + (i + 1) * timedelta(days=7),
     )
     for i in range(26, 53)
     if i % 2 == 1
@@ -77,13 +79,11 @@ def model_path(model):
 # Setup, fit, and save models.
 models = [
     Model(
-        scheme="mean-field",
         window=window,
         scale=scale,
         noise=0.05,
         n_u=n_u,
         n_z=n_z,
-        extend_t_z=True,
         t=t,
     )
     for Model in [CGPCM, GPCM, GPRVM]
