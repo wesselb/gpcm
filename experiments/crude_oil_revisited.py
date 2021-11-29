@@ -140,8 +140,8 @@ if args.predict:
     for model in models:
         pred_f_test = []
         for (t_train, y_train), (t_test, _) in evals:
-            # Perform predictions.
-            posterior = model.condition(t_train, y_train)
+            # Perform predictions. Be sure to again apply transform.
+            posterior = model.condition(t_train, normaliser.transform(y_train))
             pred = (t_test,) + normaliser.untransform(posterior.predict(t_test))
             pred_f_test.append(pred)
         preds_f_test.append(pred_f_test)
