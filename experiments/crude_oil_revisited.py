@@ -23,18 +23,13 @@ B.epsilon = 1e-8
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
-parser.add_argument("--server", action="store_true")
+parser.add_argument("--year", required=True, type=int)
 args = parser.parse_args()
+year = args.year
 
-if args.server:
-    wd = WorkingDirectory("server", "_experiments", "crude_oil_rev", observe=True)
-else:
-    wd = WorkingDirectory("_experiments", "crude_oil_rev")
+wd = WorkingDirectory("_experiments", "crude_oil_rev", str(year))
 
-
-year = 2012
-
-# First first Monday of year.
+# Find first Monday of year.
 current = datetime(year, 1, 1)
 if current.weekday() > 0:
     current += (7 - current.weekday()) * timedelta(days=1)
@@ -87,7 +82,6 @@ def model_path(model):
 # Setup, fit, and save models.
 models = [
     Model(
-        scheme="mean-field",
         window=window,
         scale=scale,
         noise=0.05,
