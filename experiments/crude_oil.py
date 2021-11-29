@@ -29,14 +29,16 @@ args = parser.parse_args()
 year = args.year
 
 if args.server:
-    wd = WorkingDirectory("server", "_experiments", "crude_oil", str(year), observe=True)
+    wd = WorkingDirectory(
+        "server", "_experiments", "crude_oil", str(year), observe=True
+    )
 else:
     wd = WorkingDirectory("_experiments", "crude_oil", str(year))
 
 
 # Load and process data.
 data = load()
-data = data[(year <= data.index) & (data.index < year)]  # Year 2012
+data = data[(year <= data.index) & (data.index < year + 1)]  # Year 2012
 t = np.array(data.index)
 y = np.array(data.open)
 t = (t - t[0]) * 365  # Start at day zero.
@@ -166,12 +168,6 @@ for model in ["gpcm", "cgpcm", "gprvm"]:
     print(model)
     print("RMSE", metric.rmse(get_pred(model, "structured", test=True)[1], y_test))
     print("MLL", metric.mll(*get_pred(model, "structured", test=True)[1:], y_test))
-
-print("MF")
-for model in ["gpcm", "cgpcm", "gprvm"]:
-    print(model)
-    print("RMSE", metric.rmse(get_pred(model, "mean-field", test=True)[1], y_test))
-    print("MLL", metric.mll(*get_pred(model, "mean-field", test=True)[1:], y_test))
 
 
 def model_name_map(name):
