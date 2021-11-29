@@ -64,6 +64,8 @@ while date_to_decimal_year(current) < year + 1:
     else:
         break
 
+wd.save("data.pickle", ((t_train, y_train), evals))
+
 # Normalise training data.
 normaliser = Normaliser()
 y_train = normaliser.transform(y_train)
@@ -102,15 +104,15 @@ else:
 
 # Make and save predictions.
 preds_f = []
-preds_f_test = []
 preds_k = []
 preds_psd = []
+preds_f_test = []
 if args.predict:
+    # Predict based on first half.
     for model in models:
         # Perform predictions.
         posterior = model.condition(t_train, y_train)
-        pred_f = (t_pred,) + normaliser.untransform(posterior.predict(t_pred))
-        pred_f_test = (t_test,) + normaliser.untransform(posterior.predict(t_test))
+        pred_f = (t_train,) + normaliser.untransform(posterior.predict(t_train))
         pred_k = posterior.predict_kernel()
         # Carefully untransform kernel prediction.
         pred_k = (
@@ -128,18 +130,28 @@ if args.predict:
         )
         # Save predictions.
         preds_f.append(pred_f)
-        preds_f_test.append(pred_f_test)
         preds_k.append(pred_k)
+        preds_psd.append(pred_psd)
         wd.save(pred_f, *model_path(model), "pred_f.pickle")
-        wd.save(pred_f_test, *model_path(model), "pred_f_test.pickle")
         wd.save(pred_k, *model_path(model), "pred_k.pickle")
         wd.save(pred_psd, *model_path(model), "pred_psd.pickle")
+
+    # Perform predictions for second half.
+    for model in models:
+        pred_f_test = []
+        for (t_train, y_train), (t_test, _) in evals:
+            # Perform predictions.
+            posterior = model.condition(t_train, y_train)
+            pred = (t_test,) + normaliser.untransform(posterior.predict(t_test))
+            pred_f_test.append(pred)
+        preds_f_test.append(pred_f_test)
+        wd.save(pred_f_test, *model_path(model), "pred_f_test.pickle")
 else:
     for model in models:
         preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
-        preds_f_test.append(wd.load(*model_path(model), "pred_f_test.pickle"))
         preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
         preds_psd.append(wd.load(*model_path(model), "pred_psd.pickle"))
+        preds_f_test.append(wd.load(*model_path(model), "pred_f_test.pickle"))
 
 
 def get_kernel_pred(model, scheme):
