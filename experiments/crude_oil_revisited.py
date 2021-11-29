@@ -42,10 +42,11 @@ if current.weekday() > 0:
 # Load and split off year.
 data = load()
 data = data[(date_to_decimal_year(current) <= data.index) & (data.index < year + 1)]
+data.dropna(inplace=True)
 
 
 def convert_t_y(df):
-    return (np.array(df.index) - year) * 365, np.array(df)
+    return (np.array(df.index) - year) * 365, np.array(df.open)
 
 
 # Split off train set.
