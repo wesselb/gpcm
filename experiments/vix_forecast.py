@@ -104,6 +104,6 @@ for model in [
         )
         mean, var = posterior.predict(t_test[-n_forecast:])
         mean = mean * train_scale + train_mean
-        var = var * train_scale ** 2 + model.noise
+        var = (var + model.noise) * train_scale ** 2
         preds.append((y_test[-n_forecast:], mean, var))
     wd.save(preds, model.name.lower(), "preds.pickle")
