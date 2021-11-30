@@ -10,7 +10,7 @@ from gpcm import GPCM, CGPCM, GPRVM
 
 out.report_time = True
 B.epsilon = 1e-8
-wd = WorkingDirectory("_experiments", f"forecasting", seed=24)
+wd = WorkingDirectory("_experiments", f"vix_fix", seed=24)
 
 # Setup experiment.
 data = pd.read_parquet("experiments/vix.parquet")
@@ -94,7 +94,7 @@ for model in [
         t=t_train,
     ),
 ]:
-    model.fit(t_train, y_train, iters=10000)
+    model.fit(t_train, y_train, iters=10_000)
 
     preds = []
     for t_test, y_test in zip(t_tests, y_tests):
@@ -104,6 +104,6 @@ for model in [
         )
         mean, var = posterior.predict(t_test[-n_forecast:])
         mean = mean * train_scale + train_mean
-        var = var * train_scale ** 2
+        var = var * train_scale ** 2 + model.noise
         preds.append((y_test[-n_forecast:], mean, var))
     wd.save(preds, model.name.lower(), "preds.pickle")
