@@ -24,7 +24,7 @@ def scale_to_factor(scale):
     Returns:
         tensor: Equivalent factor.
     """
-    return (B.pi / 2) / (2 * scale ** 2)
+    return (B.pi / 2) / (2 * scale**2)
 
 
 def factor_to_scale(factor):
@@ -230,9 +230,9 @@ class GPCM(AbstractGPCM):
             :class:`.exppoly.ExpPoly`: Expression for :math:`k_h(t_1, t_2)`.
         """
         return ExpPoly(
-            self.alpha_t ** 2,
+            self.alpha_t**2,
             -(
-                const(self.alpha) * (t1 ** 2 + t2 ** 2)
+                const(self.alpha) * (t1**2 + t2**2)
                 + const(self.gamma) * (t1 - t2) ** 2
             ),
         )
@@ -247,7 +247,7 @@ class GPCM(AbstractGPCM):
         # Convert `self.gamma` to a regular length scale.
         gamma_scale = B.sqrt(1 / (2 * self.gamma))
         k_h = EQ().stretch(gamma_scale)  # Kernel of filter before window
-        k_h *= lambda t: B.exp(-self.alpha * t ** 2)  # Window
+        k_h *= lambda t: B.exp(-self.alpha * t**2)  # Window
         if self.causal:
             k_h *= lambda t: B.cast(self.dtype, t >= 0)  # Causality constraint
         return k_h

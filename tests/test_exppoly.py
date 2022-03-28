@@ -126,7 +126,7 @@ def test_term_collect_for():
 
 
 def test_term_eval():
-    assert Term(2, Factor("t", 3)).eval(t=4) == 2 * 4 ** 3
+    assert Term(2, Factor("t", 3)).eval(t=4) == 2 * 4**3
 
 
 def test_term_is_constant():
@@ -143,7 +143,7 @@ def test_term_highest_power():
 
 def test_term_substitute(t1, t2):
     result = Term(2, Factor("t1", 1), Factor("t2", 2)).substitute("t2", t1 - t2)
-    expected = 2 * t1 ** 3 - 4 * t1 ** 2 * t2 + 2 * t1 * t2 ** 2
+    expected = 2 * t1**3 - 4 * t1**2 * t2 + 2 * t1 * t2**2
     assert result == expected
 
 
@@ -214,24 +214,24 @@ def test_merge_common_terms():
 
 
 def test_poly_is_function_of(t1, t2):
-    p = t1 ** 2 * t2 + 1
+    p = t1**2 * t2 + 1
     assert p.is_function_of("t1")
     assert p.is_function_of("t2")
     assert not p.is_function_of("t3")
 
 
 def test_poly_collect_for(t1, t2, t3):
-    result = (t1 ** 2 * t2 * t3 ** 3 + 2 * t1 ** 2).collect_for(Factor("t1", 2))
-    expected = 2 + t2 * t3 ** 3
+    result = (t1**2 * t2 * t3**3 + 2 * t1**2).collect_for(Factor("t1", 2))
+    expected = 2 + t2 * t3**3
     assert result == expected
 
 
 def test_poly_reject(t1, t2, t3):
-    assert (t1 ** 2 * t2 * t3 ** 3 + 2 * t1 + 3 * t2 ** 2).reject("t1") == 3 * t2 ** 2
+    assert (t1**2 * t2 * t3**3 + 2 * t1 + 3 * t2**2).reject("t1") == 3 * t2**2
 
 
 def test_poly_eval(t1, t2):
-    assert (2 * t1 ** 2 + 3 * t2).eval(t1=4, t2=5) == 2 * 4 ** 2 + 3 * 5
+    assert (2 * t1**2 + 3 * t2).eval(t1=4, t2=5) == 2 * 4**2 + 3 * 5
 
 
 def test_poly_is_constant(t1, t2):
@@ -240,16 +240,16 @@ def test_poly_is_constant(t1, t2):
 
 
 def test_poly_highest_power(t1, t2):
-    p = t1 ** 2 * t2 + t2 ** 3 + 2
+    p = t1**2 * t2 + t2**3 + 2
     assert p.highest_power("t1") == 2
     assert p.highest_power("t2") == 3
     assert p.highest_power("t3") == 0
 
 
 def test_poly_substitute(t1, t2, t3):
-    assert (2 * t3 ** 2).substitute(
+    assert (2 * t3**2).substitute(
         "t3", t1 - t2
-    ) == 2 * t1 ** 2 - 4 * t1 * t2 + 2 * t2 ** 2
+    ) == 2 * t1**2 - 4 * t1 * t2 + 2 * t2**2
 
 
 def test_poly_str(t1, t2):
@@ -270,7 +270,7 @@ def test_poly_equality(t1, t2, t3):
     assert t1 + t2 == t2 + t1
     assert t1 + t2 != t1 + t3
     assert 2 * (t1 + t2) == 2 * t1 + 2 * t2
-    assert (t1 + t2) ** 2 == t1 ** 2 + 2 * t1 * t2 + t2 ** 2
+    assert (t1 + t2) ** 2 == t1**2 + 2 * t1 * t2 + t2**2
 
 
 def test_poly_addition(t1, t2, t3):
@@ -301,10 +301,10 @@ def test_poly_multiplication(t1, t2, t3):
 
 
 def test_poly_pow(t1):
-    assert t1 ** 3 == t1 * t1 * t1
+    assert t1**3 == t1 * t1 * t1
 
     with pytest.raises(RuntimeError):
-        t1 ** -2
+        t1**-2
 
 
 def test_as_poly(t1):
@@ -317,8 +317,8 @@ def test_exppoly_constructor(t1):
 
 
 def test_exppoly_substitute(t1, t2, t3):
-    assert ExpPoly(2, -(t3 ** 2)).substitute("t3", t1 - t2) == ExpPoly(
-        2, -(t1 ** 2) + 2 * t1 * t2 - t2 ** 2
+    assert ExpPoly(2, -(t3**2)).substitute("t3", t1 - t2) == ExpPoly(
+        2, -(t1**2) + 2 * t1 * t2 - t2**2
     )
 
 
@@ -347,38 +347,38 @@ def test_exppoly_multiplication(t1, t2):
 
 def test_exppoly_integrate_quadratic_coefficient_check(t1, t2):
     with pytest.raises(RuntimeError):
-        ExpPoly(t2 * t1 ** 2).integrate("t1")
+        ExpPoly(t2 * t1**2).integrate("t1")
 
 
 def test_exppoly_integrate_quadratic_dependency_check(t1, t2):
     with pytest.raises(RuntimeError):
         ExpPoly(t1)._integrate("t1")
     with pytest.raises(RuntimeError):
-        ExpPoly(t1 ** 3)._integrate("t1")
+        ExpPoly(t1**3)._integrate("t1")
 
     with pytest.raises(RuntimeError):
         ExpPoly(t1)._integrate_half1("t1")
     with pytest.raises(RuntimeError):
-        ExpPoly(t1 ** 3)._integrate_half1("t1")
+        ExpPoly(t1**3)._integrate_half1("t1")
 
     with pytest.raises(RuntimeError):
-        ExpPoly(t1 + t2 ** 2)._integrate_half2("t1", "t2")
+        ExpPoly(t1 + t2**2)._integrate_half2("t1", "t2")
     with pytest.raises(RuntimeError):
-        ExpPoly(t1 ** 3 + t2 ** 2)._integrate_half2("t1", "t2")
+        ExpPoly(t1**3 + t2**2)._integrate_half2("t1", "t2")
     with pytest.raises(RuntimeError):
-        ExpPoly(t1 ** 2 + t2)._integrate_half2("t1", "t2")
+        ExpPoly(t1**2 + t2)._integrate_half2("t1", "t2")
     with pytest.raises(RuntimeError):
-        ExpPoly(t1 ** 2 + t2 ** 3)._integrate_half2("t1", "t2")
+        ExpPoly(t1**2 + t2**3)._integrate_half2("t1", "t2")
 
 
 @pytest.fixture()
 def ep1(t1):
-    return ExpPoly(4 - t1 ** 2 - 0.5 * t1)
+    return ExpPoly(4 - t1**2 - 0.5 * t1)
 
 
 @pytest.fixture()
 def ep2(t1, t2, t3):
-    return ExpPoly(4 - t1 ** 2 - 2 * t2 ** 2 - 0.5 * t1 * t2 - 2 * t1 * t3 + 3 * t2)
+    return ExpPoly(4 - t1**2 - 2 * t2**2 - 0.5 * t1 * t2 - 2 * t1 * t3 + 3 * t2)
 
 
 def test_exppoly_case1(ep1):

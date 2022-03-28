@@ -242,7 +242,7 @@ class Term:
                 power = factor.power
             else:
                 factors.append(factor)
-        return Poly(Term(self.const, *factors)) * poly ** power
+        return Poly(Term(self.const, *factors)) * poly**power
 
     def __str__(self):
         if len(self.factors) > 0:
@@ -630,7 +630,7 @@ class ExpPoly:
         a = a.eval()
 
         return ExpPoly(
-            self.const * safe_sqrt(-B.pi / a), Poly(Term(-0.25 / a)) * b ** 2 + c
+            self.const * safe_sqrt(-B.pi / a), Poly(Term(-0.25 / a)) * b**2 + c
         )
 
     def _integrate_half1(self, name, **var_map):
@@ -649,7 +649,7 @@ class ExpPoly:
             0.5
             * self.const
             * safe_sqrt(-B.pi / a)
-            * B.exp(-0.25 * b ** 2 / a + c)
+            * B.exp(-0.25 * b**2 / a + c)
             * (1 - B.erf(0.5 * b / safe_sqrt(-a)))
         )
 
@@ -675,7 +675,7 @@ class ExpPoly:
         c = c.eval(**var_map)
 
         # Determinant of A:
-        a_det = a11 * a22 - a12 ** 2
+        a_det = a11 * a22 - a12**2
 
         # Inverse of A, which corresponds to variance of distribution after
         # completing the square:
@@ -701,7 +701,7 @@ class ExpPoly:
         cdf_part = B.reshape(B.bvn_cdf(x1, x2, rho), *orig_shape)
 
         # Compute exponentiated part.
-        quad_form = 0.5 * (ia11 * b1 ** 2 + ia22 * b2 ** 2 + 2 * ia12 * b1 * b2)
+        quad_form = 0.5 * (ia11 * b1**2 + ia22 * b2**2 + 2 * ia12 * b1 * b2)
         det_part = 2 * B.pi / safe_sqrt(a_det)
         exp_part = det_part * B.exp(quad_form + c)
 

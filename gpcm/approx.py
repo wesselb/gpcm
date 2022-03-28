@@ -468,7 +468,7 @@ class Structured(Approximation):
             scalar: Normalising constant term.
         """
         q_z = self.q_z_optimal(ts, u)
-        quadratic = B.sum(ts.y ** 2) + B.sum(u * B.mm(ts.A_sum, u)) + ts.c_sum
+        quadratic = B.sum(ts.y**2) + B.sum(u * B.mm(ts.A_sum, u)) + ts.c_sum
         return 0.5 * (
             -ts.n * B.log(2 * B.pi * self.model.noise)
             - quadratic / self.model.noise
@@ -529,7 +529,7 @@ class Structured(Approximation):
         m1s, m2s = zip(*[predict_moments(u) for u in self._sample_p_u(num_samples)])
         m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
         m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
-        return m1, m2 - m1 ** 2
+        return m1, m2 - m1**2
 
     @_dispatch
     def sample_kernel(self, t_k, num_samples: B.Int = 1000):
@@ -564,8 +564,8 @@ class Structured(Approximation):
         """
         zs = [B.flatten(x) for x in self._sample_p_z(num_samples)]
         m1 = B.mean(B.stack(*zs, axis=0), axis=0)
-        m2 = B.mean(B.stack(*[z ** 2 for z in zs], axis=0), axis=0)
-        return m1, m2 - m1 ** 2
+        m2 = B.mean(B.stack(*[z**2 for z in zs], axis=0), axis=0)
+        return m1, m2 - m1**2
 
 
 class MeanField(Approximation):
@@ -617,7 +617,7 @@ class MeanField(Approximation):
                 + (
                     (-0.5 / self.model.noise)
                     * (
-                        B.sum(ts.y ** 2)
+                        B.sum(ts.y**2)
                         + B.sum(ts.A_sum * q_u.m2)
                         + B.sum(ts.B_sum * q_z.m2)
                         + B.sum(B.mm(ts.I_uz, q_z.m2, ts.I_uz, tr_c=True) * q_u.m2)
@@ -654,7 +654,7 @@ class MeanField(Approximation):
             self.p_z.mean,
             self.p_z.m2,
         )
-        return m1, m2 - m1 ** 2
+        return m1, m2 - m1**2
 
     @_dispatch
     def sample_kernel(self, t_k, num_samples: B.Int = 1000):
@@ -765,7 +765,7 @@ def fit(
         _, state, u, z = minimise_adam(
             objective,
             (model.vs, state, u, z),
-            iters=iters_hypers,  
+            iters=iters_hypers,
             rate=rate,
             trace=True,
             jit=True,
@@ -794,7 +794,7 @@ def fit(model, t, y, approximation: MeanField, iters: B.Int = 5000):
     """
     # Maintain a random state.
     state = B.create_random_state(model.dtype, seed=0)
-    
+
     if approximation.fit == "ca":
         _fit_mean_field_ca(model(), t, y, iters)
     elif approximation.fit == "bfgs":

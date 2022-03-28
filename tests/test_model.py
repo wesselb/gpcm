@@ -2,11 +2,11 @@ import lab as B
 import numpy as np
 import pytest
 
-from gpcm import GPCM, CGPCM, GPRVM
+from gpcm import GPCM, CGPCM, RGPCM
 from .util import approx
 
 
-@pytest.mark.parametrize("Model", [GPCM, CGPCM, GPRVM])
+@pytest.mark.parametrize("Model", [GPCM, CGPCM, RGPCM])
 def test_prior_power(Model):
     t_u = B.zeros(1)
     model = Model(window=2, scale=1, n_u=10, t=(0, 10))
@@ -29,6 +29,6 @@ def test_inducing_points_extent_gpcm(Model):
 
 
 def test_inducing_points_extent_gprv():
-    model = GPRVM(window=2, scale=1, n_u=10, t=(0, 10))
+    model = RGPCM(window=2, scale=1, n_u=10, t=(0, 10))
     t_u_max = max(model.t_u)
     approx(B.exp(-model.alpha * t_u_max), B.exp(-B.pi))

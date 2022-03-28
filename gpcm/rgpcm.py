@@ -8,11 +8,11 @@ from mlkernels import Exp
 from .model import AbstractGPCM
 from .util import invert_perm, method
 
-__all__ = ["GPRVM"]
+__all__ = ["RGPCM"]
 
 
-class GPRVM(AbstractGPCM):
-    """Gaussian Process Rough Volatility Model.
+class RGPCM(AbstractGPCM):
+    """Rough Gaussian Process Convolution Model.
 
     Args:
         scheme (str, optional): Approximation scheme. Defaults to `structured`.
@@ -53,7 +53,7 @@ class GPRVM(AbstractGPCM):
             initialise quantities.
     """
 
-    name = "GPRVM"
+    name = "RGPCM"
     """str: Formatted name."""
 
     def __init__(
@@ -219,7 +219,7 @@ class GPRVM(AbstractGPCM):
         AbstractGPCM.__prior__(self)
 
 
-@method(GPRVM)
+@method(RGPCM)
 def compute_K_u(model):
     """Covariance matrix of inducing variables :math:`u` associated with
     :math:`h`.
@@ -231,7 +231,7 @@ def compute_K_u(model):
         tensor: :math:`K_u`.
     """
     return Dense(
-        (model.gamma_t ** 2 / (2 * model.gamma))
+        (model.gamma_t**2 / (2 * model.gamma))
         * B.exp(-model.gamma * B.abs(model.t_u[:, None] - model.t_u[None, :]))
     )
 
@@ -247,10 +247,10 @@ def psd_matern_12(omega, lam, lam_t):
     Returns:
         tensor: Spectral density.
     """
-    return 2 * lam_t * lam / (lam ** 2 + omega ** 2)
+    return 2 * lam_t * lam / (lam**2 + omega**2)
 
 
-@method(GPRVM)
+@method(RGPCM)
 def compute_K_z(model):
     """Covariance matrix :math:`K_z` of :math:`z_m` for :math:`m=0,\\ldots,2M`.
 
@@ -268,12 +268,12 @@ def compute_K_z(model):
     lam_t = 1
     alpha = 0.5 * (model.b - model.a) / psd_matern_12(omega, model.lam, lam_t)
     alpha = alpha + alpha * B.cast(model.dtype, model.ms == 0)
-    beta = 1 / (lam_t ** 0.5) * B.cast(model.dtype, model.ms <= model.m_max)
+    beta = 1 / (lam_t**0.5) * B.cast(model.dtype, model.ms <= model.m_max)
 
     return Diagonal(alpha) + LowRank(left=beta[:, None])
 
 
-@method(GPRVM)
+@method(RGPCM)
 def compute_i_hx(model, t1=None, t2=None):
     """Compute the :math:`I_{hx}` integral.
 
@@ -289,10 +289,10 @@ def compute_i_hx(model, t1=None, t2=None):
         t1 = B.zero(model.dtype)
     if t2 is None:
         t2 = B.zero(model.dtype)
-    return model.alpha_t ** 2 / 2 / model.alpha * B.exp(-model.lam * B.abs(t1 - t2))
+    return model.alpha_t**2 / 2 / model.alpha * B.exp(-model.lam * B.abs(t1 - t2))
 
 
-@method(GPRVM)
+@method(RGPCM)
 def compute_I_ux(model, t1=None, t2=None):
     """Compute the :math:`I_{ux}` integral.
 
@@ -322,8 +322,8 @@ def compute_I_ux(model, t1=None, t2=None):
     t_u_2 = model.t_u[None, None, None, :]
     ga = model.gamma - model.alpha
     result = (
-        model.alpha_t ** 2
-        * model.gamma_t ** 2
+        model.alpha_t**2
+        * model.gamma_t**2
         * B.exp(-model.gamma * (t_u_1 + t_u_2) + ga * (t1 + t2))
         * integral_abcd_lu(-t1, t_u_2 - t1, -t2, t_u_1 - t2, ga, model.lam)
     )
@@ -365,7 +365,7 @@ def integral_abcd(a, b, c, d):
 
     # Combine and return.
     condition = B.cast(B.dtype(part1), condition)
-    return (condition * part1 + part2) / (c ** 2 - d ** 2)
+    return (condition * part1 + part2) / (c**2 - d**2)
 
 
 def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
@@ -390,7 +390,7 @@ def integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d):
     )
 
 
-@method(GPRVM)
+@method(RGPCM)
 def compute_I_hz(model, t):
     """Compute the :math:`I_{hz,t_i}` matrix for :math:`t_i` in `t`.
 
@@ -473,8 +473,8 @@ def _I_hx_0_cos(model, n, t):
     omega_n = 2 * B.pi * n / (model.b - model.a)
     t_less_a = t - model.a
     return (
-        model.alpha_t ** 2
-        / (4 * model.alpha ** 2 + omega_n ** 2)
+        model.alpha_t**2
+        / (4 * model.alpha**2 + omega_n**2)
         * (
             (
                 2
@@ -484,7 +484,7 @@ def _I_hx_0_cos(model, n, t):
             + omega_n * B.sin(omega_n * t_less_a)
         )
     ) + (
-        model.alpha_t ** 2
+        model.alpha_t**2
         / (2 * (model.alpha + model.lam))
         * B.exp(-2 * model.alpha * t_less_a)
     )
@@ -495,8 +495,8 @@ def _I_hx_0_sin(model, n, t):
     omega = 2 * B.pi * (n - model.m_max) / (model.b - model.a)
     t_less_a = t - model.a
     return (
-        model.alpha_t ** 2
-        / (4 * model.alpha ** 2 + omega ** 2)
+        model.alpha_t**2
+        / (4 * model.alpha**2 + omega**2)
         * (
             omega * (B.exp(-2 * model.alpha * t_less_a) - B.cos(omega * t_less_a))
             + 2 * model.alpha * B.sin(omega * t_less_a)
@@ -504,7 +504,7 @@ def _I_hx_0_sin(model, n, t):
     )
 
 
-@method(GPRVM)
+@method(RGPCM)
 def compute_I_uz(model, t):
     """Compute the :math:`I_{uz,t_i}` matrix for :math:`t_i` in `t`.
 
@@ -572,7 +572,7 @@ def _integral_luk_leq_M(model, l, u, k):
     """Compute :math:`I(l,u,k)` for :math:`0<k<M+1`. Assumes that :math:`a<l,u<b`."""
     ag = model.alpha - model.gamma
     om = 2 * B.pi * k / (model.b - model.a)
-    return (1 / (ag ** 2 + om ** 2)) * (
+    return (1 / (ag**2 + om**2)) * (
         (ag * B.cos(om * (u - model.a)) + om * B.sin(om * (u - model.a)))
         - (
             B.exp(ag * (l - u))
@@ -589,7 +589,7 @@ def _integral_luk_g_M(model, l, u, k):
     """
     ag = model.alpha - model.gamma
     om = 2 * B.pi * (k - model.m_max) / (model.b - model.a)
-    return (-1 / (ag ** 2 + om ** 2)) * (
+    return (-1 / (ag**2 + om**2)) * (
         (-ag * B.sin(om * (u - model.a)) + om * B.cos(om * (u - model.a)))
         - (
             B.exp(ag * (l - u))

@@ -14,7 +14,7 @@ from varz import Vars, minimise_l_bfgs_b, sequential
 from wbml.experiment import WorkingDirectory
 
 from .gpcm import CGPCM, GPCM
-from .gprvm import GPRVM
+from .rgpcm import RGPCM
 from .util import autocorr, estimate_psd
 
 warnings.simplefilter(category=ToDenseWarning, action="ignore")
@@ -189,7 +189,7 @@ def build_models(
     if "gprv" in names:
         names = set(names) - {"gprv"}
         models.append(
-            GPRVM(
+            RGPCM(
                 scheme=scheme,
                 noise=noise,
                 window=window,
@@ -414,7 +414,7 @@ def analyse_plots(
         plt.fill_between(
             t_plot, mu - 2 * std, mu + 2 * std, facecolor="tab:green", alpha=0.2
         )
-        error = 2 * B.sqrt(model.ps.noise() + std ** 2)  # Model and noise error
+        error = 2 * B.sqrt(model.ps.noise() + std**2)  # Model and noise error
         plt.plot(t_plot, mu + error, c="tab:green", ls="--")
         plt.plot(t_plot, mu - error, c="tab:green", ls="--")
 
@@ -572,7 +572,7 @@ def analyse_plots(
 
     for i, model in enumerate(models):
         # Predict Fourier features if it is a GP-RV.
-        if isinstance(model, GPRVM):
+        if isinstance(model, RGPCM):
             mean, var = model.predict_fourier()
         else:
             continue

@@ -119,7 +119,7 @@ class NaturalNormal:
         ratio = B.solve(B.chol(self.prec), B.chol(other.prec))
         diff = self.mean - other.mean
         return 0.5 * (
-            B.sum(ratio ** 2)
+            B.sum(ratio**2)
             - B.logdet(B.mm(ratio, ratio, tr_a=True))
             + B.sum(B.mm(other.prec, diff) * diff)
             - B.cast(self.dtype, self.dim)

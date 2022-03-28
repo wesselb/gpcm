@@ -31,9 +31,9 @@ pip install -r requirements.txt -e .
 ```python
 import numpy as np
 
-from gpcm import GPRVM
+from gpcm import RGPCM
 
-model = GPRVM(window=2, scale=1, n_u=30, t=(0, 10))
+model = RGPCM(window=2, scale=1, n_u=30, t=(0, 10))
 
 # Sample from the prior.
 t = np.linspace(0, 10, 100)
@@ -58,7 +58,7 @@ The following models are available:
 | - | - |
 | `GPCM` | White noise excitation with a smooth filter |
 | `CGPCM` | White noise excitation with a smooth causal filter |
-| `GPRVM` | Ornstein-Uhlenbeck excitation with a white noise filter |
+| `RGPCM` | Ornstein-Uhlenbeck excitation with a white noise filter |
 
 The simplest way of constructing a model is to set the following keywords:
 
@@ -71,9 +71,9 @@ The simplest way of constructing a model is to set the following keywords:
 Example:
 
 ```python
-from gpcm import GPRVM
+from gpcm import RGPCM
 
-model = GPRVM(window=4, scale=0.5, t=(0, 10))
+model = RGPCM(window=4, scale=0.5, t=(0, 10))
 ```
 
 The constructors of these models also take in a keyword `scheme`, which can be
@@ -89,9 +89,9 @@ set  to one of the following values:
 Example:
 
 ```python
-from gpcm import GPRVM
+from gpcm import RGPCM
 
-model = GPRVM(scheme="mean-field-ca", window=4, scale=0.5, t=(0, 10))
+model = RGPCM(scheme="mean-field-ca", window=4, scale=0.5, t=(0, 10))
 ```
 
 ## Experiments

@@ -1,11 +1,10 @@
 from itertools import product
 
-import gpcm.gprvm as gprv
+import gpcm.rgpcm as rgpcm
 import lab as B
 import numpy as np
 import pytest
 from scipy.integrate import dblquad, quad
-from varz import Vars
 
 from .util import approx, assert_positive_definite
 
@@ -17,7 +16,7 @@ def t():
 
 @pytest.fixture()
 def model(t):
-    return gprv.GPRVM(window=0.5, scale=0.2, t=t, n_u=3, m_max=2)
+    return rgpcm.RGPCM(window=0.5, scale=0.2, t=t, n_u=3, m_max=2)
 
 
 def signed_pairs(num):
@@ -26,7 +25,7 @@ def signed_pairs(num):
 
 def test_K_u(model):
     assert_positive_definite(model.compute_K_u())
-    approx(gprv.compute_K_u(model)[0, 0], 1)  # Test default of `gamma_t`.
+    approx(rgpcm.compute_K_u(model)[0, 0], 1)  # Test default of `gamma_t`.
 
 
 def test_K_z(model):
@@ -50,7 +49,7 @@ def test_integral_abcd():
 
     for a, b, c, d in product(*signed_pairs(4)):
         approx(
-            gprv.integral_abcd(a, b, c, d), integral_quadrature(a, b, c, d), atol=1e-5
+            rgpcm.integral_abcd(a, b, c, d), integral_quadrature(a, b, c, d), atol=1e-5
         )
 
 
@@ -66,7 +65,7 @@ def test_integral_abcd_lu():
 
     for a_lb, a_ub, b_lb, b_ub, c, d in product(*signed_pairs(6)):
         approx(
-            gprv.integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d),
+            rgpcm.integral_abcd_lu(a_lb, a_ub, b_lb, b_ub, c, d),
             integral_quadrature(a_lb, a_ub, b_lb, b_ub, c, d),
             atol=1e-5,
         )
@@ -76,8 +75,8 @@ def test_I_ux(model, t):
     def integral_quadrature(t1, t2, t_u_1, t_u_2):
         def integral(tau1, tau2):
             return (
-                model.alpha_t ** 2
-                * model.gamma_t ** 2
+                model.alpha_t**2
+                * model.gamma_t**2
                 * B.exp(
                     -model.alpha * (tau1 + tau2)
                     + -model.gamma * (t_u_1 - tau1)
@@ -127,7 +126,7 @@ def test_I_hz(model, t):
     def integral_quadrature(t, m, n):
         def integral(tau):
             return (
-                model.alpha_t ** 2
+                model.alpha_t**2
                 * B.exp(-2 * model.alpha * B.abs(t - tau))
                 * beta(model, m, tau)
                 * beta(model, n, tau)
