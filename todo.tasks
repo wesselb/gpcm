@@ -1,14 +1,11 @@
 TODO:
-    Experiments:
-        ☐ Flag to use existing samples and reproduce results @critical
-
-        ☐ Plot true function
-        ☐ Compute SMSE and MLL
-        ☐ Fix plot of VFFs coefficients: bars
+    ☐ Posterior samples @high
 
 Test:
     ☐ ESS: retry until sample succeeds
 
+Features:
+    ☐ Predictive joint log-pdf
 
 ＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
 Archive:
