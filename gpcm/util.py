@@ -25,18 +25,6 @@ __all__ = [
 _dispatch = Dispatcher()
 
 
-@B.matmul.dispatch
-def matmul(
-    a: B.Numeric,
-    b: B.Numeric,
-    c: B.Numeric,
-    tr_a=False,
-    tr_b=False,
-    tr_c=False,
-):
-    return B.mm(a, B.mm(b, c, tr_a=tr_b, tr_b=tr_c), tr_a=tr_a)
-
-
 def min_phase(h):
     """Minimum phase transform using the Hilbert transform.
 
