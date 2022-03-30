@@ -207,7 +207,7 @@ class RGPCM(AbstractGPCM):
             name="gamma_factor",
         )
         self.gamma = self.alpha / gamma_factor
-        self.gamma_t = self.gamma_t  # Fix `gamma_t`: overparametrised.
+        self.gamma_t = self.gamma_t  # Do not learn variable of inter-domain transform!
         # Bound the inducing points so they don't move away too far.
         self.t_u = self.ps.bounded(
             self.t_u,

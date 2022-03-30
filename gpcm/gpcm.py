@@ -275,6 +275,7 @@ class GPCM(AbstractGPCM):
         if not self.fix_scale:
             self.gamma = self.ps.positive(self.gamma, name="gamma")
         self.omega = self.ps.positive(self.omega, name="omega")
+        self.omega_t = self.omega_t  # Do not learn variance of inter-domain transform!
         # Bound the inducing points so they don't move away too far.
         self.t_u = self.ps.bounded(
             self.t_u,
