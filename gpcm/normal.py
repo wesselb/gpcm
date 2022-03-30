@@ -9,7 +9,7 @@ _dispatch = Dispatcher()
 
 
 class NaturalNormal:
-    """A normal distribution parametrised by its natural parameter.
+    """A normal distribution parametrised by its natural parameters.
 
     Args:
         lam (column vector): Mean premultiplied by the precision.
