@@ -597,7 +597,7 @@ class MeanField(Approximation):
             collapsed (str, optional): Collapse over :math:`z` or :math:`u`.
 
         Returns:
-            scalar: ELBO,
+            scalar: ELBO
         """
         ts = self.construct_terms(t, y)
         if collapsed is None:
