@@ -7,10 +7,11 @@ import wbml.out
 import wbml.plot
 from wbml.experiment import WorkingDirectory
 
-from gpcm import GPCM, CGPCM, GPRVM
+from gpcm import GPCM, CGPCM, RGPCM
 from gpcm.util import estimate_psd, closest_psd
 
 wd = WorkingDirectory("_experiments", "sample", seed=17)
+wbml.plot.tex()
 
 B.epsilon = 1e-10
 
@@ -58,7 +59,7 @@ noise_f = np.random.randn(len(t), 1)
 models = [
     GPCM(window=2, scale=0.5, n_u=30, t=t),
     CGPCM(window=2, scale=0.5, n_u=30, t=t),
-    GPRVM(window=2, scale=0.5, n_u=30, t=t),
+    RGPCM(window=2, scale=0.5, n_u=30, t=t),
 ]
 
 # Instantiate models.

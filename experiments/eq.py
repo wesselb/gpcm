@@ -6,7 +6,7 @@ from gpcm.experiment import run, setup
 args, wd = setup("eq")
 
 # Setup experiment.
-n = 880
+n = 881  # Add last one for `linspace`.
 noise = 0.1
 t = B.linspace(-44, 44, n)
 t_plot = B.linspace(44, 44, 500)

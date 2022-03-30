@@ -7,7 +7,7 @@ import wbml.out as out
 from stheno import EQ, GP
 from varz import minimise_l_bfgs_b
 from wbml.experiment import WorkingDirectory
-from wbml.plot import tweak, pdfcrop
+from wbml.plot import tweak, pdfcrop, tex
 
 from gpcm import GPCM
 from gpcm.approx import _fit_mean_field_ca
@@ -15,6 +15,7 @@ from gpcm.approx import _fit_mean_field_ca
 out.report_time = True
 
 wd = WorkingDirectory("_experiments", "compare_inference")
+tex()
 
 B.epsilon = 1e-8
 

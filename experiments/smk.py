@@ -6,7 +6,7 @@ from gpcm.experiment import run, setup
 args, wd = setup("smk")
 
 # Setup experiment.
-n = 801  # Need to add the last point for the call to `linspace`.
+n = 881  # Add last one for `linspace`.
 noise = 1.0
 t = B.linspace(-44, 44, n)
 t_plot = B.linspace(0, 10, 500)
@@ -14,7 +14,6 @@ t_plot = B.linspace(0, 10, 500)
 # Setup true model and GPCM models.
 kernel = EQ().stretch(1) * (lambda x: B.cos(2 * B.pi * x))
 kernel = kernel + EQ().stretch(1) * (lambda x: B.sin(2 * B.pi * x))
-
 window = 4
 scale = 0.5
 n_u = 40

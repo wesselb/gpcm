@@ -6,7 +6,7 @@ import wbml.metric as metric
 import wbml.out as out
 from stheno import EQ, GP
 from wbml.experiment import WorkingDirectory
-from wbml.plot import tweak, pdfcrop
+from wbml.plot import tweak, pdfcrop, tex
 
 from gpcm import GPCM
 from gpcm.util import estimate_psd
@@ -14,6 +14,7 @@ from gpcm.util import estimate_psd
 out.report_time = True
 B.epsilon = 1e-8
 wd = WorkingDirectory("server", "_experiments", "smk_comparison", observe=True)
+tex()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")

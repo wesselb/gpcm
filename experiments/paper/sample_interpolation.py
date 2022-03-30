@@ -12,6 +12,7 @@ from gpcm import CGPCM
 from gpcm.util import closest_psd
 
 wd = WorkingDirectory("_experiments", "sample_interpolate", seed=14)
+wbml.plot.tex()
 
 B.epsilon = 1e-10
 

@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 import wbml.plot
 from wbml.experiment import WorkingDirectory
 
-from gpcm import GPCM, CGPCM, GPRVM
+from gpcm import GPCM, CGPCM, RGPCM
 
 wd = WorkingDirectory("_experiments", "priors", seed=0)
+wbml.plot.tex()
 
 B.epsilon = 1e-10
 
@@ -20,7 +21,7 @@ args = parser.parse_args()
 models = [
     GPCM(window=2, scale=0.5, n_u=30, t=(0, 10)),
     CGPCM(window=2, scale=0.5, n_u=30, t=(0, 10)),
-    GPRVM(window=2, scale=0.5, n_u=30, t=(0, 10)),
+    RGPCM(window=2, scale=0.5, n_u=30, t=(0, 10)),
 ]
 
 # Instantiate models.

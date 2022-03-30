@@ -2,7 +2,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wbml.metric as metric
 from wbml.experiment import WorkingDirectory
-from wbml.plot import tweak, pdfcrop
+from wbml.plot import tex, tweak, pdfcrop
+
+tex()
 
 
 def format_num(x):
@@ -157,6 +159,7 @@ def plot_kernel_predictions(wd, model, data_name, legend=True, first=False):
     k = wd.load(data_name, "data.pickle")["k"]
     t, mean1, var1 = wd.load(data_name, "structured", model, "k_pred.pickle")
     t, mean2, var2 = wd.load(data_name, "mean-field", model, "k_pred.pickle")
+    plt.plot(t, k, label="Truth", style="train")
     plt.plot(t, mean1, label="Structured", style="pred")
     plt.fill_between(
         t,
@@ -175,7 +178,6 @@ def plot_kernel_predictions(wd, model, data_name, legend=True, first=False):
     )
     plt.plot(t, mean2 + 1.96 * np.sqrt(var2), style="pred2", lw=1)
     plt.plot(t, mean2 - 1.96 * np.sqrt(var2), style="pred2", lw=1)
-    plt.plot(t, k, label="Truth", style="train")
     plt.yticks([0, 0.5, 1])
     plt.xticks([0, 2, 4])
     plt.xlim(0, 4)

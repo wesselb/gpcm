@@ -12,13 +12,19 @@ from slugify import slugify
 from wbml.data import date_to_decimal_year
 from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
-from wbml.plot import tweak, pdfcrop
+from wbml.plot import tweak, pdfcrop, tex
 
-from gpcm import GPCM, CGPCM, GPRVM
+
+from stheno.jax import GP, EQ, Exp, Matern32
+from varz.jax import Vars, minimise_l_bfgs_b
+import jax.numpy as jnp
+
+from gpcm import GPCM, CGPCM, RGPCM
 
 # Setup experiment.
 out.report_time = True
 B.epsilon = 1e-8
+tex()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
@@ -29,11 +35,9 @@ args = parser.parse_args()
 year = args.year
 
 if args.server:
-    wd = WorkingDirectory(
-        "server", "_experiments", "crude_oil", str(year), observe=True
-    )
+    wd = WorkingDirectory("server", "_experiments", "crude_oil", str(year), observe=True)
 else:
-    wd = WorkingDirectory("_experiments", "crude_oil", str(year))
+    wd = WorkingDirectory("_experiments", "crude_oil")
 
 
 # Load and process data.
@@ -75,7 +79,8 @@ n_z = 150
 
 
 def model_path(model):
-    return (slugify(model.name), slugify(model.scheme))
+    name = "GPRVM" if model.name == "RGPCM" else model.name
+    return (slugify(name), slugify(model.scheme))
 
 
 # Setup, fit, and save models.
@@ -88,7 +93,7 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [CGPCM, GPCM, GPRVM]
+    for Model in [CGPCM, GPCM, RGPCM]
 ]
 if args.train:
     for model in models:
@@ -163,11 +168,53 @@ def get_pred(model, scheme, test=False):
     return t, mean, var
 
 
+def rmse(mean, y):
+    x = (mean - y) ** 2
+    val = B.mean(x)
+    std = B.std(x) / len(x) ** 0.5
+    val = B.sqrt(val)
+    std = std * 1 / (2 * val)
+    return val, 1.96 * std
+
+
+def mll(mean, var, y):
+    x = 0.5 * np.log(2 * np.pi * var) + 0.5 * (mean - y) ** 2 / var
+    val = B.mean(x)
+    std = B.std(x) / len(x) ** 0.5
+    return val, 1.96 * std
+
+
 print("Structured")
-for model in ["gpcm", "cgpcm", "gprvm"]:
+for model in ["gpcm", "cgpcm", "rgpcm"]:
     print(model)
-    print("RMSE", metric.rmse(get_pred(model, "structured", test=True)[1], y_test))
-    print("MLL", metric.mll(*get_pred(model, "structured", test=True)[1:], y_test))
+    print("RMSE", rmse(get_pred(model, "structured", test=True)[1], y_test))
+    print("MLL", mll(*get_pred(model, "structured", test=True)[1:], y_test))
+
+# Fit regular GPs.
+for kernel in [EQ(), Exp(), Matern32()]:
+    vs = Vars(jnp.float64)
+
+
+    def model(vs):
+        p = vs.struct
+        f = GP(p.variance.positive(1) * kernel.stretch(p.scale.positive(3)))
+        return f, p.noise.positive(0.1)
+
+
+    def objective(vs):
+        f, noise = model(vs)
+        return -f(jnp.array(t_train), noise).logpdf(jnp.array(y_train))
+
+
+    minimise_l_bfgs_b(objective, vs, trace=False)
+
+    f, noise = model(vs)
+    f_post = f | (f(t_train, noise), y_train)
+    pred = normaliser.untransform(f_post(t_test, noise).marginals())
+
+    with out.Section(str(kernel)):
+        out.kv("RMSE", rmse(pred[0], y_test))
+        out.kv("MLL", mll(*pred, y_test))
 
 
 def model_name_map(name):
@@ -177,7 +224,7 @@ def model_name_map(name):
         return name
 
 
-def plot_psd(model, y_label=True):
+def plot_psd(model, y_label=True, style="pred", finish=True):
     freqs, mean, lower, upper = get_psd_pred(model, "structured")
     freqs -= freqs[0]
 
@@ -190,24 +237,23 @@ def plot_psd(model, y_label=True):
     if y_label:
         plt.ylabel("PSD (dB)")
 
-    plt.plot(freqs, mean, style="pred", label=model_name_map(model.upper()))
+    plt.plot(freqs, mean, style=style, label=model_name_map(model.upper()))
     plt.fill_between(
         freqs,
         lower,
         upper,
-        style="pred",
+        style=style,
     )
-    plt.plot(freqs, lower, style="pred", lw=0.5)
-    plt.plot(freqs, upper, style="pred", lw=0.5)
+    plt.plot(freqs, lower, style=style, lw=0.5)
+    plt.plot(freqs, upper, style=style, lw=0.5)
     plt.xlim(0, 0.2)
     plt.ylim(0, 60)
     plt.xlabel("Frequency (day${}^{-1}$)")
-    tweak()
+    if finish:
+        tweak()
 
 
-def plot_compare(model1, model2, y_label=True, y_ticks=True):
-    plt.scatter(t_train, normaliser.untransform(y_train), style="train", label="Train")
-    plt.scatter(t_test, y_test, style="test", label="Test")
+def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
 
     mean1, var1 = get_pred(model1, "structured")[1:]
     mean2, var2 = get_pred(model2, "structured")[1:]
@@ -222,26 +268,25 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True):
     plt.plot(t_pred, mean1 - 1.96 * B.sqrt(var1), style="pred", lw=0.5)
     plt.plot(t_pred, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
 
-    plt.plot(t_pred, mean2, style="pred2", label=model_name_map(model2.upper()))
+    if style2 is None:
+        if model2 == "cgpcm":
+            style2 = "pred2"
+        else:
+            style2 = "pred3"
+
+    plt.plot(t_pred, mean2, style=style2, label=model_name_map(model2.upper()))
     plt.fill_between(
         t_pred,
         mean2 - 1.96 * B.sqrt(var2),
         mean2 + 1.96 * B.sqrt(var2),
-        style="pred2",
+        style=style2,
     )
-    plt.plot(t_pred, mean2 - 1.96 * B.sqrt(var2), style="pred2", lw=0.5)
-    plt.plot(t_pred, mean2 + 1.96 * B.sqrt(var2), style="pred2", lw=0.5)
+    plt.plot(t_pred, mean2 - 1.96 * B.sqrt(var2), style=style2, lw=0.5)
+    plt.plot(t_pred, mean2 + 1.96 * B.sqrt(var2), style=style2, lw=0.5)
 
-    # Add some circles to zoom into on interesting features. These are manually placed.
-    plt.gca().add_artist(
-        Ellipse((190, 85), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
-    )
-    plt.gca().add_artist(
-        Ellipse((219, 93), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
-    )
-    plt.gca().add_artist(
-        Ellipse((260, 92), 5 * 2, 3 * 2, ec="black", fc="none", lw=1, zorder=10)
-    )
+    plt.scatter(t_train, normaliser.untransform(y_train), style="train", label="Train")
+    plt.scatter(t_test, y_test, style="test", label="Test")
+
 
     plt.xlim(150, 300)
     plt.xlabel("Day of 2012")
@@ -258,16 +303,28 @@ plt.figure(figsize=(12, 5))
 plt.subplot2grid((5, 6), (0, 0), colspan=3, rowspan=3)
 plot_compare("gpcm", "cgpcm")
 plt.subplot2grid((5, 6), (0, 3), colspan=3, rowspan=3)
-plot_compare("gpcm", "gprvm", y_label=False, y_ticks=False)
+plot_compare("gpcm", "rgpcm", y_label=False, y_ticks=False)
 
 plt.subplot2grid((5, 6), (3, 0), colspan=2, rowspan=2)
 plot_psd("gpcm")
 plt.subplot2grid((5, 6), (3, 2), colspan=2, rowspan=2)
 plot_psd("cgpcm", y_label=False)
 plt.subplot2grid((5, 6), (3, 4), colspan=2, rowspan=2)
-plot_psd("gprvm", y_label=False)
+plot_psd("rgpcm", y_label=False)
 
 plt.savefig(wd.file("crude_oil.pdf"))
 pdfcrop(wd.file("crude_oil.pdf"))
+
+plt.figure(figsize=(12, 3))
+
+plt.subplot2grid((1, 5), (0, 0), colspan=3)
+plot_compare("gpcm", "rgpcm", style2="pred2")
+plt.subplot2grid((1, 5), (0, 3), colspan=2)
+plot_psd("gpcm", style="pred", finish=False)
+plot_psd("rgpcm", style="pred2")
+
+plt.savefig(wd.file("crude_oil_poster.pdf"))
+pdfcrop(wd.file("crude_oil_poster.pdf"))
+
 
 plt.show()

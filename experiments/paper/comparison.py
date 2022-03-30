@@ -4,7 +4,7 @@ from slugify import slugify
 from stheno import EQ, CEQ, Exp, GP, Delta
 from wbml.experiment import WorkingDirectory
 
-from gpcm import GPCM, CGPCM, GPRVM
+from gpcm import GPCM, CGPCM, RGPCM
 
 out.report_time = True
 B.epsilon = 1e-8
@@ -58,7 +58,7 @@ for kernel in [CEQ(1), EQ(), Exp()]:
                 n_z=n_z,
                 t=t,
             ),
-            GPRVM(
+            RGPCM(
                 scheme=scheme,
                 window=window,
                 scale=scale,
