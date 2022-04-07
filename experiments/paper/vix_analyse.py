@@ -4,35 +4,31 @@ import datetime
 import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import wbml.out as out
+from gpcm import RGPCM
 from scipy.signal import periodogram
-from scipy.stats import linregress
+from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
-
-from gpcm import RGPCM
 
 # Setup experiment.
 out.report_time = True
 B.epsilon = 1e-6
 tex()
+wd = WorkingDirectory("_experiments", "vix_analyse")
 
+# Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
-parser.add_argument("--server", action="store_true")
 args = parser.parse_args()
 
-wd = WorkingDirectory("server", "_experiments", "vix_analyse", observe=True)
-
 # Load and process data.
-data = pd.read_parquet("experiments/vix.parquet")
-data = data.set_index("date")
+data = load()
 lower = datetime.datetime(2000, 1, 1)
 upper = datetime.datetime(2001, 1, 1)
 data = data[(data.index >= lower) & (data.index < upper)]
-# Convert to days since start. The data type is a timestamp in ns.
+# Convert to days since start. The data type is a timestamp in nanaseconds.
 t = np.array(data.index - data.index[0], dtype=float) / 1e9 / 3600 / 24
 y = np.log(np.array(data.open)).flatten()
 
@@ -40,13 +36,13 @@ y = np.log(np.array(data.open)).flatten()
 y_scale = y.std()
 y = (y - y.mean()) / y.std()
 
-# Configure GPCM models.
+# Configure models.
 window = 7 * 6
 scale = 3
 n_u = 60
 n_z = len(t)
 
-# Setup, fit, and save models.
+# Setup, fit, and save model.
 model = RGPCM(
     window=window,
     scale=scale,
@@ -84,18 +80,7 @@ else:
     pred_k = wd.load("pred_k.pickle")
 
 
-def estimate_H(freqs, psd):
-    inds = (0.15 <= freqs) & (freqs <= 0.5)
-
-    slope, intercept = linregress(
-        10 * np.log10(2 * np.pi * freqs[inds]),
-        psd[inds],
-    )[:2]
-    c = 10 ** (intercept / 10)
-    H = 0.5 * (1 - slope)
-    return c, H
-
-
+# Unpack prediction for the PDF and cut off a frequency 0.5.
 freqs, mean, lower, upper, samps = pred_psd
 upper_freq = 0.5
 samps = samps[freqs <= upper_freq, :]
@@ -104,13 +89,15 @@ lower = lower[freqs <= upper_freq]
 upper = upper[freqs <= upper_freq]
 freqs = freqs[freqs <= upper_freq]
 
+# Compute the spectrum of the excitation process.
 instance = model()
-spec_x = (2 * instance.lam) / (instance.lam ** 2 + (2 * B.pi * freqs) ** 2)
-spec_x *= instance.alpha_t ** 2 / (2 * instance.alpha)
+spec_x = (2 * instance.lam) / (instance.lam**2 + (2 * B.pi * freqs) ** 2)
+spec_x *= instance.alpha_t**2 / (2 * instance.alpha)
 spec_x = 10 * B.log(spec_x) / B.log(10)
 
 plt.figure(figsize=(12, 3.5))
 
+# Plot the prediction for the PSD.
 plt.subplot(1, 2, 1)
 plt.title("PSD")
 plt.plot(
@@ -131,15 +118,20 @@ plt.xlabel("Frequency $f$ (day${}^{-1}$)")
 plt.ylabel("Spectral density (dB)")
 tweak(legend_loc="upper right")
 
+# For the decomposition, first subtract the spectrum of the excitation.
 mean -= spec_x
 lower -= spec_x
 upper -= spec_x
 
+# Since the spectra of the excitation and filter multiply, we can exchange a
+# multiplicative constant. Use this to shift the components of the decomposition up
+# and down to make the result visually look nice.
 mean -= 7.5
 lower -= 7.5
 upper -= 7.5
 spec_x += 7.5
 
+# Plot the decomposition of the PDF.
 plt.subplot(1, 2, 2)
 plt.title("Decomposition of PSD")
 plt.scatter(0.2, -7.5, c="k", s=15, marker="o")
@@ -156,5 +148,3 @@ tweak(legend_loc="upper right")
 
 plt.savefig(wd.file("psd.pdf"))
 pdfcrop(wd.file("psd.pdf"))
-
-plt.show()
