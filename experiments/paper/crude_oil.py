@@ -4,9 +4,8 @@ from datetime import datetime, timedelta
 import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
-import wbml.metric as metric
 import wbml.out as out
-from matplotlib.patches import Ellipse
+from gpcm import GPCM, CGPCM, RGPCM
 from probmods.bijection import Normaliser
 from slugify import slugify
 from wbml.data import date_to_decimal_year
@@ -14,35 +13,22 @@ from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
 
-
-from stheno.jax import GP, EQ, Exp, Matern32
-from varz.jax import Vars, minimise_l_bfgs_b
-import jax.numpy as jnp
-
-from gpcm import GPCM, CGPCM, RGPCM
+# Parse arguments.
+parser = argparse.ArgumentParser()
+parser.add_argument("--train", action="store_true")
+parser.add_argument("--predict", action="store_true")
+parser.add_argument("--year", type=int, default=2012)
+args = parser.parse_args()
 
 # Setup experiment.
 out.report_time = True
 B.epsilon = 1e-8
 tex()
-
-parser = argparse.ArgumentParser()
-parser.add_argument("--train", action="store_true")
-parser.add_argument("--predict", action="store_true")
-parser.add_argument("--server", action="store_true")
-parser.add_argument("--year", required=True, type=int)
-args = parser.parse_args()
-year = args.year
-
-if args.server:
-    wd = WorkingDirectory("server", "_experiments", "crude_oil", str(year), observe=True)
-else:
-    wd = WorkingDirectory("_experiments", "crude_oil")
-
+wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
 # Load and process data.
 data = load()
-data = data[(year <= data.index) & (data.index < year + 1)]  # Year 2012
+data = data[(args.year <= data.index) & (data.index < args.year + 1)]
 t = np.array(data.index)
 y = np.array(data.open)
 t = (t - t[0]) * 365  # Start at day zero.
@@ -53,8 +39,8 @@ test_inds = np.empty(t.shape, dtype=bool)
 test_inds.fill(False)
 for lower, upper in [
     (
-        datetime(year, 1, 1) + i * timedelta(days=7),
-        datetime(year, 1, 1) + (i + 1) * timedelta(days=7),
+        datetime(args.year, 1, 1) + i * timedelta(days=7),
+        datetime(args.year, 1, 1) + (i + 1) * timedelta(days=7),
     )
     for i in range(26, 53)
     if i % 2 == 1
@@ -79,8 +65,8 @@ n_z = 150
 
 
 def model_path(model):
-    name = "GPRVM" if model.name == "RGPCM" else model.name
-    return (slugify(name), slugify(model.scheme))
+    """Create a path specific to a model and inference scheme."""
+    return slugify(model.name), slugify(model.scheme)
 
 
 # Setup, fit, and save models.
@@ -119,7 +105,7 @@ if args.predict:
         pred_k = (
             pred_k.x,
             pred_k.mean * normaliser._scale,
-            pred_k.var * normaliser._scale ** 2,
+            pred_k.var * normaliser._scale**2,
         )
         pred_psd = posterior.predict_psd()
         # Carefully untransform kernel prediction.
@@ -164,7 +150,7 @@ def get_pred(model, scheme, test=False):
     else:
         t, mean, var = preds_f[i]
     # Add observation noise to the prediction.
-    var += model().noise * normaliser._scale ** 2
+    var += model().noise * normaliser._scale**2
     return t, mean, var
 
 
@@ -190,39 +176,6 @@ for model in ["gpcm", "cgpcm", "rgpcm"]:
     print("RMSE", rmse(get_pred(model, "structured", test=True)[1], y_test))
     print("MLL", mll(*get_pred(model, "structured", test=True)[1:], y_test))
 
-# Fit regular GPs.
-for kernel in [EQ(), Exp(), Matern32()]:
-    vs = Vars(jnp.float64)
-
-
-    def model(vs):
-        p = vs.struct
-        f = GP(p.variance.positive(1) * kernel.stretch(p.scale.positive(3)))
-        return f, p.noise.positive(0.1)
-
-
-    def objective(vs):
-        f, noise = model(vs)
-        return -f(jnp.array(t_train), noise).logpdf(jnp.array(y_train))
-
-
-    minimise_l_bfgs_b(objective, vs, trace=False)
-
-    f, noise = model(vs)
-    f_post = f | (f(t_train, noise), y_train)
-    pred = normaliser.untransform(f_post(t_test, noise).marginals())
-
-    with out.Section(str(kernel)):
-        out.kv("RMSE", rmse(pred[0], y_test))
-        out.kv("MLL", mll(*pred, y_test))
-
-
-def model_name_map(name):
-    if name == "GPRVM":
-        return "RGPCM"
-    else:
-        return name
-
 
 def plot_psd(model, y_label=True, style="pred", finish=True):
     freqs, mean, lower, upper = get_psd_pred(model, "structured")
@@ -237,7 +190,7 @@ def plot_psd(model, y_label=True, style="pred", finish=True):
     if y_label:
         plt.ylabel("PSD (dB)")
 
-    plt.plot(freqs, mean, style=style, label=model_name_map(model.upper()))
+    plt.plot(freqs, mean, style=style, label=model.upper())
     plt.fill_between(
         freqs,
         lower,
@@ -258,7 +211,7 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
     mean1, var1 = get_pred(model1, "structured")[1:]
     mean2, var2 = get_pred(model2, "structured")[1:]
 
-    plt.plot(t_pred, mean1, style="pred", label=model_name_map(model1.upper()))
+    plt.plot(t_pred, mean1, style="pred", label=model1.upper())
     plt.fill_between(
         t_pred,
         mean1 - 1.96 * B.sqrt(var1),
@@ -274,7 +227,7 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
         else:
             style2 = "pred3"
 
-    plt.plot(t_pred, mean2, style=style2, label=model_name_map(model2.upper()))
+    plt.plot(t_pred, mean2, style=style2, label=model2.upper())
     plt.fill_between(
         t_pred,
         mean2 - 1.96 * B.sqrt(var2),
@@ -286,7 +239,6 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
 
     plt.scatter(t_train, normaliser.untransform(y_train), style="train", label="Train")
     plt.scatter(t_test, y_test, style="test", label="Test")
-
 
     plt.xlim(150, 300)
     plt.xlabel("Day of 2012")
