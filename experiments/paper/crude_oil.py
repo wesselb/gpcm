@@ -28,8 +28,10 @@ wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
 # Load and process data.
 data = load()
-data = data[(args.year <= data.index) & (data.index < args.year + 1)]
-t = np.array(data.index)
+lower = datetime(args.year, 1, 1)
+upper = datetime(args.year + 1, 1, 1)
+data = data[(lower <= data.index) & (data.index < upper)]
+t = np.array([date_to_decimal_year(ti) for ti in data.index])
 y = np.array(data.open)
 t = (t - t[0]) * 365  # Start at day zero.
 t_pred = B.linspace(min(t), max(t), 500)
