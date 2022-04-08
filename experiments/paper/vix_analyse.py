@@ -11,7 +11,7 @@ from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
 
-# Setup experiment.
+# Setup script.
 out.report_time = True
 B.epsilon = 1e-6
 tex()
@@ -28,7 +28,7 @@ data = load()
 lower = datetime.datetime(2000, 1, 1)
 upper = datetime.datetime(2001, 1, 1)
 data = data[(data.index >= lower) & (data.index < upper)]
-# Convert to days since start. The data type is a timestamp in nanaseconds.
+# Convert to days since start. The data type is a timestamp in nanoseconds.
 t = np.array(data.index - data.index[0], dtype=float) / 1e9 / 3600 / 24
 y = np.log(np.array(data.open)).flatten()
 

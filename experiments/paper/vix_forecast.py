@@ -7,7 +7,7 @@ from gpcm import GPCM, CGPCM, RGPCM
 from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
 
-# Setup experiment.
+# Setup script.
 out.report_time = True
 B.epsilon = 1e-8
 wd = WorkingDirectory("_experiments", f"vix_forecast")
@@ -15,7 +15,8 @@ wd = WorkingDirectory("_experiments", f"vix_forecast")
 # Setup experiment.
 data = load()
 # The random year that was selected to train on in the paper is 28 Aug 1991 to 27 Aug
-# 1992. For simplicity, we change this to the year 1991.
+# 1992. We hardcode this to make sure that the random selection isn't changed when the
+# seed is changed.
 lower = datetime.datetime(1991, 8, 28)
 upper = datetime.datetime(2010, 1, 1)
 data = data[(data.index >= lower) & (data.index < upper)]
