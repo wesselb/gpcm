@@ -47,8 +47,8 @@ for lower, upper in [
     for i in range(26, 53)
     if i % 2 == 1
 ]:
-    lower_mask = date_to_decimal_year(lower) <= data.index
-    upper_mask = date_to_decimal_year(upper) > data.index
+    lower_mask = lower <= data.index
+    upper_mask = upper > data.index
     test_inds = test_inds | (lower_mask & upper_mask)
 t_train = t[~test_inds]
 y_train = y[~test_inds]
