@@ -16,9 +16,9 @@ wd = WorkingDirectory("_experiments", f"vix_forecast")
 # Parse arguments.
 parser = argparse.ArgumentParser()
 # The random year that was selected to train on in the paper is 28 Aug 1991 to 27 Aug
-# 1992. For simplicity, we change this to the year 1992. This means that the numbers
-# will not line up exactly, but the relatively performances should be consistent.
-parser.add_argument("--year", type=int, default=1992)
+# 1992. For simplicity, we change this to the year 1991. This means that the numbers
+# will not line up with the paper, but the relatively performances should be consistent.
+parser.add_argument("--year", type=int, default=1991)
 args = parser.parse_args()
 
 # Setup experiment.
