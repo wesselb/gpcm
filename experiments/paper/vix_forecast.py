@@ -1,4 +1,3 @@
-import argparse
 import datetime
 
 import lab as B
@@ -13,17 +12,11 @@ out.report_time = True
 B.epsilon = 1e-8
 wd = WorkingDirectory("_experiments", f"vix_forecast")
 
-# Parse arguments.
-parser = argparse.ArgumentParser()
-# The random year that was selected to train on in the paper is 28 Aug 1991 to 27 Aug
-# 1992. For simplicity, we change this to the year 1991. This means that the numbers
-# will not line up with the paper, but the relatively performances should be consistent.
-parser.add_argument("--year", type=int, default=1991)
-args = parser.parse_args()
-
 # Setup experiment.
 data = load()
-lower = datetime.datetime(args.year, 1, 1)
+# The random year that was selected to train on in the paper is 28 Aug 1991 to 27 Aug
+# 1992. For simplicity, we change this to the year 1991.
+lower = datetime.datetime(1991, 8, 28)
 upper = datetime.datetime(2010, 1, 1)
 data = data[(data.index >= lower) & (data.index < upper)]
 # Convert to days since start. The data type is a timestamp in ns.
