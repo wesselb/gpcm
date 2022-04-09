@@ -21,7 +21,7 @@ scale = 0.5
 n_u = 30
 n_z = 80
 
-for kernel, model in [
+for kernel, model_constructor in [
     (
         EQ(),
         lambda scheme: GPCM(
@@ -76,6 +76,7 @@ for kernel, model in [
     )
 
     for scheme in ["mean-field", "structured"]:
+        model = model_constructor(scheme)
         prefix = (slugify(str(kernel)), scheme, slugify(model.name))
 
         # Fit model and predict function and kernel.
