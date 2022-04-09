@@ -4,20 +4,21 @@ from datetime import datetime, timedelta
 import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
+import wbml.metric as metric
 import wbml.out as out
-from gpcm import GPCM, CGPCM, RGPCM
 from probmods.bijection import Normaliser
-from slugify import slugify
 from wbml.data import date_to_decimal_year
 from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
 
+from gpcm import GPCM, CGPCM, RGPCM
+
 # Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
-parser.add_argument("--year", type=int, default=2012)
+parser.add_argument("--year", type=int, default=2013)
 args = parser.parse_args()
 
 # Setup experiment.
@@ -54,6 +55,8 @@ t_train = t[~test_inds]
 y_train = y[~test_inds]
 t_test = t[test_inds]
 y_test = y[test_inds]
+# Save data for easier later reference.
+wd.save({"train": (t_train, y_train), "tes": (t_test, y_test)}, "data.pickle")
 
 # Normalise training data.
 normaliser = Normaliser()
@@ -64,12 +67,6 @@ window = 30
 scale = 3
 n_u = 50
 n_z = 150
-
-
-def model_path(model):
-    """Create a path specific to a model and inference scheme."""
-    return slugify(model.name), slugify(model.scheme)
-
 
 # Setup, fit, and save models.
 models = [
@@ -85,17 +82,13 @@ models = [
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=5_000)
-        model.save(wd.file(*model_path(model), "model.pickle"))
+        model.fit(t_train, y_train, rate=2e-2, iters=10_000)
+        model.save(wd.file(model.name.lower(), "model.pickle"))
 else:
     for model in models:
-        model.load(wd.file(*model_path(model), "model.pickle"))
+        model.load(wd.file(model.name.lower(), "model.pickle"))
 
 # Make and save predictions.
-preds_f = []
-preds_f_test = []
-preds_k = []
-preds_psd = []
 if args.predict:
     for model in models:
         # Perform predictions.
@@ -110,7 +103,7 @@ if args.predict:
             pred_k.var * normaliser._scale**2,
         )
         pred_psd = posterior.predict_psd()
-        # Carefully untransform kernel prediction.
+        # Carefully untransform PSD prediction.
         pred_psd = (
             pred_psd.x,
             pred_psd.mean + 20 * B.log(normaliser._scale),
@@ -118,69 +111,32 @@ if args.predict:
             pred_psd.err_95_upper + 20 * B.log(normaliser._scale),
         )
         # Save predictions.
-        preds_f.append(pred_f)
-        preds_f_test.append(pred_f_test)
-        preds_k.append(pred_k)
-        wd.save(pred_f, *model_path(model), "pred_f.pickle")
-        wd.save(pred_f_test, *model_path(model), "pred_f_test.pickle")
-        wd.save(pred_k, *model_path(model), "pred_k.pickle")
-        wd.save(pred_psd, *model_path(model), "pred_psd.pickle")
-else:
-    for model in models:
-        preds_f.append(wd.load(*model_path(model), "pred_f.pickle"))
-        preds_f_test.append(wd.load(*model_path(model), "pred_f_test.pickle"))
-        preds_k.append(wd.load(*model_path(model), "pred_k.pickle"))
-        preds_psd.append(wd.load(*model_path(model), "pred_psd.pickle"))
+        wd.save(pred_f, model.name.lower(), "pred_f.pickle")
+        wd.save(pred_f_test, model.name.lower(), "pred_f_test.pickle")
+        wd.save(pred_k, model.name.lower(), "pred_k.pickle")
+        wd.save(pred_psd, model.name.lower(), "pred_psd.pickle")
+
+# Load predictions.
+preds_f = {}
+preds_f_test = {}
+preds_k = {}
+preds_psd = {}
+for model in models:
+    preds_f.append(wd.load(model.name.lower(), "pred_f.pickle"))
+    preds_f_test.append(wd.load(model.name.lower(), "pred_f_test.pickle"))
+    preds_k.append(wd.load(model.name.lower(), "pred_k.pickle"))
+    preds_psd.append(wd.load(model.name.lower(), "pred_psd.pickle"))
+
+# Print performances.
+for name in ["GPCM", "CGPCM", "RGPCM"]:
+    with out.Section(name):
+        t, mean, var = preds_f_test[name]
+        out.kv("RMSE", metric.rmse(mean, y_test))
+        out.kv("MLL", metric.mll(mean, var, y_test))
 
 
-def get_kernel_pred(model, scheme):
-    i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
-    t, mean, var = preds_k[i]
-    return t, mean, var
-
-
-def get_psd_pred(model, scheme):
-    i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
-    return preds_psd[i]
-
-
-def get_pred(model, scheme, test=False):
-    i = [(m.name.lower(), m.scheme) for m in models].index((model, scheme))
-    model = models[i]
-    if test:
-        t, mean, var = preds_f_test[i]
-    else:
-        t, mean, var = preds_f[i]
-    # Add observation noise to the prediction.
-    var += model().noise * normaliser._scale**2
-    return t, mean, var
-
-
-def rmse(mean, y):
-    x = (mean - y) ** 2
-    val = B.mean(x)
-    std = B.std(x) / len(x) ** 0.5
-    val = B.sqrt(val)
-    std = std * 1 / (2 * val)
-    return val, 1.96 * std
-
-
-def mll(mean, var, y):
-    x = 0.5 * np.log(2 * np.pi * var) + 0.5 * (mean - y) ** 2 / var
-    val = B.mean(x)
-    std = B.std(x) / len(x) ** 0.5
-    return val, 1.96 * std
-
-
-print("Structured")
-for model in ["gpcm", "cgpcm", "rgpcm"]:
-    print(model)
-    print("RMSE", rmse(get_pred(model, "structured", test=True)[1], y_test))
-    print("MLL", mll(*get_pred(model, "structured", test=True)[1:], y_test))
-
-
-def plot_psd(model, y_label=True, style="pred", finish=True):
-    freqs, mean, lower, upper = get_psd_pred(model, "structured")
+def plot_psd(name, y_label=True, style="pred", finish=True):
+    freqs, mean, lower, upper = preds_psd[name]
     freqs -= freqs[0]
 
     inds = freqs <= 0.2
@@ -192,13 +148,8 @@ def plot_psd(model, y_label=True, style="pred", finish=True):
     if y_label:
         plt.ylabel("PSD (dB)")
 
-    plt.plot(freqs, mean, style=style, label=model.upper())
-    plt.fill_between(
-        freqs,
-        lower,
-        upper,
-        style=style,
-    )
+    plt.plot(freqs, mean, style=style, label=name)
+    plt.fill_between(freqs, lower, upper, style=style)
     plt.plot(freqs, lower, style=style, lw=0.5)
     plt.plot(freqs, upper, style=style, lw=0.5)
     plt.xlim(0, 0.2)
@@ -208,12 +159,11 @@ def plot_psd(model, y_label=True, style="pred", finish=True):
         tweak()
 
 
-def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
+def plot_compare(name1, name2, y_label=True, y_ticks=True, style2=None):
+    _, mean1, var1 = preds_f[name1]
+    _, mean2, var2 = preds_f[name2]
 
-    mean1, var1 = get_pred(model1, "structured")[1:]
-    mean2, var2 = get_pred(model2, "structured")[1:]
-
-    plt.plot(t_pred, mean1, style="pred", label=model1.upper())
+    plt.plot(t_pred, mean1, style="pred", label=name1.upper())
     plt.fill_between(
         t_pred,
         mean1 - 1.96 * B.sqrt(var1),
@@ -224,12 +174,9 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
     plt.plot(t_pred, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
 
     if style2 is None:
-        if model2 == "cgpcm":
-            style2 = "pred2"
-        else:
-            style2 = "pred3"
+        style2 = "pred2"
 
-    plt.plot(t_pred, mean2, style=style2, label=model2.upper())
+    plt.plot(t_pred, mean2, style=style2, label=name2.upper())
     plt.fill_between(
         t_pred,
         mean2 - 1.96 * B.sqrt(var2),
@@ -243,7 +190,7 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
     plt.scatter(t_test, y_test, style="test", label="Test")
 
     plt.xlim(150, 300)
-    plt.xlabel("Day of 2012")
+    plt.xlabel(f"Day of {args.year}")
     if y_label:
         plt.ylabel("Crude Oil (USD)")
     if not y_ticks:
@@ -251,34 +198,21 @@ def plot_compare(model1, model2, y_label=True, y_ticks=True, style2=None):
     tweak(legend_loc="upper left")
 
 
-# Plot result.
 plt.figure(figsize=(12, 5))
 
 plt.subplot2grid((5, 6), (0, 0), colspan=3, rowspan=3)
-plot_compare("gpcm", "cgpcm")
+plot_compare("GPCM", "CGPCM")
 plt.subplot2grid((5, 6), (0, 3), colspan=3, rowspan=3)
-plot_compare("gpcm", "rgpcm", y_label=False, y_ticks=False)
+plot_compare("GPCM", "RGPCM", y_label=False, y_ticks=False, style2="pred3")
 
 plt.subplot2grid((5, 6), (3, 0), colspan=2, rowspan=2)
-plot_psd("gpcm")
+plot_psd("GPCM")
 plt.subplot2grid((5, 6), (3, 2), colspan=2, rowspan=2)
-plot_psd("cgpcm", y_label=False)
-plt.subplot2grid((5, 6), (3, 4), colspan=2, rowspan=2)
-plot_psd("rgpcm", y_label=False)
+plot_psd("CGPCM", y_label=False)
+plt.subplot2grid((5, 6), (3, 4), colspan=2, rowspan=2, style2="pred3")
+plot_psd("RGPCM", y_label=False)
 
 plt.savefig(wd.file("crude_oil.pdf"))
 pdfcrop(wd.file("crude_oil.pdf"))
-
-plt.figure(figsize=(12, 3))
-
-plt.subplot2grid((1, 5), (0, 0), colspan=3)
-plot_compare("gpcm", "rgpcm", style2="pred2")
-plt.subplot2grid((1, 5), (0, 3), colspan=2)
-plot_psd("gpcm", style="pred", finish=False)
-plot_psd("rgpcm", style="pred2")
-
-plt.savefig(wd.file("crude_oil_poster.pdf"))
-pdfcrop(wd.file("crude_oil_poster.pdf"))
-
 
 plt.show()
