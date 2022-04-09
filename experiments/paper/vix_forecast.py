@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta
 
 import lab as B
 import numpy as np
@@ -6,6 +6,7 @@ import wbml.out as out
 from gpcm import GPCM, CGPCM, RGPCM
 from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
+from probmods import Normaliser
 
 # Setup script.
 out.report_time = True
@@ -14,34 +15,40 @@ wd = WorkingDirectory("_experiments", f"vix_forecast")
 
 # Setup experiment.
 data = load()
-# The random year that was selected to train on in the paper is 28 Aug 1991 to 27 Aug
-# 1992. We hardcode this to make sure that the random selection isn't changed when the
-# seed is changed.
-lower = datetime.datetime(1991, 8, 28)
-upper = datetime.datetime(2010, 1, 1)
-data = data[(data.index >= lower) & (data.index < upper)]
-# Convert to days since start. The data type is a timestamp in ns.
-t = np.array(data.index - data.index[0], dtype=float) / 1e9 / 3600 / 24
-y = np.log(np.array(data.open)).flatten()
 
-# Get training data.
-n = 365
-n_times = 100
-n_forecast = 7
-t_train = t[:n]
-y_train = y[:n]
 
-# Skip forward `n` days. Get the test data sets.
-i = n
-t_tests = []
-y_tests = []
-for _ in range(n_times):
-    t_test = t[i : i + 5 * n_forecast]
-    y_test = y[i : i + 5 * n_forecast]
-    t_test = t_test - t_test[0]
-    t_tests.append(t_test)
-    y_tests.append(y_test)
-    i += n_forecast
+def get_data(lower, upper):
+    """Get the data in a certain time range."""
+    df = data[(data.index >= lower) & (data.index < upper)]
+    # Convert to days since start. The data type is a timestamp in ns.
+    t = np.array(df.index - data.index[0], dtype=float) / 1e9 / 3600 / 24
+    y = np.log(np.array(df.open)).flatten()
+    return t, y
+
+
+# Train on the year of 2015.
+t_train, y_train = get_data(datetime(2015, 1, 1), datetime(2016, 1, 1))
+
+# Get the test data sets.
+tests = []
+for i in range(100):
+    tests.append(
+        (
+            get_data(
+                datetime(2016, 1, 1) + i * timedelta(weeks=1),
+                datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
+            ),
+            get_data(
+                datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
+                datetime(2016, 1, 1) + (i + 5) * timedelta(weeks=1),
+            ),
+        )
+    )
+# Save the data sets.
+wd.save(
+    {"t_train": t_train, "y_train": y_train, "tests": tests},
+    "data.pickle",
+)
 
 # Setup GPCM models.
 window = 7 * 6
@@ -50,21 +57,10 @@ n_u = 60
 n_z = 150
 noise = 0.05
 
-# Save the data sets.
-wd.save(
-    {
-        "t_train": t_train,
-        "y_train": y_train,
-        "t_tests": t_tests,
-        "y_tests": y_tests,
-    },
-    "data.pickle",
-)
 
 # Normalise.
-train_mean = y_train.mean()
-train_scale = y_train.std()
-y_train = (y_train - train_mean) / train_scale
+normaliser = Normaliser()
+y_train = normaliser.transform(y_train)
 
 for model in [
     RGPCM(
@@ -97,13 +93,8 @@ for model in [
 
     # Make predictions for all held-out test sets.
     preds = []
-    for t_test, y_test in zip(t_tests, y_tests):
-        posterior = model.condition(
-            t_test[:-n_forecast],
-            (y_test[:-n_forecast] - train_mean) / train_scale,
-        )
-        mean, var = posterior.predict(t_test[-n_forecast:])
-        mean = mean * train_scale + train_mean
-        var = (var + model.noise) * train_scale**2
-        preds.append((y_test[-n_forecast:], mean, var))
+    for (t_test1, y_test1), (t_test2, y_test2) in tests:
+        posterior = model.condition(*normaliser.transform((t_test1, y_test1)))
+        mean, var = normaliser.untransform(posterior.predict(t_test2))
+        preds.append((y_test2, mean, var))
     wd.save(preds, model.name.lower(), "preds.pickle")
