@@ -5,11 +5,12 @@ import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out as out
-from gpcm import RGPCM
 from scipy.signal import periodogram
 from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
+
+from gpcm import RGPCM
 
 # Setup script.
 out.report_time = True
