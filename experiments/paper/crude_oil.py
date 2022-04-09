@@ -78,7 +78,7 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [CGPCM, GPCM, RGPCM]
+    for Model in [GPCM, CGPCM, RGPCM]
 ]
 if args.train:
     for model in models:
@@ -122,10 +122,10 @@ preds_f_test = {}
 preds_k = {}
 preds_psd = {}
 for model in models:
-    preds_f.append(wd.load(model.name.lower(), "pred_f.pickle"))
-    preds_f_test.append(wd.load(model.name.lower(), "pred_f_test.pickle"))
-    preds_k.append(wd.load(model.name.lower(), "pred_k.pickle"))
-    preds_psd.append(wd.load(model.name.lower(), "pred_psd.pickle"))
+    preds_f[model.name] = wd.load(model.name.lower(), "pred_f.pickle")
+    preds_f_test[model.name] = wd.load(model.name.lower(), "pred_f_test.pickle")
+    preds_k[model.name] = wd.load(model.name.lower(), "pred_k.pickle")
+    preds_psd[model.name] = wd.load(model.name.lower(), "pred_psd.pickle")
 
 # Print performances.
 for name in ["GPCM", "CGPCM", "RGPCM"]:
