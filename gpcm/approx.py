@@ -529,7 +529,8 @@ class Structured(Approximation):
         m1s, m2s = zip(*[predict_moments(u) for u in self._sample_p_u(num_samples)])
         m1 = B.mean(B.stack(*m1s, axis=0), axis=0)
         m2 = B.mean(B.stack(*m2s, axis=0), axis=0)
-        return m1, m2 - m1**2
+        # Don't forget to add in the observation noise!
+        return m1, m2 - m1**2 + self.model.noise
 
     @_dispatch
     def sample_kernel(self, t_k, num_samples: B.Int = 1000):
@@ -654,7 +655,8 @@ class MeanField(Approximation):
             self.p_z.mean,
             self.p_z.m2,
         )
-        return m1, m2 - m1**2
+        # Don't forget to add in the observation noise!
+        return m1, m2 - m1**2 + self.model.noise
 
     @_dispatch
     def sample_kernel(self, t_k, num_samples: B.Int = 1000):
