@@ -11,11 +11,13 @@ from wbml.plot import tweak, pdfcrop, tex
 from gpcm import GPCM
 from gpcm.util import estimate_psd
 
+# Setup script.
 out.report_time = True
 B.epsilon = 1e-8
-wd = WorkingDirectory("server", "_experiments", "smk_comparison", observe=True)
 tex()
+wd = WorkingDirectory("_experiments", "smk")
 
+# Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 args = parser.parse_args()
@@ -38,10 +40,12 @@ k = B.flatten(kernel(t_k, 0))
 
 
 def extract(pred):
-    return (pred.x, pred.mean, pred.err_95_lower, pred.err_95_upper)
+    """Extract important statistics from a prediction."""
+    return pred.x, pred.mean, pred.var, pred.err_95_lower, pred.err_95_upper
 
 
 if args.train:
+    # Train mean-field approximation.
     model = GPCM(
         scheme="mean-field",
         window=window,
@@ -55,6 +59,7 @@ if args.train:
     k_pred_mf = extract(model.condition(t, y).predict_kernel(t_k))
     psd_pred_mf = extract(model.condition(t, y).predict_psd())
 
+    # Train structured approximation.
     model = GPCM(
         scheme="structured",
         window=window,
@@ -72,22 +77,27 @@ if args.train:
 else:
     k_pred_mf, psd_pred_mf, k_pred_struc, psd_pred_struc = wd.load("preds.pickle")
 
+# Report metrics.
 
-# Plot stuff.
+with out.Section("Structured"):
+    t, mean, var, _, _ = k_pred_struc
+    inds = t <= 3
+    out.kv("MLL", metric.mll(mean[inds], var[inds], k[inds]))
+    out.kv("RMSE", metric.rmse(mean[inds], k[inds]))
+with out.Section("Mean field"):
+    t, mean, var, _, _ = k_pred_mf
+    inds = t <= 3
+    out.kv("MLL", metric.mll(mean[inds], var[inds], k[inds]))
+    out.kv("RMSE", metric.rmse(mean[inds], k[inds]))
+
 
 plt.figure(figsize=(7.5, 3.75))
+
+# Plot prediction for kernel.
+
 plt.subplot(1, 2, 1)
 plt.plot(t_k, k, label="Truth", style="train")
-
-t, mean, err_95_lower, err_95_upper = k_pred_struc
-sig = (err_95_upper - err_95_lower) / (2 * 1.96)
-var = sig ** 2
-
-print("Struc")
-inds = t <= 3
-print(metric.mll(mean[inds], var[inds], k[inds]))
-print(metric.rmse(mean[inds], k[inds]))
-
+t, mean, var, err_95_lower, err_95_upper = k_pred_struc
 plt.plot(t, mean, label="Structured", style="pred")
 plt.fill_between(
     t,
@@ -96,17 +106,8 @@ plt.fill_between(
     style="pred",
 )
 plt.plot(t, err_95_upper, style="pred", lw=1)
-plt.plot(t, err_95_lower, style="pred", lw=1)
 
-t, mean, err_95_lower, err_95_upper = k_pred_mf
-sig = (err_95_upper - err_95_lower) / (2 * 1.96)
-var = sig ** 2
-
-print("MF")
-inds = t <= 3
-print(metric.mll(mean[inds], var[inds], k[inds]))
-print(metric.rmse(mean[inds], k[inds]))
-
+t, mean, var, err_95_lower, err_95_upper = k_pred_mf
 plt.plot(t, mean, label="Mean-field", style="pred2")
 plt.fill_between(
     t,
@@ -120,11 +121,12 @@ plt.plot(t, err_95_lower, style="pred2", lw=1)
 plt.xlabel("Time (s)")
 plt.ylabel("Covariance")
 plt.title("Kernel")
-
 plt.xlim(0, 4)
 plt.ylim(-0.75, 1.25)
 plt.yticks([-0.5, 0, 0.5, 1])
 tweak(legend=False)
+
+# Plot prediction for PSD.
 
 plt.subplot(1, 2, 2)
 t_k = B.linspace(-8, 8, 1001)
@@ -134,7 +136,7 @@ freqs = freqs[inds]
 psd = psd[inds]
 plt.plot(freqs, psd, label="Truth", style="train")
 
-t, mean, err_95_lower, err_95_upper = psd_pred_struc
+t, mean, var, err_95_lower, err_95_upper = psd_pred_struc
 inds = t <= 1
 t = t[inds]
 mean = mean[inds]
@@ -150,7 +152,7 @@ plt.fill_between(
 plt.plot(t, err_95_upper, style="pred", lw=1)
 plt.plot(t, err_95_lower, style="pred", lw=1)
 
-t, mean, err_95_lower, err_95_upper = psd_pred_mf
+t, mean, var, err_95_lower, err_95_upper = psd_pred_mf
 inds = t <= 1
 t = t[inds]
 mean = mean[inds]
@@ -172,6 +174,7 @@ plt.title("PSD")
 plt.xlim(0, 1)
 plt.ylim(-20, 10)
 tweak(legend=True)
+
 plt.savefig(wd.file("smk.pdf"))
 pdfcrop(wd.file("smk.pdf"))
 plt.show()
