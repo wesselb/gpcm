@@ -4,6 +4,7 @@ import lab as B
 import numpy as np
 import wbml.out as out
 from gpcm import GPCM, CGPCM, RGPCM
+import wbml.out as out
 from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
 from probmods import Normaliser
@@ -93,8 +94,10 @@ for model in [
 
     # Make predictions for all held-out test sets.
     preds = []
-    for (t_test1, y_test1), (t_test2, y_test2) in tests:
-        posterior = model.condition(t_test1, normaliser.transform(y_test1))
-        mean, var = normaliser.untransform(posterior.predict(t_test2))
-        preds.append((y_test2, mean, var))
+    with out.Progress("Making predictions", total=len(tests)) as progress:
+        for (t_test1, y_test1), (t_test2, y_test2) in tests:
+            posterior = model.condition(t_test1, normaliser.transform(y_test1))
+            mean, var = normaliser.untransform(posterior.predict(t_test2))
+            preds.append((y_test2, mean, var))
+            progress()
     wd.save(preds, model.name.lower(), "preds.pickle")
