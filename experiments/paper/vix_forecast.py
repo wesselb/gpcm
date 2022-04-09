@@ -21,8 +21,8 @@ data = load()
 def get_data(lower, upper):
     """Get data for a certain time range."""
     df = data[(data.index >= lower) & (data.index < upper)]
-    #  The data type is a timestamp in ns.
-    t = np.array(df.index, dtype=float) / 1e9 / 3600 / 24 / 365
+    # The data type is a timestamp in ns.
+    t = np.array(df.index, dtype=float) / 1e9 / 3600 / 24
     y = np.log(np.array(df.open)).flatten()
     return t, y
 
