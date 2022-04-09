@@ -21,30 +21,31 @@ data = load()
 def get_data(lower, upper):
     """Get data for a certain time range."""
     df = data[(data.index >= lower) & (data.index < upper)]
-    # Convert to days since start. The data type is a timestamp in ns.
-    t = np.array(df.index - df.index[0], dtype=float) / 1e9 / 3600 / 24
+    #  The data type is a timestamp in ns.
+    t = np.array(df.index, dtype=float) / 1e9 / 3600 / 24 / 365
     y = np.log(np.array(df.open)).flatten()
     return t, y
 
 
 # Train on the year of 2015.
 t_train, y_train = get_data(datetime(2015, 1, 1), datetime(2016, 1, 1))
+t_train -= t_train[0]  # Count since start.
 
 # Get the test data sets.
 tests = []
 for i in range(100):
-    tests.append(
-        (
-            get_data(
-                datetime(2016, 1, 1) + i * timedelta(weeks=1),
-                datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
-            ),
-            get_data(
-                datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
-                datetime(2016, 1, 1) + (i + 5) * timedelta(weeks=1),
-            ),
-        )
+    t_test1, y_test1 = get_data(
+        datetime(2016, 1, 1) + i * timedelta(weeks=1),
+        datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
     )
+    t_test2, y_test2 = get_data(
+        datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
+        datetime(2016, 1, 1) + (i + 5) * timedelta(weeks=1),
+    )
+    # Count since beginning of conditioning window.
+    t_test2 -= t_test1[0]
+    t_test1 -= t_test1[0]
+    tests.append(((t_test1, y_test1), (t_test2, y_test2)))
 # Save the data sets.
 wd.save(
     {"t_train": t_train, "y_train": y_train, "tests": tests},
