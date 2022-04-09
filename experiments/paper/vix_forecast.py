@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 import lab as B
 import numpy as np
 import wbml.out as out
-from gpcm import GPCM, CGPCM, RGPCM
-import wbml.out as out
+from probmods import Normaliser
 from wbml.data.vix import load
 from wbml.experiment import WorkingDirectory
-from probmods import Normaliser
+
+from gpcm import GPCM, CGPCM, RGPCM
 
 # Setup script.
 out.report_time = True
@@ -19,10 +19,10 @@ data = load()
 
 
 def get_data(lower, upper):
-    """Get the data in a certain time range."""
+    """Get data for a certain time range."""
     df = data[(data.index >= lower) & (data.index < upper)]
     # Convert to days since start. The data type is a timestamp in ns.
-    t = np.array(df.index - data.index[0], dtype=float) / 1e9 / 3600 / 24
+    t = np.array(df.index - df.index[0], dtype=float) / 1e9 / 3600 / 24
     y = np.log(np.array(df.open)).flatten()
     return t, y
 
