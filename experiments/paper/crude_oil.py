@@ -56,7 +56,7 @@ y_train = y[~test_inds]
 t_test = t[test_inds]
 y_test = y[test_inds]
 # Save data for easier later reference.
-wd.save({"train": (t_train, y_train), "tes": (t_test, y_test)}, "data.pickle")
+wd.save({"train": (t_train, y_train), "test": (t_test, y_test)}, "data.pickle")
 
 # Normalise training data.
 normaliser = Normaliser()
@@ -82,7 +82,14 @@ models = [
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, rate=2e-2, iters=10_000)
+        if model.name == "RGPCM" and args.year == 2014:
+            # For some reason, the loss for the RGPCM NaNs out around iteration 8000
+            # only for this particular year. It is not clear what is going on... As a
+            # fix, we simply limit the number of iterations.
+            iters = 7_500
+        else:
+            iters = 10_000
+        model.fit(t_train, y_train, iters=iters)
         model.save(wd.file(model.name.lower(), "model.pickle"))
 else:
     for model in models:
