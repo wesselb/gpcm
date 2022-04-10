@@ -268,12 +268,7 @@ class GPCM(AbstractGPCM):
     def __prior__(self):
         # Make parameters learnable:
         if not self.fix_noise:
-            self.noise = self.ps.bounded(
-                self.noise,
-                lower=1e-3,
-                upper=1e3,
-                name="noise",
-            )
+            self.noise = self.ps.positive(self.noise, name="noise")
         if not self.fix_window:
             self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
