@@ -36,7 +36,7 @@ def get_data(lower, upper):
     return t, y
 
 
-# Train on the year of 2015.
+# Train on the years 2015 and 2016.
 t_train, y_train = get_data(first_monday(2015), first_monday(2017))
 t_train -= t_train[0]  # Count since start.
 
@@ -44,10 +44,12 @@ t_train -= t_train[0]  # Count since start.
 tests = []
 for i in range(200):
     t_test1, y_test1 = get_data(
+        # Condition on the last three months.
         first_monday(2017) + i * timedelta(weeks=1),
         first_monday(2017) + (i + 12) * timedelta(weeks=1),
     )
     t_test2, y_test2 = get_data(
+        # Predict the next week.
         first_monday(2017) + (i + 12) * timedelta(weeks=1),
         first_monday(2017) + (i + 13) * timedelta(weeks=1),
     )
