@@ -17,12 +17,16 @@ from gpcm import GPCM, CGPCM, RGPCM
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
-parser.add_argument("--year", type=int, default=2013)
+parser.add_argument("--year", type=int, default=2012)
 args = parser.parse_args()
 
 # Setup experiment.
 out.report_time = True
-B.epsilon = 1e-8
+# Year 2014 needs extra stability.
+if args.year == 2014:
+    B.epsilon = 1e-6
+else:
+    B.epsilon = 1e-8
 tex()
 wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
@@ -38,7 +42,7 @@ def first_monday(year):
 # Load and process data.
 data = load()
 lower = first_monday(args.year)
-upper = first_monday(args.year)
+upper = first_monday(args.year + 1)
 data = data[(lower <= data.index) & (data.index < upper)]
 t = np.array([(ti - lower).days for ti in data.index], dtype=float)
 y = np.array(data.open)
@@ -85,11 +89,16 @@ models = [
         n_z=n_z,
         t=t,
     )
-    for Model in [GPCM, CGPCM, RGPCM]
+    for Model in [GPCM, RGPCM, CGPCM]
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=20_000)
+        # The noises for year 2014 become very low, so we train with a lower
+        # learning rate to prevent the loss from NaNing out.
+        if args.year == 2014:
+            model.fit(t_train, y_train, rate=2e-2, iters=20_000)
+        else:
+            model.fit(t_train, y_train, iters=20_000)
         model.save(wd.file(model.name.lower(), "model.pickle"))
 else:
     for model in models:
