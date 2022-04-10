@@ -270,8 +270,8 @@ class GPCM(AbstractGPCM):
         if not self.fix_noise:
             self.noise = self.ps.bounded(
                 self.noise,
-                lower=1e-4,
-                upper=1e4,
+                lower=1e-3,
+                upper=1e3,
                 name="noise",
             )
         if not self.fix_window:
