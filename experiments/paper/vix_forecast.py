@@ -19,7 +19,7 @@ data = load()
 
 
 def first_monday(year):
-    """Get the first monday of a year."""
+    """Get the first Monday of a year."""
     dt = datetime(year, 1, 1)
     while dt.weekday() != 0:
         dt += timedelta(days=1)
@@ -45,13 +45,13 @@ tests = []
 for i in range(100):
     t_test1, y_test1 = get_data(
         first_monday(2016) + i * timedelta(weeks=1),
-        first_monday(2016) + (i + 4) * timedelta(weeks=1),
+        first_monday(2016) + (i + 12) * timedelta(weeks=1),
     )
     t_test2, y_test2 = get_data(
-        first_monday(2016) + (i + 4) * timedelta(weeks=1),
-        first_monday(2016) + (i + 5) * timedelta(weeks=1),
+        first_monday(2016) + (i + 12) * timedelta(weeks=1),
+        first_monday(2016) + (i + 13) * timedelta(weeks=1),
     )
-    # Count since beginning of conditioning window.
+    # Count since beginning of conditioning window. This assumes stationarity.
     t_test2 -= t_test1[0]
     t_test1 -= t_test1[0]
     tests.append(((t_test1, y_test1), (t_test2, y_test2)))
