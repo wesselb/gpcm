@@ -75,7 +75,7 @@ y_train = normaliser.transform(y_train)
 
 # Configure GPCM models.
 window = 30
-scale = 3
+scale = 5
 n_u = 50
 n_z = 150
 
