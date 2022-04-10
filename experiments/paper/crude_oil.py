@@ -22,13 +22,13 @@ args = parser.parse_args()
 
 # Setup experiment.
 out.report_time = True
-B.epsilon = 1e-8
+B.epsilon = 1e-6
 tex()
 wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
 
 def first_monday(year):
-    """Get the first monday of a year."""
+    """Get the first Monday of a year."""
     dt = datetime(year, 1, 1)
     while dt.weekday() != 0:
         dt += timedelta(days=1)
@@ -38,7 +38,7 @@ def first_monday(year):
 # Load and process data.
 data = load()
 lower = first_monday(args.year)
-upper = first_monday(args.year)
+upper = first_monday(args.year + 1)
 data = data[(lower <= data.index) & (data.index < upper)]
 t = np.array([(ti - lower).days for ti in data.index], dtype=float)
 y = np.array(data.open)
@@ -89,7 +89,7 @@ models = [
 ]
 if args.train:
     for model in models:
-        model.fit(t_train, y_train, iters=20_000)
+        model.fit(t_train, y_train, rate=2e-2, iters=20_000)
         model.save(wd.file(model.name.lower(), "model.pickle"))
 else:
     for model in models:
