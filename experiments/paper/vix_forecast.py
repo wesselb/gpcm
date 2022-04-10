@@ -37,19 +37,19 @@ def get_data(lower, upper):
 
 
 # Train on the year of 2015.
-t_train, y_train = get_data(first_monday(2015), first_monday(2016))
+t_train, y_train = get_data(first_monday(2015), first_monday(2017))
 t_train -= t_train[0]  # Count since start.
 
 # Get the test data sets.
 tests = []
-for i in range(100):
+for i in range(200):
     t_test1, y_test1 = get_data(
-        first_monday(2016) + i * timedelta(weeks=1),
-        first_monday(2016) + (i + 12) * timedelta(weeks=1),
+        first_monday(2017) + i * timedelta(weeks=1),
+        first_monday(2017) + (i + 12) * timedelta(weeks=1),
     )
     t_test2, y_test2 = get_data(
-        first_monday(2016) + (i + 12) * timedelta(weeks=1),
-        first_monday(2016) + (i + 13) * timedelta(weeks=1),
+        first_monday(2017) + (i + 12) * timedelta(weeks=1),
+        first_monday(2017) + (i + 13) * timedelta(weeks=1),
     )
     # Count since beginning of conditioning window. This assumes stationarity.
     t_test2 -= t_test1[0]
@@ -62,10 +62,10 @@ wd.save(
 )
 
 # Setup GPCM models.
-window = 7 * 4
+window = 7 * 6
 scale = 5
 n_u = 60
-n_z = 110
+n_z = 200
 noise = 0.05
 
 # Normalise.
