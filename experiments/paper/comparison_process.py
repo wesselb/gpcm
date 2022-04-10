@@ -4,7 +4,10 @@ import wbml.metric as metric
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tex, tweak, pdfcrop
 
+# Setup script.
 tex()
+wd = WorkingDirectory("_experiments", "comparison_process")
+wd_results = WorkingDirectory("_experiments", "comparison", observe=True)
 
 
 def format_num(x):
@@ -73,16 +76,12 @@ def print_estimates(estimates, show_error=False):
     return out[2:]
 
 
-wd_out = WorkingDirectory("_experiments", "comparison_process")
-wd = WorkingDirectory("_experiments", "comparison", observe=True)
-
-
 def kernel_analysis(data_name, model, mode, until=4):
-    k = wd.load(data_name, "data.pickle")["k"]
-    t, mean1, var1 = wd.load(data_name, "structured", model, "k_pred.pickle")
-    elbo1 = wd.load(data_name, "structured", model, "elbo.pickle")
-    t, mean2, var2 = wd.load(data_name, "mean-field", model, "k_pred.pickle")
-    elbo2 = wd.load(data_name, "mean-field", model, "elbo.pickle")
+    k = wd_results.load(data_name, "data.pickle")["k"]
+    t, mean1, var1 = wd_results.load(data_name, "structured", model, "k_pred.pickle")
+    elbo1 = wd_results.load(data_name, "structured", model, "elbo.pickle")
+    t, mean2, var2 = wd_results.load(data_name, "mean-field", model, "k_pred.pickle")
+    elbo2 = wd_results.load(data_name, "mean-field", model, "elbo.pickle")
     if mode == "mean-field-elbo":
         return elbo2
     elif mode == "structured-elbo":
@@ -100,7 +99,7 @@ def kernel_analysis(data_name, model, mode, until=4):
 
 
 def gp_logpdf(data_name):
-    return wd.load(data_name, "data.pickle")["true_logpdf"]
+    return wd_results.load(data_name, "data.pickle")["true_logpdf"]
 
 
 out = "\\toprule \n"
@@ -150,10 +149,10 @@ out += "\\bottomrule \n"
 print(out)
 
 
-def plot_kernel_predictions(wd, model, data_name, legend=True, first=False):
-    k = wd.load(data_name, "data.pickle")["k"]
-    t, mean1, var1 = wd.load(data_name, "structured", model, "k_pred.pickle")
-    t, mean2, var2 = wd.load(data_name, "mean-field", model, "k_pred.pickle")
+def plot_kernel_predictions(model, data_name, legend=True, first=False):
+    k = wd_results.load(data_name, "data.pickle")["k"]
+    t, mean1, var1 = wd_results.load(data_name, "structured", model, "k_pred.pickle")
+    t, mean2, var2 = wd_results.load(data_name, "mean-field", model, "k_pred.pickle")
     plt.plot(t, k, label="Truth", style="train")
     plt.plot(t, mean1, label="Structured", style="pred")
     plt.fill_between(
@@ -185,13 +184,13 @@ def plot_kernel_predictions(wd, model, data_name, legend=True, first=False):
 plt.figure(figsize=(7.5, 3))
 plt.subplot(1, 3, 1)
 plt.title("GPCM on EQ")
-plot_kernel_predictions(wd, "gpcm", "eq", legend=False, first=True)
+plot_kernel_predictions("gpcm", "eq", legend=False, first=True)
 plt.subplot(1, 3, 2)
 plt.title("CGPCM on CEQ")
-plot_kernel_predictions(wd, "cgpcm", "ceq-1", legend=False)
+plot_kernel_predictions("cgpcm", "ceq-1", legend=False)
 plt.subplot(1, 3, 3)
 plt.title("RGPCM on Matern–$\\frac{1}{2}$")
-plot_kernel_predictions(wd, "rgpcm", "matern12")
-plt.savefig(wd_out.file("comparison.pdf"))
-pdfcrop(wd_out.file("comparison.pdf"))
+plot_kernel_predictions("rgpcm", "matern12")
+plt.savefig(wd.file("comparison.pdf"))
+pdfcrop(wd.file("comparison.pdf"))
 plt.show()
