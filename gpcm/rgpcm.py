@@ -59,7 +59,7 @@ class RGPCM(AbstractGPCM):
     def __init__(
         self,
         scheme="structured",
-        noise=1e-4,
+        noise=5e-2,
         fix_noise=False,
         alpha=None,
         alpha_t=None,
@@ -193,7 +193,12 @@ class RGPCM(AbstractGPCM):
 
         # Make parameters learnable:
         if not self.fix_noise:
-            self.noise = self.ps.positive(self.noise, name="noise")
+            self.noise = self.ps.bounded(
+                self.noise,
+                lower=1e-4,
+                upper=1e4,
+                name="noise",
+            )
         if not self.fix_window:
             self.alpha = self.ps.positive(self.alpha, name="alpha")
         self.alpha_t = self.ps.positive(self.alpha_t, name="alpha_t")
