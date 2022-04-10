@@ -85,7 +85,7 @@ for kernel, model_constructor in [
         prefix = (slugify(str(kernel)), scheme, slugify(model.name))
 
         # Fit model and predict function and kernel.
-        model.fit(t, y, iters=20_000)
+        model.fit(t, y, iters=10_000)
         elbo = model.elbo(t, y)
         posterior = model.condition(t, y)
         f_pred = posterior.predict(t)
