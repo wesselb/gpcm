@@ -73,13 +73,8 @@ def print_estimates(estimates, show_error=False):
     return out[2:]
 
 
-wd_out = WorkingDirectory("_experiments", "comparison")
-wd = WorkingDirectory(
-    "server",
-    "_experiments",
-    "comparison",
-    observe=True,
-)
+wd_out = WorkingDirectory("_experiments", "comparison_process")
+wd = WorkingDirectory("_experiments", "comparison", observe=True)
 
 
 def kernel_analysis(data_name, model, mode, until=4):
@@ -141,13 +136,13 @@ estimates = [
 ]
 out += print_estimates(estimates) + "\\\\ \n"
 
-out += "\\textsc{GPRVM}"
+out += "\\textsc{RGPCM}"
 out += " & \\textsc{Matern–$\\frac{1}{2}$} & "
 estimates = [
-    kernel_analysis("matern12", "gprvm", mode="mean-field-mll"),
-    kernel_analysis("matern12", "gprvm", mode="structured-mll"),
-    kernel_analysis("matern12", "gprvm", mode="mean-field-rmse"),
-    kernel_analysis("matern12", "gprvm", mode="structured-rmse"),
+    kernel_analysis("matern12", "rgpcm", mode="mean-field-mll"),
+    kernel_analysis("matern12", "rgpcm", mode="structured-mll"),
+    kernel_analysis("matern12", "rgpcm", mode="mean-field-rmse"),
+    kernel_analysis("matern12", "rgpcm", mode="structured-rmse"),
 ]
 out += print_estimates(estimates) + "\\\\ \n"
 
@@ -196,7 +191,7 @@ plt.title("CGPCM on CEQ")
 plot_kernel_predictions(wd, "cgpcm", "ceq-1", legend=False)
 plt.subplot(1, 3, 3)
 plt.title("RGPCM on Matern–$\\frac{1}{2}$")
-plot_kernel_predictions(wd, "gprvm", "matern12")
+plot_kernel_predictions(wd, "rgpcm", "matern12")
 plt.savefig(wd_out.file("comparison.pdf"))
 pdfcrop(wd_out.file("comparison.pdf"))
 plt.show()
