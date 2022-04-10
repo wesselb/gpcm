@@ -7,7 +7,6 @@ import numpy as np
 import wbml.metric as metric
 import wbml.out as out
 from probmods.bijection import Normaliser
-from wbml.data import date_to_decimal_year
 from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
@@ -27,14 +26,22 @@ B.epsilon = 1e-8
 tex()
 wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
+
+def first_monday(year):
+    """Get the first monday of a year."""
+    dt = datetime(year, 1, 1)
+    while dt.weekday() != 0:
+        dt += timedelta(days=1)
+    return dt
+
+
 # Load and process data.
 data = load()
-lower = datetime(args.year, 1, 1)
-upper = datetime(args.year + 1, 1, 1)
+lower = first_monday(args.year)
+upper = first_monday(args.year)
 data = data[(lower <= data.index) & (data.index < upper)]
-t = np.array([date_to_decimal_year(ti) for ti in data.index])
+t = np.array([(ti - lower).days for ti in data.index], dtype=float)
 y = np.array(data.open)
-t = (t - t[0]) * 365  # Start at day zero.
 t_pred = B.linspace(min(t), max(t), 500)
 
 # Split data.
@@ -42,8 +49,8 @@ test_inds = np.empty(t.shape, dtype=bool)
 test_inds.fill(False)
 for lower, upper in [
     (
-        datetime(args.year, 1, 1) + i * timedelta(days=7),
-        datetime(args.year, 1, 1) + (i + 1) * timedelta(days=7),
+        first_monday(args.year) + i * timedelta(weeks=1),
+        first_monday(args.year) + (i + 1) * timedelta(weeks=1),
     )
     for i in range(26, 53)
     if i % 2 == 1
@@ -82,14 +89,7 @@ models = [
 ]
 if args.train:
     for model in models:
-        if model.name == "RGPCM" and args.year == 2014:
-            # For some reason, the loss for the RGPCM NaNs out around iteration 8000
-            # only for this particular year. It is not clear what is going on... As a
-            # fix, we simply limit the number of iterations.
-            iters = 7_500
-        else:
-            iters = 10_000
-        model.fit(t_train, y_train, iters=iters)
+        model.fit(t_train, y_train, iters=20_000)
         model.save(wd.file(model.name.lower(), "model.pickle"))
 else:
     for model in models:
