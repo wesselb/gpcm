@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out
 import wbml.plot
-from wbml.experiment import WorkingDirectory
 from stheno import GP
+from wbml.experiment import WorkingDirectory
 
 from gpcm import CGPCM
 from gpcm.util import closest_psd
