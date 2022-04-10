@@ -18,29 +18,38 @@ wd = WorkingDirectory("_experiments", f"vix_forecast")
 data = load()
 
 
+def first_monday(year):
+    """Get the first monday of a year."""
+    dt = datetime(year, 1, 1)
+    while dt.weekday() != 0:
+        dt += timedelta(days=1)
+    return dt
+
+
 def get_data(lower, upper):
     """Get data for a certain time range."""
     df = data[(data.index >= lower) & (data.index < upper)]
-    # The data type is a timestamp in ns.
-    t = np.array(df.index, dtype=float) / 1e9 / 3600 / 24
-    y = np.log(np.array(df.open)).flatten()
+    # Convert index to days since reference.
+    ref = datetime(2000, 1, 1)
+    t = np.array([(ti - ref).days for ti in df.index], dtype=float)
+    y = np.log(np.array(df.open))
     return t, y
 
 
 # Train on the year of 2015.
-t_train, y_train = get_data(datetime(2015, 1, 1), datetime(2016, 1, 1))
+t_train, y_train = get_data(first_monday(2015), first_monday(2016))
 t_train -= t_train[0]  # Count since start.
 
 # Get the test data sets.
 tests = []
 for i in range(100):
     t_test1, y_test1 = get_data(
-        datetime(2016, 1, 1) + i * timedelta(weeks=1),
-        datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
+        first_monday(2016) + i * timedelta(weeks=1),
+        first_monday(2016) + (i + 4) * timedelta(weeks=1),
     )
     t_test2, y_test2 = get_data(
-        datetime(2016, 1, 1) + (i + 4) * timedelta(weeks=1),
-        datetime(2016, 1, 1) + (i + 5) * timedelta(weeks=1),
+        first_monday(2016) + (i + 4) * timedelta(weeks=1),
+        first_monday(2016) + (i + 5) * timedelta(weeks=1),
     )
     # Count since beginning of conditioning window.
     t_test2 -= t_test1[0]
@@ -53,12 +62,11 @@ wd.save(
 )
 
 # Setup GPCM models.
-window = 7 * 6
+window = 7 * 4
 scale = 5
 n_u = 60
-n_z = 150
+n_z = 110
 noise = 0.05
-
 
 # Normalise.
 normaliser = Normaliser()
