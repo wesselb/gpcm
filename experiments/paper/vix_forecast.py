@@ -37,19 +37,19 @@ def get_data(lower, upper):
 
 
 # Train on the year of 2015.
-t_train, y_train = get_data(first_monday(2015), first_monday(2017))
+t_train, y_train = get_data(first_monday(2015), first_monday(2016))
 t_train -= t_train[0]  # Count since start.
 
 # Get the test data sets.
 tests = []
-for i in range(200):
+for i in range(100):
     t_test1, y_test1 = get_data(
-        first_monday(2017) + i * timedelta(weeks=1),
-        first_monday(2017) + (i + 12) * timedelta(weeks=1),
+        first_monday(2016) + i * timedelta(weeks=1),
+        first_monday(2016) + (i + 4) * timedelta(weeks=1),
     )
     t_test2, y_test2 = get_data(
-        first_monday(2017) + (i + 12) * timedelta(weeks=1),
-        first_monday(2017) + (i + 13) * timedelta(weeks=1),
+        first_monday(2016) + (i + 4) * timedelta(weeks=1),
+        first_monday(2016) + (i + 5) * timedelta(weeks=1),
     )
     # Count since beginning of conditioning window. This assumes stationarity.
     t_test2 -= t_test1[0]
@@ -65,7 +65,7 @@ wd.save(
 window = 7 * 6
 scale = 5
 n_u = 60
-n_z = 200
+n_z = 150
 noise = 0.05
 
 # Normalise.
@@ -99,7 +99,7 @@ for model in [
     ),
 ]:
     # Fit model.
-    model.fit(t_train, y_train, iters=10_000)
+    model.fit(t_train, y_train, iters=20_000)
 
     # Make predictions for all held-out test sets.
     preds = []
