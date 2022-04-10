@@ -32,7 +32,7 @@ wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
 
 def first_monday(year):
-    """Get the first monday of a year."""
+    """Get the first Monday of a year."""
     dt = datetime(year, 1, 1)
     while dt.weekday() != 0:
         dt += timedelta(days=1)

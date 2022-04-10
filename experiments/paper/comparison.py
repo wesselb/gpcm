@@ -1,5 +1,4 @@
 import lab as B
-import numpy as np
 import wbml.out as out
 from slugify import slugify
 from stheno import EQ, CEQ, Exp, GP, Delta
@@ -64,9 +63,7 @@ for kernel, model_constructor in [
     # Sample data.
     gp_f = GP(kernel)
     gp_y = gp_f + GP(noise * Delta(), measure=gp_f.measure)
-    # Fix seed of samples for reproducibility.
-    state = B.create_random_state(np.float64, 0)
-    _, f, y = gp_f.measure.sample(state, gp_f(t), gp_y(t))
+    f, y = gp_f.measure.sample(gp_f(t), gp_y(t))
     f, y = B.flatten(f), B.flatten(y)
     wd.save(
         {

@@ -4,7 +4,9 @@ import wbml.metric as metric
 import wbml.out as out
 from wbml.experiment import WorkingDirectory
 
-wd = WorkingDirectory("_experiments", "vix_forecast", observe=True)
+# Setup script.
+wd = WorkingDirectory("_experiments", "vix_forecast_process")
+wd_results = WorkingDirectory("_experiments", "vix_forecast", observe=True)
 
 
 def compute_metrics(model, summarise=True):
@@ -20,7 +22,7 @@ def compute_metrics(model, summarise=True):
             `summarise` is `False`. Otherwise nothing.
     """
     rmses, mlls = [], []
-    preds = wd.load(model, "preds.pickle")
+    preds = wd_results.load(model, "preds.pickle")
     for (y, mean, var) in preds:
         rmses.append(metric.rmse(mean, y))
         mlls.append(metric.mll(mean, var, y))

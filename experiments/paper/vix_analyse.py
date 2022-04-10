@@ -29,9 +29,9 @@ data = load()
 lower = datetime.datetime(2000, 1, 1)
 upper = datetime.datetime(2001, 1, 1)
 data = data[(data.index >= lower) & (data.index < upper)]
-# Convert to days since start. The data type is a timestamp in nanoseconds.
-t = np.array(data.index - data.index[0], dtype=float) / 1e9 / 3600 / 24
-y = np.log(np.array(data.open)).flatten()
+# Convert to days since start.
+t = np.array([(ti - lower).days for ti in data.index], dtype=float)
+y = np.log(np.array(data.open))
 
 # Normalise.
 y_scale = y.std()
@@ -39,7 +39,7 @@ y = (y - y.mean()) / y.std()
 
 # Configure models.
 window = 7 * 6
-scale = 3
+scale = 5
 n_u = 60
 n_z = len(t)
 

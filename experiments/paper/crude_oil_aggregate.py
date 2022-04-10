@@ -4,15 +4,18 @@ import wbml.out as out
 from scipy.stats import ttest_rel
 from wbml.experiment import WorkingDirectory
 
+# Setup script.
+wd = WorkingDirectory("_experiments", "crude_oil_aggregate")
+
 # Load all experiments and compute metrics.
 names = ["GPCM", "CGPCM", "RGPCM"]
 mlls = {name: [] for name in names}
 rmses = {name: [] for name in names}
 for year in range(2012, 2017 + 1):
-    wd = WorkingDirectory("_experiments", "crude_oil", str(year), observe=True)
-    t, y = wd.load("data.pickle")["test"]
+    wd_results = WorkingDirectory("_experiments", "crude_oil", str(year), observe=True)
+    t, y = wd_results.load("data.pickle")["test"]
     for name in names:
-        _, mean, var = wd.load(name.lower(), "pred_f_test.pickle")
+        _, mean, var = wd_results.load(name.lower(), "pred_f_test.pickle")
         mlls[name].append(metric.mll(mean, var, y))
         rmses[name].append(metric.rmse(mean, y))
 
