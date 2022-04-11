@@ -30,19 +30,10 @@ else:
 tex()
 wd = WorkingDirectory("_experiments", "crude_oil", str(args.year))
 
-
-def first_monday(year):
-    """Get the first Monday of a year."""
-    dt = datetime(year, 1, 1)
-    while dt.weekday() != 0:
-        dt += timedelta(days=1)
-    return dt
-
-
 # Load and process data.
 data = load()
-lower = first_monday(args.year)
-upper = first_monday(args.year + 1)
+lower = datetime(args.year, 1, 1)
+upper = datetime(args.year + 1, 1, 1)
 data = data[(lower <= data.index) & (data.index < upper)]
 t = np.array([(ti - lower).days for ti in data.index], dtype=float)
 y = np.array(data.open)
@@ -53,8 +44,8 @@ test_inds = np.empty(t.shape, dtype=bool)
 test_inds.fill(False)
 for lower, upper in [
     (
-        first_monday(args.year) + i * timedelta(weeks=1),
-        first_monday(args.year) + (i + 1) * timedelta(weeks=1),
+        datetime(args.year, 1, 1) + i * timedelta(weeks=1),
+        datetime(args.year, 1, 1) + (i + 1) * timedelta(weeks=1),
     )
     for i in range(26, 53)
     if i % 2 == 1
@@ -93,7 +84,7 @@ models = [
 ]
 if args.train:
     for model in models:
-        # The noises for year 2014 become very low, so we train with a lower
+        # The year 2014 is numerically iffy, so we train with a lower
         # learning rate to prevent the loss from NaNing out.
         if args.year == 2014:
             model.fit(t_train, y_train, rate=2e-2, iters=20_000)
