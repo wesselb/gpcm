@@ -55,7 +55,7 @@ if args.train:
         n_z=n_z,
         t=t,
     )
-    model.fit(t, y, iters=20_000)
+    model.fit(t, y, iters=30_000)
     k_pred_mf = extract(model.condition(t, y).predict_kernel(t_k))
     psd_pred_mf = extract(model.condition(t, y).predict_psd())
 
@@ -69,7 +69,7 @@ if args.train:
         n_z=n_z,
         t=t,
     )
-    model.fit(t, y, iters=20_000)
+    model.fit(t, y, iters=30_000)
     k_pred_struc = extract(model.condition(t, y).predict_kernel(t_k))
     psd_pred_struc = extract(model.condition(t, y).predict_psd())
 
