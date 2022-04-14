@@ -1,0 +1,2 @@
+[run]
+omit = gpcm/_version.py
