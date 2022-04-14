@@ -6,18 +6,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wbml.metric as metric
 import wbml.out as out
+from gpcm import GPCM, CGPCM, RGPCM
 from probmods.bijection import Normaliser
 from wbml.data.crude_oil import load
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
 
-from gpcm import GPCM, CGPCM, RGPCM
-
 # Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--predict", action="store_true")
-parser.add_argument("--year", type=int, default=2012)
+parser.add_argument("--year", type=int, default=2013)
 args = parser.parse_args()
 
 # Setup experiment.
@@ -143,6 +142,7 @@ for name in ["GPCM", "CGPCM", "RGPCM"]:
 
 
 def plot_psd(name, y_label=True, style="pred", finish=True):
+    """Plot prediction for the PSD."""
     freqs, mean, lower, upper = preds_psd[name]
     freqs -= freqs[0]
 
@@ -167,42 +167,57 @@ def plot_psd(name, y_label=True, style="pred", finish=True):
 
 
 def plot_compare(name1, name2, y_label=True, y_ticks=True, style2=None):
+    """Compare prediction for the function for two models."""
     _, mean1, var1 = preds_f[name1]
     _, mean2, var2 = preds_f[name2]
 
-    plt.plot(t_pred, mean1, style="pred", label=name1.upper())
+    inds = t_pred >= 150
+    mean1 = mean1[inds]
+    mean2 = mean2[inds]
+    var1 = var1[inds]
+    var2 = var2[inds]
+    t = t_pred[inds]
+
+    plt.plot(t, mean1, style="pred", label=name1.upper())
     plt.fill_between(
-        t_pred,
+        t,
         mean1 - 1.96 * B.sqrt(var1),
         mean1 + 1.96 * B.sqrt(var1),
         style="pred",
     )
-    plt.plot(t_pred, mean1 - 1.96 * B.sqrt(var1), style="pred", lw=0.5)
-    plt.plot(t_pred, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
+    plt.plot(t, mean1 - 1.96 * B.sqrt(var1), style="pred", lw=0.5)
+    plt.plot(t, mean1 + 1.96 * B.sqrt(var1), style="pred", lw=0.5)
 
     if style2 is None:
         style2 = "pred2"
 
-    plt.plot(t_pred, mean2, style=style2, label=name2.upper())
+    plt.plot(t, mean2, style=style2, label=name2.upper())
     plt.fill_between(
-        t_pred,
+        t,
         mean2 - 1.96 * B.sqrt(var2),
         mean2 + 1.96 * B.sqrt(var2),
         style=style2,
     )
-    plt.plot(t_pred, mean2 - 1.96 * B.sqrt(var2), style=style2, lw=0.5)
-    plt.plot(t_pred, mean2 + 1.96 * B.sqrt(var2), style=style2, lw=0.5)
+    plt.plot(t, mean2 - 1.96 * B.sqrt(var2), style=style2, lw=0.5)
+    plt.plot(t, mean2 + 1.96 * B.sqrt(var2), style=style2, lw=0.5)
 
-    plt.scatter(t_train, normaliser.untransform(y_train), style="train", label="Train")
-    plt.scatter(t_test, y_test, style="test", label="Test")
+    inds = t_train >= 150
+    plt.scatter(
+        t_train[inds],
+        normaliser.untransform(y_train[inds]),
+        style="train",
+        label="Train",
+    )
+    inds = t_test >= 150
+    plt.scatter(t_test[inds], y_test[inds], style="test", label="Test")
 
-    plt.xlim(150, 300)
+    plt.xlim(t[0], t[-1])
     plt.xlabel(f"Day of {args.year}")
     if y_label:
         plt.ylabel("Crude Oil (USD)")
     if not y_ticks:
         plt.gca().set_yticklabels([])
-    tweak(legend_loc="upper left")
+    tweak(legend_loc="upper right")
 
 
 plt.figure(figsize=(12, 5))
