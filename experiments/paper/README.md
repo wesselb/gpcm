@@ -20,12 +20,13 @@ On this GPU, the total runtime of running all experiments in sequence should be 
 10 hours.
 Note that the CGPCM also requires significant CPU compute, so the total runtime also
 depends on the CPU.
+Also note that the numbers may be slightly perturbed due to different random seeds.
 
 To reproduce the experiments, clone and install this repository, and checkout to the
 commit at which the experiments were run:
 
 ```bash
-git checkout 2d59a3847750e979fd23277280552ffeb0ca4d0d
+git checkout 2ccd60f06a41261491c0bffbabf7808dd61668a4
 ```
 
 Then run `experiments/paper/reproduce.sh` to run all experiments in sequence at once:
