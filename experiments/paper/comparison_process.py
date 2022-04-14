@@ -26,7 +26,7 @@ def kernel_analysis(data, scheme, model, metric, until=4):
 
 for model, kernel in [("gpcm", "eq"), ("cgpcm", "ceq-1"), ("rgpcm", "matern12")]:
     with out.Section(model.upper()):
-        with out.Section("MLL"):
+        with out.Section("SMLL"):
             out.kv("MF", kernel_analysis(kernel, "mean-field", model, "smll"))
             out.kv("MF", kernel_analysis(kernel, "structured", model, "smll"))
         with out.Section("RMSE"):

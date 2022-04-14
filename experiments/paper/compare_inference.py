@@ -4,38 +4,17 @@ import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out as out
+from gpcm import GPCM
+from gpcm.approx import _fit_mean_field_ca
 from stheno import EQ, GP
 from varz import minimise_l_bfgs_b
 from wbml.experiment import WorkingDirectory
 from wbml.plot import tweak, pdfcrop, tex
 
-from gpcm import GPCM
-from gpcm.approx import _fit_mean_field_ca
-
-out.report_time = True
-
-wd = WorkingDirectory("_experiments", "compare_inference")
-tex()
-
-B.epsilon = 1e-8
-
-# Setup experiment.
-noise = 0.5
-t = B.linspace(0, 20, 500)
-
-# Setup GPCM models.
-window = 2
-scale = 1
-n_u = 40
-n_z = 40
-
-# Sample data.
-kernel = EQ()
-y = B.flatten(GP(kernel)(t, noise).sample())
-gp_logpdf = GP(kernel)(t, noise).logpdf(y)
-
 
 class Tracker:
+    """Track the runtimes."""
+
     def __init__(self):
         self.ref = time.time()
         self.times = []
@@ -65,6 +44,7 @@ class Tracker:
 
 
 def jit(vs, objective):
+    """JIT a function which takes in a Varz variable container."""
     # Run once to ensure that all parameters exist.
     objective(vs)
 
@@ -80,7 +60,29 @@ def jit(vs, objective):
     return objective_wrapped
 
 
-# MF
+# Setup script.
+out.report_time = True
+B.epsilon = 1e-8
+tex()
+wd = WorkingDirectory("_experiments", "compare_inference")
+
+# Setup experiment.
+noise = 0.5
+t = B.linspace(0, 20, 500)
+
+# Setup GPCM models.
+window = 2
+scale = 1
+n_u = 40
+n_z = 40
+
+# Sample data.
+kernel = EQ()
+y = B.flatten(GP(kernel)(t, noise).sample())
+gp_logpdf = GP(kernel)(t, noise).logpdf(y)
+
+
+# Run the original mean-field scheme.
 
 model = GPCM(
     scheme="mean-field",
@@ -121,7 +123,7 @@ minimise_l_bfgs_b(
 )
 
 
-# Collapsed MF
+# Run the mean-field scheme with the collapsed bound.
 
 model = GPCM(
     scheme="mean-field",
@@ -166,7 +168,7 @@ minimise_l_bfgs_b(
 )
 
 
-# CA
+# Run the mean-field CA scheme.
 
 model = GPCM(
     scheme="mean-field",
@@ -202,7 +204,7 @@ def callback(q_u, q_z):
 
 _fit_mean_field_ca(model(), t, y, callback=callback)
 
-# Structured
+# Run the structured scheme.
 
 model = GPCM(
     scheme="structured",
@@ -242,14 +244,15 @@ def callback(q_u, q_z):
 
 _fit_mean_field_ca(model(), t, y, callback=callback)
 
-
-# Plot result
+# Plot the results.
 
 t_mf, elbo_mf = tracker_mf.get_xy(start=2)
 t_cmf, elbo_cmf = tracker_cmf.get_xy(start=2)
 t_ca, elbo_ca = tracker_ca.get_xy(start=0)
 t_s, elbo_s = tracker_s.get_xy(start=0)
 
+# Double check that there isn't a huge delay between the first two times e.g. due to
+# JIT compilation.
 assert t_mf[1] < 1
 assert t_cmf[1] < 1
 assert t_ca[1] < 1
@@ -258,30 +261,20 @@ assert t_s[1] < 1
 plt.figure(figsize=(5, 4))
 plt.axhline(y=gp_logpdf, ls="--", c="black", lw=1, label="GP")
 plt.plot(
-    # These times should line up exactly, but they might not.
+    # These times should line up exactly, but they might not due to natural variability,
+    # in runtimes. Force them to line up exactly by scaling the times.
     t_s / max(t_s) * max(t_ca),
     elbo_s,
     label="Structured",
 )
-plt.plot(
-    t_ca,
-    elbo_ca,
-    label="CA",
-)
-plt.plot(
-    t_cmf,
-    np.maximum.accumulate(elbo_cmf),
-    label="Collapsed MF",
-)
-plt.plot(
-    t_mf,
-    np.maximum.accumulate(elbo_mf),
-    label="MF",
-)
+plt.plot(t_ca, elbo_ca, label="CA")
+plt.plot(t_cmf, np.maximum.accumulate(elbo_cmf), label="Collapsed MF")
+plt.plot(t_mf, np.maximum.accumulate(elbo_mf), label="MF")
 plt.xlabel("Time (s)")
 plt.ylabel("ELBO")
 plt.ylim(-900, -550)
-plt.xlim(0, 30)
+# Round to the nearest five seconds.
+plt.xlim(0, 5 * (max(max(t_mf), max(t_cmf), max(t_s)) // 5 + 1))
 tweak(legend_loc="lower right")
 plt.savefig(wd.file("elbos.pdf"))
 pdfcrop(wd.file("elbos.pdf"))
