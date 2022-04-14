@@ -28,10 +28,10 @@ for model, kernel in [("gpcm", "eq"), ("cgpcm", "ceq-1"), ("rgpcm", "matern12")]
     with out.Section(model.upper()):
         with out.Section("SMLL"):
             out.kv("MF", kernel_analysis(kernel, "mean-field", model, "smll"))
-            out.kv("MF", kernel_analysis(kernel, "structured", model, "smll"))
+            out.kv("S", kernel_analysis(kernel, "structured", model, "smll"))
         with out.Section("RMSE"):
             out.kv("MF", kernel_analysis(kernel, "mean-field", model, "rmse"))
-            out.kv("MF", kernel_analysis(kernel, "structured", model, "rmse"))
+            out.kv("S", kernel_analysis(kernel, "structured", model, "rmse"))
 
 
 def plot_kernel_predictions(model, data_name, legend=True, first=False):
