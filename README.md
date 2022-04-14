@@ -210,17 +210,17 @@ x, mean, var = pred.x, pred.mean, pred.var
 ### Learn a GP With a Known Kernel
 
 ```bash
-PYTHONPATH=. python experiments/eq.py
+python experiments/eq.py
 ```
 
 ```bash
-PYTHONPATH=. python experiments/smk.py
+python experiments/smk.py
 ```
 
 ### Learn the Mauna Loa CO2 Data Set
 
 ```bash
-PYTHONPATH=. python experiments/mauna_loa.py
+python experiments/mauna_loa.py
 ```
 
 ## Reproduce Experiments From the Paper
