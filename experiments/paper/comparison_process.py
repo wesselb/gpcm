@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import wbml.metric as metric
+import wbml.out as out
 from wbml.experiment import WorkingDirectory
+from wbml.metric import smll, rmse
 from wbml.plot import tex, tweak, pdfcrop
 
 # Setup script.
@@ -10,146 +11,31 @@ wd = WorkingDirectory("_experiments", "comparison_process")
 wd_results = WorkingDirectory("_experiments", "comparison", observe=True)
 
 
-def format_num(x):
-    if np.isnan(x):
-        return "nan"
-
-    # Get base and exponent of number.
-    base, exp = "{:.2e}".format(x).split("e")
-
-    # Split off sign.
-    exp_sign, exp = exp[0], exp[1:]
-
-    # Remove leading zeros.
-    while len(exp) > 0 and exp[0] in {"0"}:
-        exp = exp[1:]
-
-    # Simplify in a couple cases
-    if exp_sign == "-" and exp == "2":
-        base = f"{float(base) / 100:.2f}"
-        exp = ""
-    elif exp_sign == "-" and exp == "1":
-        base = f"{float(base) / 10:.2f}"
-        exp = ""
-    elif exp_sign == "+" and exp == "1":
-        base = f"{float(base) * 10:.1f}"
-        exp = ""
-    elif exp_sign == "+" and exp == "2":
-        base = f"{float(base) * 100:.0f}"
-        exp = ""
-    elif exp_sign == "-":
-        # Remove one level of significance for spacing.
-        base = base[:-1]
-
-    # Format minus sign of base.
-    if base[0] == "-":
-        base = "\\text{-}" + base[1:]
+def kernel_analysis(data, scheme, model, metric, until=4):
+    """Analyse the prediction for a kernel."""
+    k = wd_results.load(data, "data.pickle")["k"]
+    t, mean, var = wd_results.load(data, scheme, model, "k_pred.pickle")
+    inds = t <= until
+    if metric == "smll":
+        return smll(mean[inds], var[inds], k[inds])
+    elif metric == "rmse":
+        return rmse(mean[inds], k[inds])
     else:
-        base = "\\hphantom{\\text{-}}" + base
-
-    # Format exponent.
-    if exp_sign == "-" and len(exp) > 0:
-        exp = "\\,\\text{-}" + exp
-    else:
-        exp = "\\,\\hphantom{\\text{-}}" + exp
-    if exp != "\\,\\hphantom{\\text{-}}":
-        exp = f"\\text{{\\textsc{{e}}}}{{{exp}}}"
-    else:
-        exp = ""
-
-    return f"{base}{exp}"
+        raise ValueError(f'Bad metric "{metric}".')
 
 
-def print_estimates(estimates, show_error=False):
-    out = ""
-    for estimate in estimates:
-        if isinstance(estimate, tuple):
-            value, error = estimate
-        else:
-            value = estimate
-            error = 0
-        out += f"& ${format_num(value)} "
-        if error > 0 and show_error:
-            out += f"{{ \\scriptstyle \\,\\pm\\, {format_num(error)} }}$ "
-        else:
-            out = out[:-1] + "$ "
-    return out[2:]
-
-
-def kernel_analysis(data_name, model, mode, until=4):
-    k = wd_results.load(data_name, "data.pickle")["k"]
-    t, mean1, var1 = wd_results.load(data_name, "structured", model, "k_pred.pickle")
-    elbo1 = wd_results.load(data_name, "structured", model, "elbo.pickle")
-    t, mean2, var2 = wd_results.load(data_name, "mean-field", model, "k_pred.pickle")
-    elbo2 = wd_results.load(data_name, "mean-field", model, "elbo.pickle")
-    if mode == "mean-field-elbo":
-        return elbo2
-    elif mode == "structured-elbo":
-        return elbo1
-    elif mode == "mean-field-mll":
-        return metric.smll(mean2[t <= until], var2[t <= until], k[t <= until])
-    elif mode == "mean-field-rmse":
-        return metric.rmse(mean2[t <= until], k[t <= until])
-    elif mode == "structured-mll":
-        return metric.smll(mean1[t <= until], var1[t <= until], k[t <= until])
-    elif mode == "structured-rmse":
-        return metric.rmse(mean1[t <= until], k[t <= until])
-    else:
-        raise ValueError(f'Bad mode "{mode}".')
-
-
-def gp_logpdf(data_name):
-    return wd_results.load(data_name, "data.pickle")["true_logpdf"]
-
-
-out = "\\toprule \n"
-out += (
-    "\\textsc{Model} "
-    " & \\textsc{Data} "
-    "& \\multicolumn{2}{c}{\\textsc{MLL}} "
-    "& \\multicolumn{2}{c}{\\textsc{RMSE}} "
-    "\\\\ \n"
-    " & "
-    " & \\textsc{MF} & \\textsc{S}"
-    " & \\textsc{MF} & \\textsc{S}"
-    "\\\\ "
-    "\\midrule \n"
-)
-out += "\\textsc{GPCM}"
-out += " & \\textsc{EQ} & "
-estimates = [
-    kernel_analysis("eq", "gpcm", mode="mean-field-mll"),
-    kernel_analysis("eq", "gpcm", mode="structured-mll"),
-    kernel_analysis("eq", "gpcm", mode="mean-field-rmse"),
-    kernel_analysis("eq", "gpcm", mode="structured-rmse"),
-]
-out += print_estimates(estimates) + "\\\\ \n"
-
-out += "\\textsc{CGPCM}"
-out += " & \\textsc{CEQ} & "
-estimates = [
-    kernel_analysis("ceq-1", "cgpcm", mode="mean-field-mll"),
-    kernel_analysis("ceq-1", "cgpcm", mode="structured-mll"),
-    kernel_analysis("ceq-1", "cgpcm", mode="mean-field-rmse"),
-    kernel_analysis("ceq-1", "cgpcm", mode="structured-rmse"),
-]
-out += print_estimates(estimates) + "\\\\ \n"
-
-out += "\\textsc{RGPCM}"
-out += " & \\textsc{Matern–$\\frac{1}{2}$} & "
-estimates = [
-    kernel_analysis("matern12", "rgpcm", mode="mean-field-mll"),
-    kernel_analysis("matern12", "rgpcm", mode="structured-mll"),
-    kernel_analysis("matern12", "rgpcm", mode="mean-field-rmse"),
-    kernel_analysis("matern12", "rgpcm", mode="structured-rmse"),
-]
-out += print_estimates(estimates) + "\\\\ \n"
-
-out += "\\bottomrule \n"
-print(out)
+for model, kernel in [("gpcm", "eq"), ("cgpcm", "ceq-1"), ("rgpcm", "matern12")]:
+    with out.Section(model.upper()):
+        with out.Section("MLL"):
+            out.kv("MF", kernel_analysis(kernel, "mean-field", model, "smll"))
+            out.kv("MF", kernel_analysis(kernel, "structured", model, "smll"))
+        with out.Section("RMSE"):
+            out.kv("MF", kernel_analysis(kernel, "mean-field", model, "rmse"))
+            out.kv("MF", kernel_analysis(kernel, "structured", model, "rmse"))
 
 
 def plot_kernel_predictions(model, data_name, legend=True, first=False):
+    """Plot the prediction for a kernel."""
     k = wd_results.load(data_name, "data.pickle")["k"]
     t, mean1, var1 = wd_results.load(data_name, "structured", model, "k_pred.pickle")
     t, mean2, var2 = wd_results.load(data_name, "mean-field", model, "k_pred.pickle")
