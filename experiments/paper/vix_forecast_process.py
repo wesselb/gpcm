@@ -56,9 +56,9 @@ def compare(model1, model2):
                 out.kv("p-value", st.norm.cdf(-abs(mean) / std))
 
 
-compute_metrics("rgpcm")
-compute_metrics("cgpcm")
 compute_metrics("gpcm")
+compute_metrics("cgpcm")
+compute_metrics("rgpcm")
 compare("rgpcm", "gpcm")
 compare("rgpcm", "cgpcm")
 compare("cgpcm", "gpcm")
