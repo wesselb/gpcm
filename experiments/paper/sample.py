@@ -4,20 +4,21 @@ import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out
-import wbml.plot
 from wbml.experiment import WorkingDirectory
+from wbml.plot import tex, tweak, pdfcrop
 
 from gpcm import GPCM, CGPCM, RGPCM
 from gpcm.util import estimate_psd, closest_psd
 
-wd = WorkingDirectory("_experiments", "sample", seed=17)
-wbml.plot.tex()
-
-B.epsilon = 1e-10
-
+# Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 args = parser.parse_args()
+
+# Setup script.
+B.epsilon = 1e-10
+tex()
+wd = WorkingDirectory("_experiments", "sample", seed=17)
 
 
 def sample(model, t, noise_f):
@@ -84,7 +85,7 @@ for i, (model, ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     if i == 2:
         plt.xlabel("Time (s)")
     plt.xlim(0, 8)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
     plt.subplot(3, 4, 3 + 4 * i)
     plt.plot(t, np.stack(ks).T, lw=1)
@@ -93,7 +94,7 @@ for i, (model, ks, fs) in enumerate(zip(models, model_ks, model_fs)):
     if i == 2:
         plt.xlabel("Lag (s)")
     plt.xlim(0, 6)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
     # Estimate PSD.
     freqs, psds = zip(*[estimate_psd(t, k, db=True) for k in ks])
@@ -109,9 +110,9 @@ for i, (model, ks, fs) in enumerate(zip(models, model_ks, model_fs)):
         plt.xlabel("Frequency (Hz)")
     plt.xlim(0, 2)
     plt.ylim(-40, 10)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
 plt.tight_layout()
 plt.savefig(wd.file("sample.pdf"))
-wbml.plot.pdfcrop(wd.file("sample.pdf"))
+pdfcrop(wd.file("sample.pdf"))
 plt.show()

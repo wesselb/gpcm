@@ -4,21 +4,22 @@ import lab as B
 import matplotlib.pyplot as plt
 import numpy as np
 import wbml.out
-import wbml.plot
 from stheno import GP
 from wbml.experiment import WorkingDirectory
+from wbml.plot import tex, tweak, pdfcrop
 
 from gpcm import CGPCM
 from gpcm.util import closest_psd
 
-wd = WorkingDirectory("_experiments", "sample_interpolate", seed=14)
-wbml.plot.tex()
-
-B.epsilon = 1e-10
-
+# Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 args = parser.parse_args()
+
+# Setup script.
+B.epsilon = 1e-10
+tex()
+wd = WorkingDirectory("_experiments", "sample_interpolate", seed=14)
 
 
 def sample(model, t, noise_f):
@@ -109,7 +110,7 @@ for i, (k, u, f) in enumerate(zip(ks, us, fs)):
         plt.ylabel("$h$")
     plt.xlim(-6, 6)
     plt.ylim(-0.5, 1)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
     plt.subplot(3, 5, 6 + i)
     plt.plot(
@@ -124,7 +125,7 @@ for i, (k, u, f) in enumerate(zip(ks, us, fs)):
         plt.ylabel("$k_{f\,|\,h}$")
     plt.xlim(-6, 6)
     plt.ylim(-0.35, 1.2)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
     plt.subplot(3, 5, 11 + i)
     plt.plot(t, f, lw=1)
@@ -134,9 +135,9 @@ for i, (k, u, f) in enumerate(zip(ks, us, fs)):
     if i == 0:
         plt.ylabel("$f$")
     plt.xlim(0, 8)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
 plt.tight_layout()
 plt.savefig(wd.file("interpolation.pdf"))
-wbml.plot.pdfcrop(wd.file("interpolation.pdf"))
+pdfcrop(wd.file("interpolation.pdf"))
 plt.show()
