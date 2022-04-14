@@ -145,6 +145,7 @@ K, y = model.sample(t)
 ### Fit the Model to Data
 
 It is recommended that you normalise the data before fitting.
+It is also recommended that you do not fit the more to more than 1000 data points.
 
 ```python
 model.fit(t, y)
@@ -172,6 +173,7 @@ The rule of thumb which you can use here is as follows:
 ### Compute the ELBO
 
 It is recommended that you normalise the data before computing the ELBO.
+It is also recommended that you do not compute the ELBO for more than 1000 data points.
 
 ```python
 elbo = model.elbo(t, y)
@@ -181,6 +183,7 @@ elbo = model.elbo(t, y)
 
 It is recommended that you normalise the data before conditioning and unnormalise
 the predictions.
+It is also recommended that you do not condition on more than 1000 data points.
 
 ```python
 posterior_model = model.condition(t, y)
