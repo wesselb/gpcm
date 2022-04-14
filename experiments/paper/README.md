@@ -25,7 +25,7 @@ To reproduce the experiments, clone and install this repository, and checkout to
 commit at which the experiments were run:
 
 ```bash
-git checkout <COMMIT>
+git checkout 2d59a3847750e979fd23277280552ffeb0ca4d0d
 ```
 
 Then run `experiments/paper/reproduce.sh` to run all experiments in sequence at once:
