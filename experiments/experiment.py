@@ -13,15 +13,16 @@ from stheno.jax import GP
 from varz import Vars, minimise_l_bfgs_b, sequential
 from wbml.experiment import WorkingDirectory
 
-from .gpcm import CGPCM, GPCM
-from .rgpcm import RGPCM
-from .util import autocorr, estimate_psd
-
-warnings.simplefilter(category=ToDenseWarning, action="ignore")
-B.epsilon = 1e-10
-wbml.out.report_time = True
+from gpcm.gpcm import CGPCM, GPCM
+from gpcm.rgpcm import RGPCM
+from gpcm.util import autocorr, estimate_psd
 
 __all__ = ["setup", "run", "build_models", "train_models", "analyse_models"]
+
+# Setup script.
+wbml.out.report_time = True
+B.epsilon = 1e-10
+warnings.simplefilter(category=ToDenseWarning, action="ignore")
 
 
 def setup(name):

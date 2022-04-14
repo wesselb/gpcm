@@ -1,6 +1,6 @@
 import lab as B
 import numpy as np
-from gpcm.experiment import run, setup
+from experiments.experiment import run, setup
 from wbml.data.mauna_loa import load
 
 args, wd = setup("mauna_loa")

@@ -1,7 +1,7 @@
 import lab as B
 from stheno import EQ, GP, Delta, Measure
 
-from gpcm.experiment import run, setup
+from experiments.experiment import run, setup
 
 args, wd = setup("smk")
 

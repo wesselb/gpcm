@@ -5,9 +5,9 @@ which differences you can expect w.r.t. the precise numbers reported in the pape
 
 ```
 @inproceedings{Bruinsma:2022:Modelling_Non-Smooth_Signals_With_Complex,
-    author = {Wessel P. Bruinsma and Martin Tegn{\' e}r and Richard E. Turner},
-    year = {2022},
     title = {Modelling Non-Smooth Signals With Complex Spectral Structure},
+    year = {2022},
+    author = {Wessel P. Bruinsma and Martin Tegn{\' e}r and Richard E. Turner},
     booktitle = {Proceedings of the 25th International Conference on Artificial Intelligence and Statistics},
     series = {Proceedings of Machine Learning Research},
     publisher = {PMLR},
