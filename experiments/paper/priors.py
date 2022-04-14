@@ -66,7 +66,7 @@ for i, (model, (x, ks)) in enumerate(zip(models, model_ks)):
     plt.xlabel("Time (s)")
     plt.xlim(-1.5, 1.5)
     plt.ylim(-0.5, 1.25)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
 for i, (model, (freqs, psds)) in enumerate(zip(models, model_psds)):
     plt.subplot(1, 6, 4 + i)
