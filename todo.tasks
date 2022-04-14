@@ -9,6 +9,9 @@ Features:
 
 ＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
 Archive:
+ ✓ Split everything up in `run.py` and `process.py` @done (22-04-14 13:48) @project(Refactor experiments)
+ ✓ Make `reproduce.sh` which runs all @done (22-04-14 13:48) @project(Refactor experiments)
+ ✓ Add vix and kemar data to WBML @done (22-04-14 13:48) @project(Refactor experiments)
  x Simple estimates of ESS @cancelled (20-02-04 15:09) @project(TODO / MCMC diagnostic plots)
  x Plot traces of dimensions @cancelled (20-02-04 15:09) @project(TODO / MCMC diagnostic plots)
  x Improve mixing of MCMC by incorporating more into the prior in ESS @cancelled (20-02-04 15:09) @project(TODO)
