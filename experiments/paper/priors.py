@@ -2,20 +2,20 @@ import argparse
 
 import lab as B
 import matplotlib.pyplot as plt
-import wbml.plot
 from wbml.experiment import WorkingDirectory
+from wbml.plot import tex, tweak, pdfcrop
 
 from gpcm import GPCM, CGPCM, RGPCM
 
-wd = WorkingDirectory("_experiments", "priors", seed=0)
-wbml.plot.tex()
-
-B.epsilon = 1e-10
-
+# Parse arguments.
 parser = argparse.ArgumentParser()
 parser.add_argument("--train", action="store_true")
 args = parser.parse_args()
 
+# Setup script.
+B.epsilon = 1e-10
+tex()
+wd = WorkingDirectory("_experiments", "priors", seed=0)
 
 # Construct models.
 models = [
@@ -93,9 +93,9 @@ for i, (model, (freqs, psds)) in enumerate(zip(models, model_psds)):
     plt.xlabel("Frequency (Hz)")
     plt.xlim(-3, 3)
     plt.ylim(-30, 5)
-    wbml.plot.tweak(legend=False)
+    tweak(legend=False)
 
 plt.tight_layout()
 plt.savefig(wd.file("priors.pdf"))
-wbml.plot.pdfcrop(wd.file("priors.pdf"))
+pdfcrop(wd.file("priors.pdf"))
 plt.show()
