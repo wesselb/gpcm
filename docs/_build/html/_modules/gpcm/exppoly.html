@@ -1,0 +1,941 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.exppoly &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../readme.html">GPCM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Application Programming Interface</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>gpcm.exppoly</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for gpcm.exppoly</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">operator</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">reduce</span>
+<span class="kn">import</span> <span class="nn">lab</span> <span class="k">as</span> <span class="nn">B</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">plum</span> <span class="kn">import</span> <span class="n">Dispatcher</span><span class="p">,</span> <span class="n">PromisedType</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;var&quot;</span><span class="p">,</span> <span class="s2">&quot;const&quot;</span><span class="p">,</span> <span class="s2">&quot;ExpPoly&quot;</span><span class="p">]</span>
+
+<span class="n">_dispatch</span> <span class="o">=</span> <span class="n">Dispatcher</span><span class="p">()</span>
+
+
+<span class="k">def</span> <span class="nf">safe_sqrt</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Perform a square root that is safe to use in AD.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (tensor): Tensor to take square root of.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tensor: Square root of `x`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">cast</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="mf">1e-30</span><span class="p">)))</span>
+
+
+<span class="k">def</span> <span class="nf">is_inf</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Check whether `x` is infinite.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (object): Object to check.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: `True` if `x` is infinite and `False` otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">Number</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="const"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.const">[docs]</a><span class="k">def</span> <span class="nf">const</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Constant polynomial.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (tensor): Constant.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :class:`.exppoly.Poly`: Resulting polynomial.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="n">Term</span><span class="p">(</span><span class="n">x</span><span class="p">))</span></div>
+
+
+<div class="viewcode-block" id="var"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.var">[docs]</a><span class="k">def</span> <span class="nf">var</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">power</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Polynomial consisting of just a single variable.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (tensor): Constant.</span>
+<span class="sd">        power (int, optional): Power. Defaults to one.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :class:`.exppoly.Poly`: Resulting polynomial.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="n">Term</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">Factor</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">power</span><span class="p">)))</span></div>
+
+
+<span class="n">PromisedPoly</span> <span class="o">=</span> <span class="n">PromisedType</span><span class="p">()</span>
+
+
+<span class="k">class</span> <span class="nc">Factor</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Variable raised to some power.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        name (str): Variable name.</span>
+<span class="sd">        power (int, optional): Power. Defaults to one.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="n">Factor</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">power</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">power</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Power for variable &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; is </span><span class="si">{</span><span class="n">power</span><span class="si">}</span><span class="s1">, but must be at least 1.&#39;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">power</span>
+
+    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate factor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Evaluated factor.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">var_map</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">power</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">^</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">power</span><span class="si">}</span><span class="s2">&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Factor&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">power</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">power</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Factor&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Factor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">power</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">power</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only multiply factors of the same variable.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only multiply factors by one identically.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="fm">__mul__</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">power</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_merge_common_factors</span><span class="p">(</span><span class="o">*</span><span class="n">factors</span><span class="p">):</span>
+    <span class="n">merged_factors</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">factors</span><span class="p">):</span>
+        <span class="n">associated_factors</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">,</span> <span class="n">factors</span><span class="p">)</span>
+        <span class="n">merged_factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">associated_factors</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">merged_factors</span>
+
+
+<span class="k">class</span> <span class="nc">Term</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Product of a constant and multiple :class:`.exppoly.Factor` objects.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        const (tensor): Constant.</span>
+<span class="sd">        *factors (:class:`.exppoly.Factor`): Factors.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">factors</span><span class="p">:</span> <span class="n">Factor</span><span class="p">):</span>
+        <span class="n">Term</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">factors</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">const</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="o">*</span><span class="n">factors</span><span class="p">:</span> <span class="n">Factor</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">=</span> <span class="n">const</span>
+
+        <span class="c1"># Discard factors if constant is equal to zero.</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">const</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">Number</span><span class="p">)</span> <span class="ow">and</span> <span class="n">const</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">factors</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="c1"># Merge common factors. Store this as a set so that equality works as</span>
+        <span class="c1"># expected.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">factors</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">_merge_common_factors</span><span class="p">(</span><span class="o">*</span><span class="n">factors</span><span class="p">))</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">is_function_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check if this term is a function of some variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Variable name.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: `True` if this term is a function of `var` and `False` otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">])</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">collect_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">:</span> <span class="n">Factor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new term consisting of the same constant and all factors</span>
+<span class="sd">        except one.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            factor (:class:`.exppoly.Factor`): Factor to exclude.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.Term`: Result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">factor</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Factor </span><span class="si">{</span><span class="n">factor</span><span class="si">}</span><span class="s2"> must be contained in term&quot;</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Term</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span> <span class="o">-</span> <span class="p">{</span><span class="n">factor</span><span class="p">}))</span>
+
+    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate term.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Evaluated term.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span>
+            <span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">const</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">is_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check whether this term is constant.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: `True` if the term is constant and `False` otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">highest_power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the highest power of a variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Highest power of variable `name`. Returns `0` if it does not depend</span>
+<span class="sd">                on `name`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">highest_power</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">factor</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">highest_power</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">highest_power</span><span class="p">,</span> <span class="n">factor</span><span class="o">.</span><span class="n">power</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">highest_power</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">substitute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">PromisedPoly</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Substitute a polynomial for a variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of variable.</span>
+<span class="sd">            poly (:class:`.exppoly.Poly`): Polynomial to substitute for variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.Poly`: Result of substitution.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">factors</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">power</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">factor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">:</span>
+            <span class="c1"># Retain factor if its variable is different, otherwise save its power to</span>
+            <span class="c1"># afterwards raise the polynomial to. This check is safe because there</span>
+            <span class="c1"># are not factors with the same name.</span>
+            <span class="k">if</span> <span class="n">factor</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+                <span class="n">power</span> <span class="o">=</span> <span class="n">factor</span><span class="o">.</span><span class="n">power</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">factors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="n">Term</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="o">*</span><span class="n">factors</span><span class="p">))</span> <span class="o">*</span> <span class="n">poly</span><span class="o">**</span><span class="n">power</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">)))</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="si">}</span><span class="s2"> * </span><span class="si">{</span><span class="n">names</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Term&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">const</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">factors</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Term&quot;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">factors</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">factors</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">Term</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only add terms of the same factors.&quot;</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only add to terms zero identically.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="n">other</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Term&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Term</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">*</span> <span class="n">other</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">factors</span><span class="p">))</span>
+        <span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only multiply terms with one identically.&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Term</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">hash</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">)</span> <span class="o">+</span> <span class="nb">hash</span><span class="p">(</span><span class="nb">frozenset</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">factors</span><span class="p">))</span>
+
+
+<span class="k">def</span> <span class="nf">_merge_common_terms</span><span class="p">(</span><span class="o">*</span><span class="n">terms</span><span class="p">):</span>
+    <span class="n">merged_terms</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">factors</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="nb">frozenset</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">factors</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">terms</span><span class="p">):</span>
+        <span class="n">associated_terms</span> <span class="o">=</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">factors</span> <span class="o">==</span> <span class="n">factors</span><span class="p">,</span> <span class="n">terms</span><span class="p">)</span>
+        <span class="n">merged_terms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">add</span><span class="p">,</span> <span class="n">associated_terms</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">merged_terms</span>
+
+
+<span class="k">class</span> <span class="nc">Poly</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Sum of several :class:`.exppoly.Term` objects.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        *terms (:class:`.exppoly.Term`): Terms.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">terms</span><span class="p">:</span> <span class="n">Term</span><span class="p">):</span>
+        <span class="c1"># Merge common terms. Do _not_ store this as a set, even though we would like</span>
+        <span class="c1"># to, because in certain AD frameworks the hash of the constant of a term</span>
+        <span class="c1"># cannot be computed.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">terms</span> <span class="o">=</span> <span class="n">_merge_common_terms</span><span class="p">(</span><span class="o">*</span><span class="n">terms</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">is_function_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check if this polynomial is a function of some variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Variable name.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: `True` if this term is a function of `var` and `False` otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">any</span><span class="p">([</span><span class="n">term</span><span class="o">.</span><span class="n">is_function_of</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">])</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">collect_for</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factor</span><span class="p">:</span> <span class="n">Factor</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new polynomial consisting of terms whose factors contain `factor`</span>
+<span class="sd">        and subsequently collect `factor`, which means that it is excluded in those</span>
+<span class="sd">        terms.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            factor (:class:`.exppoly.Factor`): Factor to collect for.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.Poly`: Result of collection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">factor</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span> <span class="k">if</span> <span class="n">factor</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">factors</span><span class="p">])</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">reject</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Create a new polynomial excluding terms whose factors contain a variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Variable name.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.Poly`: Result of rejection.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">x</span><span class="o">.</span><span class="n">is_function_of</span><span class="p">(</span><span class="n">name</span><span class="p">)])</span>
+
+    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate polynomial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Evaluated polynomial.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">term</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="nf">is_constant</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Check whether this polynomial is constant.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: `True` if the polynomial is constant and `False` otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">all</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">is_constant</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">])</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">highest_power</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Find the highest power of a variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            int: Highest power of variable `name`. Returns `0` if it does not depend</span>
+<span class="sd">                on `name`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">max</span><span class="p">([</span><span class="n">term</span><span class="o">.</span><span class="n">highest_power</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">])</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">substitute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="s2">&quot;Poly&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Substitute a polynomial for a variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of variable.</span>
+<span class="sd">            poly (:class:`.exppoly.Poly`): Polynomial to substitute for variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.Poly`: Result of substitution.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">term</span><span class="o">.</span><span class="n">substitute</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">poly</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;0&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot; + &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="nb">str</span><span class="p">(</span><span class="n">term</span><span class="p">)</span> <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Poly&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">)</span> <span class="o">==</span> <span class="nb">set</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">terms</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Poly&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">)</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">terms</span><span class="p">)))</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__add__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="n">const</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="o">-</span><span class="n">term</span> <span class="k">for</span> <span class="n">term</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span><span class="p">])</span>
+
+    <span class="k">def</span> <span class="fm">__sub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">(</span><span class="o">-</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rsub__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="p">)</span> <span class="o">+</span> <span class="n">other</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;Poly&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">Poly</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">x</span> <span class="o">*</span> <span class="n">y</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">terms</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">other</span><span class="o">.</span><span class="n">terms</span><span class="p">])</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">other</span> <span class="ow">is</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="n">const</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="n">other</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__pow__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">power</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">modulo</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">assert</span> <span class="n">modulo</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="s1">&#39;Keyword &quot;modulo&quot; is not supported.&#39;</span>
+        <span class="k">if</span> <span class="n">power</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Can only raise polynomials to non-negative integers.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="p">]</span> <span class="o">*</span> <span class="n">power</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+
+<span class="nd">@_dispatch</span>
+<span class="k">def</span> <span class="nf">_as_poly</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Poly</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">x</span>
+
+
+<span class="nd">@_dispatch</span>
+<span class="k">def</span> <span class="nf">_as_poly</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">const</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="ExpPoly"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly">[docs]</a><span class="k">class</span> <span class="nc">ExpPoly</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;A constant multiplied by an exponentiated polynomial.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        const (tensor, optional): Constant.</span>
+<span class="sd">        poly (:class:`.exppoly.Poly`): Polynomial.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">Poly</span><span class="p">):</span>
+        <span class="n">ExpPoly</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">poly</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">const</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">Poly</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">=</span> <span class="n">const</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">poly</span> <span class="o">=</span> <span class="n">poly</span>
+
+<div class="viewcode-block" id="ExpPoly.substitute"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly.substitute">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">substitute</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">Poly</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Substitute a polynomial for a variable.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of variable.</span>
+<span class="sd">            poly (:class:`.exppoly.Poly`): Polynomial to substitute for variable.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.ExpPoly`: Result of substitution.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ExpPoly</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">substitute</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">poly</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ExpPoly.eval"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly.eval">[docs]</a>    <span class="k">def</span> <span class="nf">eval</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Evaluate the exponentiated polynomial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Evaluated exponentiated polynomial.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="ExpPoly.integrate"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly.integrate">[docs]</a>    <span class="k">def</span> <span class="nf">integrate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">names</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Integrate over a subset of the variables from :math:`-\\infty` to</span>
+<span class="sd">        :math:`\\infty` and evaluate the result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *names (str): Variable names.</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">eq</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+            <span class="n">eq</span> <span class="o">=</span> <span class="n">eq</span><span class="o">.</span><span class="n">_integrate</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eq</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="ExpPoly.integrate_half"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly.integrate_half">[docs]</a>    <span class="k">def</span> <span class="nf">integrate_half</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">names</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Integrate over a subset of the variables from :math:`-\\infty` to</span>
+<span class="sd">        :math:`0` and evaluate the result.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *names (str): Variable names.</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrate_half1</span><span class="p">(</span><span class="n">names</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_integrate_half2</span><span class="p">(</span><span class="o">*</span><span class="n">names</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
+                <span class="s2">&quot;Cannot integrate from -inf to 0 over more than two variables.&quot;</span>
+            <span class="p">)</span></div>
+
+<div class="viewcode-block" id="ExpPoly.integrate_box"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly.integrate_box">[docs]</a>    <span class="k">def</span> <span class="nf">integrate_box</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">name_and_lims</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Integrate over a subset of the variables from some lower limit to some</span>
+<span class="sd">        upper limit and evaluate the result. Infinity can be specified using</span>
+<span class="sd">        `np.inf`. Any infinite lower limit corresponds to negative infinity, and any</span>
+<span class="sd">        infinite upper limit corresponds to positive infinity.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            *name_and_lims (tuple): Three-tuples containing the variable names,</span>
+<span class="sd">                lower limits, and upper limits.</span>
+<span class="sd">            **var_map (tensor): Variable mapping.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Result.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Filter doubly infinite limits.</span>
+        <span class="n">filtered_vars_and_lims</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">ep</span> <span class="o">=</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="ow">in</span> <span class="n">name_and_lims</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">is_inf</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span> <span class="ow">and</span> <span class="n">is_inf</span><span class="p">(</span><span class="n">upper</span><span class="p">):</span>
+                <span class="n">ep</span> <span class="o">=</span> <span class="n">ep</span><span class="o">.</span><span class="n">_integrate</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">filtered_vars_and_lims</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+        <span class="n">name_and_lims</span> <span class="o">=</span> <span class="n">filtered_vars_and_lims</span>
+
+        <span class="c1"># Return if all integration is done.</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">name_and_lims</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">ep</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+
+        <span class="c1"># Integrate over box by breaking up the integrals.</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">ep</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">lower</span><span class="p">,</span> <span class="n">upper</span> <span class="ow">in</span> <span class="n">name_and_lims</span><span class="p">:</span>
+            <span class="n">parts_new</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">is_inf</span><span class="p">(</span><span class="n">upper</span><span class="p">):</span>
+                    <span class="n">upper</span> <span class="o">=</span> <span class="n">_as_poly</span><span class="p">(</span><span class="n">upper</span><span class="p">)</span>  <span class="c1"># Ensure that it is a polynomial.</span>
+                    <span class="n">parts_new</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part</span><span class="o">.</span><span class="n">translate_var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">upper</span><span class="p">))</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">is_inf</span><span class="p">(</span><span class="n">lower</span><span class="p">):</span>
+                    <span class="n">lower</span> <span class="o">=</span> <span class="n">_as_poly</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span>  <span class="c1"># Ensure that it is a polynomial.</span>
+                    <span class="n">parts_new</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="o">-</span><span class="n">part</span><span class="o">.</span><span class="n">translate_var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">lower</span><span class="p">))</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">parts_new</span>
+
+        <span class="c1"># Perform integration.</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">name_and_lims</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">result</span> <span class="o">+</span> <span class="n">part</span><span class="o">.</span><span class="n">integrate_half</span><span class="p">(</span><span class="o">*</span><span class="n">names</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="ExpPoly.translate_var"><a class="viewcode-back" href="../../source/gpcm.exppoly.html#gpcm.exppoly.ExpPoly.translate_var">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">translate_var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">Poly</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Translate a variable by some polynomial; that is, substitute a variable</span>
+<span class="sd">        for itself plus some polynomial.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            name (str): Name of variable.</span>
+<span class="sd">            poly (:class:`.exppoly.Poly`): Polynomial to shift by.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`.exppoly.ExpPoly`: Resulting exponentiated polynomial.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">ExpPoly</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">substitute</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">var</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">+</span> <span class="n">poly</span><span class="p">))</span></div>
+
+    <span class="k">def</span> <span class="nf">_integrate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">highest_power</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Dependency on &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; must be quadratic.&#39;</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">reject</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">a</span><span class="o">.</span><span class="n">is_constant</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Quadratic coefficient for &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; must be constant.&#39;</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">ExpPoly</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">*</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="o">-</span><span class="n">B</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">a</span><span class="p">),</span> <span class="n">Poly</span><span class="p">(</span><span class="n">Term</span><span class="p">(</span><span class="o">-</span><span class="mf">0.25</span> <span class="o">/</span> <span class="n">a</span><span class="p">))</span> <span class="o">*</span> <span class="n">b</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">c</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_integrate_half1</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">highest_power</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Dependency on &quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot; must be quadratic.&#39;</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">reject</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">b</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="mf">0.5</span>
+            <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">const</span>
+            <span class="o">*</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="o">-</span><span class="n">B</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="mf">0.25</span> <span class="o">*</span> <span class="n">b</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">a</span> <span class="o">+</span> <span class="n">c</span><span class="p">)</span>
+            <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">erf</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">b</span> <span class="o">/</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="o">-</span><span class="n">a</span><span class="p">)))</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_integrate_half2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name1</span><span class="p">,</span> <span class="n">name2</span><span class="p">,</span> <span class="o">**</span><span class="n">var_map</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">highest_power</span><span class="p">(</span><span class="n">name1</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">highest_power</span><span class="p">(</span><span class="n">name2</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Dependency on &quot;</span><span class="si">{</span><span class="n">name1</span><span class="si">}</span><span class="s1">&quot; and </span><span class="si">{</span><span class="n">name2</span><span class="si">}</span><span class="s1">&quot; must &#39;</span> <span class="sa">f</span><span class="s2">&quot;be quadratic.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="n">a11</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">a22</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="n">a12</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="n">b1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reject</span><span class="p">(</span><span class="n">name2</span><span class="p">)</span>
+        <span class="n">b2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">collect_for</span><span class="p">(</span><span class="n">Factor</span><span class="p">(</span><span class="n">name2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">reject</span><span class="p">(</span><span class="n">name1</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="o">.</span><span class="n">reject</span><span class="p">(</span><span class="n">name1</span><span class="p">)</span><span class="o">.</span><span class="n">reject</span><span class="p">(</span><span class="n">name2</span><span class="p">)</span>
+
+        <span class="c1"># Evaluate and scale A.</span>
+        <span class="n">a11</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">a11</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">a22</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">a22</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">a12</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">a12</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">b1</span> <span class="o">=</span> <span class="n">b1</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">b2</span> <span class="o">=</span> <span class="n">b2</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="n">eval</span><span class="p">(</span><span class="o">**</span><span class="n">var_map</span><span class="p">)</span>
+
+        <span class="c1"># Determinant of A:</span>
+        <span class="n">a_det</span> <span class="o">=</span> <span class="n">a11</span> <span class="o">*</span> <span class="n">a22</span> <span class="o">-</span> <span class="n">a12</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="c1"># Inverse of A, which corresponds to variance of distribution after</span>
+        <span class="c1"># completing the square:</span>
+        <span class="n">ia11</span> <span class="o">=</span> <span class="n">a22</span> <span class="o">/</span> <span class="n">a_det</span>
+        <span class="n">ia12</span> <span class="o">=</span> <span class="o">-</span><span class="n">a12</span> <span class="o">/</span> <span class="n">a_det</span>
+        <span class="n">ia22</span> <span class="o">=</span> <span class="n">a11</span> <span class="o">/</span> <span class="n">a_det</span>
+
+        <span class="c1"># Mean of distribution after completing the square:</span>
+        <span class="n">mu1</span> <span class="o">=</span> <span class="n">ia11</span> <span class="o">*</span> <span class="n">b1</span> <span class="o">+</span> <span class="n">ia12</span> <span class="o">*</span> <span class="n">b2</span>
+        <span class="n">mu2</span> <span class="o">=</span> <span class="n">ia12</span> <span class="o">*</span> <span class="n">b1</span> <span class="o">+</span> <span class="n">ia22</span> <span class="o">*</span> <span class="n">b2</span>
+
+        <span class="c1"># Normalise and compute CDF part.</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="o">-</span><span class="n">mu1</span> <span class="o">/</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="n">ia11</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="o">-</span><span class="n">mu2</span> <span class="o">/</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="n">ia22</span><span class="p">)</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="n">ia12</span> <span class="o">/</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="n">ia11</span> <span class="o">*</span> <span class="n">ia22</span><span class="p">)</span>
+
+        <span class="c1"># Evaluate CDF for all `x1` and `x2`.</span>
+        <span class="n">orig_shape</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">mu1</span><span class="p">)</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">mul</span><span class="p">,</span> <span class="n">orig_shape</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">x1</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">num</span><span class="p">)</span>
+        <span class="n">x2</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">num</span><span class="p">)</span>
+        <span class="n">rho</span> <span class="o">=</span> <span class="n">rho</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">x1</span><span class="p">)</span>
+        <span class="n">cdf_part</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">bvn_cdf</span><span class="p">(</span><span class="n">x1</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">rho</span><span class="p">),</span> <span class="o">*</span><span class="n">orig_shape</span><span class="p">)</span>
+
+        <span class="c1"># Compute exponentiated part.</span>
+        <span class="n">quad_form</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">ia11</span> <span class="o">*</span> <span class="n">b1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">ia22</span> <span class="o">*</span> <span class="n">b2</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">ia12</span> <span class="o">*</span> <span class="n">b1</span> <span class="o">*</span> <span class="n">b2</span><span class="p">)</span>
+        <span class="n">det_part</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">safe_sqrt</span><span class="p">(</span><span class="n">a_det</span><span class="p">)</span>
+        <span class="n">exp_part</span> <span class="o">=</span> <span class="n">det_part</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">quad_form</span> <span class="o">+</span> <span class="n">c</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">*</span> <span class="n">cdf_part</span> <span class="o">*</span> <span class="n">exp_part</span>
+
+    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="si">}</span><span class="s2"> * exp(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ExpPoly&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">const</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">poly</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="s2">&quot;ExpPoly&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ExpPoly</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">*</span> <span class="n">other</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span> <span class="o">+</span> <span class="n">other</span><span class="o">.</span><span class="n">poly</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__mul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ExpPoly</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span> <span class="o">*</span> <span class="n">other</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="fm">__rmul__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span> <span class="o">*</span> <span class="n">other</span>
+
+    <span class="k">def</span> <span class="fm">__neg__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">ExpPoly</span><span class="p">(</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">const</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">poly</span><span class="p">)</span></div>
+
+
+<span class="n">PromisedPoly</span><span class="o">.</span><span class="n">deliver</span><span class="p">(</span><span class="n">Poly</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

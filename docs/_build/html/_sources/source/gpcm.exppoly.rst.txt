@@ -1,0 +1,7 @@
+gpcm.exppoly module
+===================
+
+.. automodule:: gpcm.exppoly
+   :members:
+   :undoc-members:
+   :show-inheritance:

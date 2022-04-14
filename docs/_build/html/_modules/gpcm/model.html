@@ -1,0 +1,485 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.model &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../readme.html">GPCM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Application Programming Interface</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>gpcm.model</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for gpcm.model</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
+<span class="kn">import</span> <span class="nn">lab.jax</span> <span class="k">as</span> <span class="nn">B</span>
+<span class="kn">import</span> <span class="nn">wbml.out</span>
+<span class="kn">from</span> <span class="nn">plum</span> <span class="kn">import</span> <span class="n">Dispatcher</span>
+<span class="kn">from</span> <span class="nn">probmods</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">cast</span><span class="p">,</span> <span class="n">fit</span><span class="p">,</span> <span class="n">instancemethod</span><span class="p">,</span> <span class="n">priormethod</span>
+<span class="kn">from</span> <span class="nn">stheno.jax</span> <span class="kn">import</span> <span class="n">Normal</span>
+<span class="kn">from</span> <span class="nn">varz</span> <span class="kn">import</span> <span class="n">Vars</span>
+<span class="kn">from</span> <span class="nn">stheno</span> <span class="kn">import</span> <span class="n">GP</span>
+
+<span class="kn">from</span> <span class="nn">.approx</span> <span class="kn">import</span> <span class="n">MeanField</span><span class="p">,</span> <span class="n">Structured</span>
+<span class="kn">from</span> <span class="nn">.util</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">closest_psd</span><span class="p">,</span>
+    <span class="n">estimate_psd</span><span class="p">,</span>
+    <span class="n">summarise_samples</span><span class="p">,</span>
+    <span class="n">min_phase</span> <span class="k">as</span> <span class="n">transform_min_phase</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;AbstractGPCM&quot;</span><span class="p">]</span>
+
+<span class="n">_dispatch</span> <span class="o">=</span> <span class="n">Dispatcher</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="AbstractGPCM"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM">[docs]</a><span class="k">class</span> <span class="nc">AbstractGPCM</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;GPCM model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        scheme (str, optional): Approximation scheme. Must be one of `structured`,</span>
+<span class="sd">            `mean-field-ca`, `mean-field-gradient`, `mean-field-collapsed-gradient`,</span>
+<span class="sd">            `mean-field-ca-gradient`, or `mean-field-ca-collapsed-gradient`.</span>
+<span class="sd">            Defaults to `structured`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">scheme</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;structured&quot;</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">vs</span> <span class="o">=</span> <span class="n">Vars</span><span class="p">(</span><span class="n">jnp</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">=</span> <span class="n">scheme</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">__prior__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1"># Construct kernel matrices.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">K_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_K_z</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">K_z_inv</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">pd_inv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_z</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">K_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_K_u</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">K_u_inv</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">pd_inv</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_u</span><span class="p">)</span>
+
+        <span class="c1"># Construct priors.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_u</span> <span class="o">=</span> <span class="n">Normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_u_inv</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">p_z</span> <span class="o">=</span> <span class="n">Normal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_z_inv</span><span class="p">)</span>
+
+        <span class="c1"># Construct approximation scheme.</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;structured&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">Structured</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;mean-field&quot;</span><span class="p">:</span>
+            <span class="c1"># Use the best mean-field scheme.</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">MeanField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="s2">&quot;ca-collapsed-bfgs&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;mean-field-ca&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">MeanField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="s2">&quot;ca&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;mean-field-gradient&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">MeanField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="s2">&quot;bfgs&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;mean-field-collapsed-gradient&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">MeanField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="s2">&quot;collapsed-bfgs&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;mean-field-ca-gradient&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">MeanField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="s2">&quot;ca-bfgs&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">scheme</span> <span class="o">==</span> <span class="s2">&quot;mean-field-ca-collapsed-gradient&quot;</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span> <span class="o">=</span> <span class="n">MeanField</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fit</span><span class="o">=</span><span class="s2">&quot;ca-collapsed-bfgs&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s1">&#39;Invalid value &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">scheme</span><span class="si">}</span><span class="s1">&quot; for the approximation scheme.&#39;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__condition__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">condition</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<div class="viewcode-block" id="AbstractGPCM.elbo"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.elbo">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="nd">@cast</span>
+    <span class="k">def</span> <span class="nf">elbo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.predict"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.predict">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="nd">@cast</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.predict_kernel"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.predict_kernel">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="k">def</span> <span class="nf">predict_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_k</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict kernel and normalise prediction.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_k (vector, optional): Inputs to sample kernel at. Will be automatically</span>
+<span class="sd">                determined if not given.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`collections.namedtuple`: The prediction.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">summarise_samples</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">sample_kernel</span><span class="p">(</span><span class="n">t_k</span><span class="o">=</span><span class="n">t_k</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.sample_kernel"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.sample_kernel">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="k">def</span> <span class="nf">sample_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_k</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict kernel and normalise prediction.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_k (vector, optional): Inputs to sample kernel at. Will be automatically</span>
+<span class="sd">                determined if not given.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[vector, tensor]: Tuple containing the inputs of the samples and the</span>
+<span class="sd">                samples.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t_k</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_k</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extent</span><span class="p">,</span> <span class="mi">300</span><span class="p">)</span>
+
+        <span class="n">ks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">sample_kernel</span><span class="p">(</span><span class="n">t_k</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span>
+
+        <span class="c1"># Normalise predicted kernel.</span>
+        <span class="n">var_mean</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">ks</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+        <span class="n">wbml</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">kv</span><span class="p">(</span><span class="s2">&quot;Mean variance of kernel samples&quot;</span><span class="p">,</span> <span class="n">var_mean</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">t_k</span><span class="p">,</span> <span class="n">ks</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.predict_psd"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.predict_psd">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="k">def</span> <span class="nf">predict_psd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_k</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict the PSD in dB.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_k (vector, optional): Inputs to sample kernel at. Will be automatically</span>
+<span class="sd">                determined if not given.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`collections.namedtuple`: Predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t_k</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_k</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">extent</span><span class="p">,</span> <span class="mi">1000</span><span class="p">)</span>
+        <span class="n">t_k</span><span class="p">,</span> <span class="n">ks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sample_kernel</span><span class="p">(</span><span class="n">t_k</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span>
+
+        <span class="c1"># Estimate PSDs.</span>
+        <span class="n">freqs</span><span class="p">,</span> <span class="n">psds</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">estimate_psd</span><span class="p">(</span><span class="n">t_k</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">db</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">ks</span><span class="p">])</span>
+        <span class="n">freqs</span> <span class="o">=</span> <span class="n">freqs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">psds</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="n">psds</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">summarise_samples</span><span class="p">(</span><span class="n">freqs</span><span class="p">,</span> <span class="n">psds</span><span class="p">,</span> <span class="n">db</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.predict_fourier"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.predict_fourier">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="k">def</span> <span class="nf">predict_fourier</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict Fourier features.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: Marginals of the predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">predict_z</span><span class="p">(</span><span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.predict_filter"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.predict_filter">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="k">def</span> <span class="nf">predict_filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_h</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">min_phase</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict the learned filter.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_h (vector, optional): Inputs to sample filter at.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+<span class="sd">            min_phase (bool, optional): Predict a minimum-phase version of the filter.</span>
+<span class="sd">                Defaults to `True`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :class:`collections.namedtuple`: Predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">t_h</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">t_h</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">extent</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">extent</span><span class="p">,</span> <span class="mi">601</span><span class="p">)</span>
+
+        <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+        <span class="k">def</span> <span class="nf">sample_h</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">p_u</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="n">u</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_u</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>  <span class="c1"># Transform :math:`\hat u` into :math:`u`.</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">GP</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">k_h</span><span class="p">())</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="n">h</span> <span class="o">|</span> <span class="p">(</span><span class="n">h</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">t_u</span><span class="p">),</span> <span class="n">u</span><span class="p">)</span>  <span class="c1"># Condition on sample.</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">h</span><span class="p">(</span><span class="n">t_h</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>  <span class="c1"># Sample at desired points.</span>
+            <span class="k">return</span> <span class="n">state</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+
+        <span class="c1"># Perform sampling.</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">global_random_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span><span class="p">):</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">h</span> <span class="o">=</span> <span class="n">sample_h</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+            <span class="c1"># Transform sample according to specification.</span>
+            <span class="k">if</span> <span class="n">min_phase</span><span class="p">:</span>
+                <span class="n">h</span> <span class="o">=</span> <span class="n">transform_min_phase</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+
+            <span class="n">samples</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+        <span class="n">B</span><span class="o">.</span><span class="n">set_global_random_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">min_phase</span><span class="p">:</span>
+            <span class="c1"># Start at zero.</span>
+            <span class="n">t_h</span> <span class="o">=</span> <span class="n">t_h</span> <span class="o">-</span> <span class="n">t_h</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">summarise_samples</span><span class="p">(</span><span class="n">t_h</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="n">samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.kernel_approx"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.kernel_approx">[docs]</a>    <span class="nd">@instancemethod</span>
+    <span class="nd">@cast</span>
+    <span class="k">def</span> <span class="nf">kernel_approx</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Kernel approximation using inducing variables :math:`u` for the</span>
+<span class="sd">        impulse response :math:`h`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t1 (vector): First time input.</span>
+<span class="sd">            t2 (vector): Second time input.</span>
+<span class="sd">            u (vector): Values of the inducing variables.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Approximation of the kernel matrix broadcasted over `t1` and `t2`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Construct the first part.</span>
+        <span class="n">part1</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_i_hx</span><span class="p">(</span><span class="n">t1</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">],</span> <span class="n">t2</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="p">:])</span>
+
+        <span class="c1"># Construct the second part.</span>
+        <span class="n">L_u</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">cholesky</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">K_u</span><span class="p">)</span>
+        <span class="n">inv_L_u</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">trisolve</span><span class="p">(</span><span class="n">L_u</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">L_u</span><span class="p">))</span>
+        <span class="n">prod</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">inv_L_u</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">uprank</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">rank</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">I_ux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">compute_I_ux</span><span class="p">(</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">)</span>
+        <span class="n">trisolved</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">inv_L_u</span><span class="p">,</span> <span class="n">I_ux</span><span class="p">,</span> <span class="n">inv_L_u</span><span class="p">,</span> <span class="n">tr_c</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">part2</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">trisolved</span><span class="p">)</span> <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">prod</span><span class="p">,</span> <span class="n">trisolved</span><span class="p">,</span> <span class="n">prod</span><span class="p">,</span> <span class="n">tr_a</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">part1</span> <span class="o">-</span> <span class="n">part2</span></div>
+
+    <span class="nd">@priormethod</span>
+    <span class="nd">@cast</span>
+    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">normalise</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sample the kernel then the function.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t (vector): Time points to sample the function at.</span>
+<span class="sd">            normalise (bool, optional): Normalise the sample of the kernel.</span>
+<span class="sd">                Defaults to `False`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: Tuple containing the kernel matrix and the function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">compute_K_u</span><span class="p">())[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">K</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kernel_approx</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">normalise</span><span class="p">:</span>
+            <span class="n">K</span> <span class="o">=</span> <span class="n">K</span> <span class="o">/</span> <span class="n">K</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">closest_psd</span><span class="p">(</span><span class="n">K</span><span class="p">))[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">f</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">noise</span><span class="p">)</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">K</span><span class="p">,</span> <span class="n">y</span>
+
+<div class="viewcode-block" id="AbstractGPCM.save"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.save">[docs]</a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Save model and inference results to a file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path (str): Path to save to.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">vs</span><span class="p">[</span><span class="n">name</span><span class="p">]))</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vs</span><span class="o">.</span><span class="n">names</span><span class="p">}</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="AbstractGPCM.load"><a class="viewcode-back" href="../../source/gpcm.model.html#gpcm.model.AbstractGPCM.load">[docs]</a>    <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Load model from a file.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            path (str): Path to load from.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">data</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vs</span><span class="p">:</span>
+                <span class="c1"># Overwrite existing values.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vs</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Assign an invisible bounded variable: we lost the information about</span>
+                <span class="c1"># the constraints.</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">vs</span><span class="o">.</span><span class="n">unbounded</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">value</span><span class="p">,</span> <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span></div></div>
+
+
+<span class="nd">@fit</span><span class="o">.</span><span class="n">dispatch</span>
+<span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">AbstractGPCM</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">):</span>
+    <span class="n">fit</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">approximation</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

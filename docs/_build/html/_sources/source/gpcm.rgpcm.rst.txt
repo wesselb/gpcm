@@ -1,0 +1,7 @@
+gpcm.rgpcm module
+=================
+
+.. automodule:: gpcm.rgpcm
+   :members:
+   :undoc-members:
+   :show-inheritance:

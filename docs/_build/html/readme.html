@@ -1,0 +1,556 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>GPCM &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Application Programming Interface" href="api.html" />
+    <link rel="prev" title="Welcome" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">GPCM</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#installation">Installation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#example">Example</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#available-models-and-approximation-schemes">Available Models and Approximation Schemes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#making-predictions-with-a-model">Making Predictions With a Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sample-from-the-paper">Sample From the Paper</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#fit-the-model-to-data">Fit the Model to Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#compute-the-elbo">Compute the ELBO</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#condition-the-model-on-data">Condition the Model on Data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#make-predictions">Make Predictions</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#sample-experiments">Sample Experiments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#learn-a-gp-with-a-known-kernel">Learn a GP With a Known Kernel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#learn-the-mauna-loa-co2-data-set">Learn the Mauna Loa CO2 Data Set</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#reproduce-experiments-from-the-paper">Reproduce Experiments From the Paper</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Application Programming Interface</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+        
+      <li>GPCM</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="_sources/readme.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="gpcm">
+<h1><a class="reference external" href="http://github.com/wesselb/gpcm">GPCM</a><a class="headerlink" href="#gpcm" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference external" href="https://github.com/wesselb/gpcm/actions?query=workflow%3ACI"><img alt="CI" src="https://github.com/wesselb/gpcm/workflows/CI/badge.svg?branch=master" /></a> <a class="reference external" href="https://coveralls.io/github/wesselb/gpcm?branch=master"><img alt="Coverage Status" src="https://coveralls.io/repos/github/wesselb/gpcm/badge.svg?branch=master&amp;service=github" /></a> <a class="reference external" href="https://wesselb.github.io/gpcm"><img alt="Latest Docs" src="https://img.shields.io/badge/docs-latest-blue.svg" /></a> <a class="reference external" href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg" /></a></p>
+<p>Implementation of the GPCM and variations</p>
+<p>Citation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@inproceedings</span><span class="p">{</span><span class="n">Bruinsma</span><span class="p">:</span><span class="mi">2022</span><span class="p">:</span><span class="n">Modelling_Non</span><span class="o">-</span><span class="n">Smooth_Signals_With_Complex</span><span class="p">,</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="p">{</span><span class="n">Modelling</span> <span class="n">Non</span><span class="o">-</span><span class="n">Smooth</span> <span class="n">Signals</span> <span class="n">With</span> <span class="n">Complex</span> <span class="n">Spectral</span> <span class="n">Structure</span><span class="p">},</span>
+    <span class="n">year</span> <span class="o">=</span> <span class="p">{</span><span class="mi">2022</span><span class="p">},</span>
+    <span class="n">author</span> <span class="o">=</span> <span class="p">{</span><span class="n">Wessel</span> <span class="n">P</span><span class="o">.</span> <span class="n">Bruinsma</span> <span class="ow">and</span> <span class="n">Martin</span> <span class="n">Tegn</span><span class="p">{</span>\<span class="s1">&#39; e}r and Richard E. Turner},</span>
+    <span class="n">booktitle</span> <span class="o">=</span> <span class="p">{</span><span class="n">Proceedings</span> <span class="n">of</span> <span class="n">the</span> <span class="mi">25</span><span class="n">th</span> <span class="n">International</span> <span class="n">Conference</span> <span class="n">on</span> <span class="n">Artificial</span> <span class="n">Intelligence</span> <span class="ow">and</span> <span class="n">Statistics</span><span class="p">},</span>
+    <span class="n">series</span> <span class="o">=</span> <span class="p">{</span><span class="n">Proceedings</span> <span class="n">of</span> <span class="n">Machine</span> <span class="n">Learning</span> <span class="n">Research</span><span class="p">},</span>
+    <span class="n">publisher</span> <span class="o">=</span> <span class="p">{</span><span class="n">PMLR</span><span class="p">},</span>
+    <span class="n">eprint</span> <span class="o">=</span> <span class="p">{</span><span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">arxiv</span><span class="o">.</span><span class="n">org</span><span class="o">/</span><span class="nb">abs</span><span class="o">/</span><span class="mf">2203.06997</span><span class="p">},</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Contents:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="#installation">Installation</a></p></li>
+<li><p><a class="reference external" href="#example">Example</a></p></li>
+<li><p><a class="reference external" href="#available-models-and-approximation-schemes">Available Models and Inference
+Schemes</a></p></li>
+<li><p><a class="reference external" href="#make-predictions">Making Predictions</a></p></li>
+<li><p><a class="reference external" href="#sample-experiments">Sample Experiments</a></p></li>
+<li><p><a class="reference external" href="#reproduce-experiments-from-the-paper">Reproduce Experiments From the
+Paper</a></p></li>
+</ul>
+<div class="section" id="installation">
+<h2>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h2>
+<p>See <a class="reference external" href="https://gist.github.com/wesselb/4b44bf87f3789425f96e26c4308d0adc">the instructions
+here</a>.
+Then simply</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">pip</span> <span class="n">install</span> <span class="n">gpcm</span>
+</pre></div>
+</div>
+<p>If you have a GPU available, it is recommended that you use a
+GPU-accelerated version of JAX.</p>
+</div>
+<div class="section" id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<span class="kn">from</span> <span class="nn">gpcm</span> <span class="kn">import</span> <span class="n">RGPCM</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">RGPCM</span><span class="p">(</span><span class="n">window</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_u</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+
+<span class="c1"># Sample from the prior.</span>
+<span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">K</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>  <span class="c1"># Sampled kernel matrix and sampled noisy function</span>
+
+<span class="c1"># Fit model to the sample.</span>
+<span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="c1"># Compute the ELBO.</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+
+<span class="c1"># Make predictions.</span>
+<span class="n">posterior</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">condition</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">mean</span><span class="p">,</span> <span class="n">var</span> <span class="o">=</span> <span class="n">posterior</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="available-models-and-approximation-schemes">
+<h2>Available Models and Approximation Schemes<a class="headerlink" href="#available-models-and-approximation-schemes" title="Permalink to this headline">¶</a></h2>
+<p>The following models are available:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 86%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Model</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">GPCM</span></code></p></td>
+<td><p>White noise excitation with a smooth filter</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">CGPCM</span></code></p></td>
+<td><p>White noise excitation with a smooth causal filter</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RGPCM</span></code></p></td>
+<td><p>Ornstein-Uhlenbeck excitation with a white noise filter</p></td>
+</tr>
+</tbody>
+</table>
+<p>The simplest way of constructing a model is to set the following
+keywords:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 14%" />
+<col style="width: 86%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Keyword</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">window</span></code></p></td>
+<td><p>Largest length scale of signal</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">scale</span></code></p></td>
+<td><p>Smallest length scale of signal</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">t</span></code></p></td>
+<td><p>Some iterable containing the limits of the inputs of interest</p></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">gpcm</span> <span class="kn">import</span> <span class="n">RGPCM</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">RGPCM</span><span class="p">(</span><span class="n">window</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Please see the API for a detailed description of the keyword arguments
+which you can set. Amongst these keyword arguments, we highlight the
+following few which are important:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Optional Keyword</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">n_u</span></code></p></td>
+<td><p>Number of inducing points for the
+filter</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">n_z</span></code> (<code class="docutils literal notranslate"><span class="pre">GPCM</span></code> and <code class="docutils literal notranslate"><span class="pre">CGPCM</span></code>)</p></td>
+<td><p>Number of inducing points for the
+excitation signal</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">m_max</span></code> (<code class="docutils literal notranslate"><span class="pre">RGPCM</span></code>)</p></td>
+<td><p>Half of the number of variational
+Fourier features. Set to
+<code class="docutils literal notranslate"><span class="pre">n_z</span> <span class="pre">//</span> <span class="pre">2</span></code> for equal
+computational expense.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">t</span></code></p></td>
+<td><p>Some iterable containing the
+limits of the inputs of interest</p></td>
+</tr>
+</tbody>
+</table>
+<p>The constructors of these models also take in a keyword <code class="docutils literal notranslate"><span class="pre">scheme</span></code>,
+which can be set to one of the following values:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">scheme</span></code></p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;structured&quot;</span></code> (default)</p></td>
+<td><p>Structured approximation.
+Recommended.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;mean-field-ca&quot;</span></code></p></td>
+<td><p>Mean-field approximation learned
+by coordinate ascent. This does
+not learn hyperparameters.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">&quot;mean-field-gradient&quot;</span></code></p></td>
+<td><p>Mean-field approximation learned
+by gradient-based optimisation</p></td>
+</tr>
+<tr class="row-odd"><td><p>``
+“mean-field-collapsed-gradient”``</p></td>
+<td><p>Collapsed mean-field
+approximation learned by
+gradient-based optimisation</p></td>
+</tr>
+</tbody>
+</table>
+<p>Example:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">gpcm</span> <span class="kn">import</span> <span class="n">RGPCM</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">RGPCM</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="s2">&quot;mean-field-ca&quot;</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="making-predictions-with-a-model">
+<h2>Making Predictions With a Model<a class="headerlink" href="#making-predictions-with-a-model" title="Permalink to this headline">¶</a></h2>
+<p>The implemented models follow the interface from
+<a class="reference external" href="https://github.com/wesselb/probmods">ProbMods</a>.</p>
+<p>To begin with, construct a model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">gpcm</span> <span class="kn">import</span> <span class="n">GPCM</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">GPCM</span><span class="p">(</span><span class="n">window</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">scale</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">t</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+</pre></div>
+</div>
+<div class="section" id="sample-from-the-paper">
+<h3>Sample From the Paper<a class="headerlink" href="#sample-from-the-paper" title="Permalink to this headline">¶</a></h3>
+<p>Sampling gives back the sampled kernel matrix and the noisy outputs.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">K</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="fit-the-model-to-data">
+<h3>Fit the Model to Data<a class="headerlink" href="#fit-the-model-to-data" title="Permalink to this headline">¶</a></h3>
+<p>It is recommended that you normalise the data before fitting.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The function <code class="docutils literal notranslate"><span class="pre">fit</span></code> takes in the keyword argument <code class="docutils literal notranslate"><span class="pre">iters</span></code>. The rule
+of thumb which you can use is as follows:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 56%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">iters</span></code></p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">5_000</span></code> (default)</p></td>
+<td><p>Reasonable fit</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">10_000</span></code></p></td>
+<td><p>Better fit</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">20_000</span></code></p></td>
+<td><p>Good fit</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">30_000</span></code></p></td>
+<td><p>Pretty good fit</p></td>
+</tr>
+</tbody>
+</table>
+<p>The function <code class="docutils literal notranslate"><span class="pre">fit</span></code> also takes in the keyword argument <code class="docutils literal notranslate"><span class="pre">rate</span></code>. The
+rule of thumb which you can use here is as follows:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 36%" />
+<col style="width: 64%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">rate</span></code></p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">5e-2</span></code> (default)</p></td>
+<td><p>Fast learning</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">2e-2</span></code></p></td>
+<td><p>Slower, but more stable learning</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">5e-3</span></code></p></td>
+<td><p>Slow learning</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="compute-the-elbo">
+<h3>Compute the ELBO<a class="headerlink" href="#compute-the-elbo" title="Permalink to this headline">¶</a></h3>
+<p>It is recommended that you normalise the data before computing the ELBO.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">elbo</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="condition-the-model-on-data">
+<h3>Condition the Model on Data<a class="headerlink" href="#condition-the-model-on-data" title="Permalink to this headline">¶</a></h3>
+<p>It is recommended that you normalise the data before conditioning and
+unnormalise the predictions.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">posterior_model</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">condition</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="make-predictions">
+<h3>Make Predictions<a class="headerlink" href="#make-predictions" title="Permalink to this headline">¶</a></h3>
+<p>Predictions for new inputs:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">mean</span><span class="p">,</span> <span class="n">var</span> <span class="o">=</span> <span class="n">posterior_model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">t_new</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Predictions for the kernel:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pred</span> <span class="o">=</span> <span class="n">posterior_model</span><span class="o">.</span><span class="n">predict_kernel</span><span class="p">()</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">var</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">pred</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">pred</span><span class="o">.</span><span class="n">var</span>
+</pre></div>
+</div>
+<p>Predictions for the PSD:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pred</span> <span class="o">=</span> <span class="n">posterior_model</span><span class="o">.</span><span class="n">predict_psd</span><span class="p">()</span>
+<span class="n">x</span><span class="p">,</span> <span class="n">mean</span><span class="p">,</span> <span class="n">var</span> <span class="o">=</span> <span class="n">pred</span><span class="o">.</span><span class="n">x</span><span class="p">,</span> <span class="n">pred</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">pred</span><span class="o">.</span><span class="n">var</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="sample-experiments">
+<h2>Sample Experiments<a class="headerlink" href="#sample-experiments" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="learn-a-gp-with-a-known-kernel">
+<h3>Learn a GP With a Known Kernel<a class="headerlink" href="#learn-a-gp-with-a-known-kernel" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span>. python experiments/eq.py
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span>. python experiments/smk.py
+</pre></div>
+</div>
+</div>
+<div class="section" id="learn-the-mauna-loa-co2-data-set">
+<h3>Learn the Mauna Loa CO2 Data Set<a class="headerlink" href="#learn-the-mauna-loa-co2-data-set" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">PYTHONPATH</span><span class="o">=</span>. python experiments/mauna_loa.py
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="reproduce-experiments-from-the-paper">
+<h2>Reproduce Experiments From the Paper<a class="headerlink" href="#reproduce-experiments-from-the-paper" title="Permalink to this headline">¶</a></h2>
+<p>See
+<a class="reference external" href="https://github.com/wesselb/gpcm/tree/master/experiments/paper">here</a>.</p>
+</div>
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="api.html" class="btn btn-neutral float-right" title="Application Programming Interface" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="index.html" class="btn btn-neutral float-left" title="Welcome" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

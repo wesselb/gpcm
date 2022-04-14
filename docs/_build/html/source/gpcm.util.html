@@ -1,0 +1,446 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.util module &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="gpcm.sample module" href="gpcm.sample.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../readme.html">GPCM</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Application Programming Interface</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="gpcm.approx.html">gpcm.approx module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.exppoly.html">gpcm.exppoly module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.gpcm.html">gpcm.gpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.model.html">gpcm.model module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.normal.html">gpcm.normal module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.rgpcm.html">gpcm.rgpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.sample.html">gpcm.sample module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">gpcm.util module</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Application Programming Interface</a> &raquo;</li>
+        
+      <li>gpcm.util module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/source/gpcm.util.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-gpcm.util">
+<span id="gpcm-util-module"></span><h1>gpcm.util module<a class="headerlink" href="#module-gpcm.util" title="Permalink to this headline">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.autocorr">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">autocorr</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#autocorr"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.autocorr" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimate the autocorrelation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>vector</em>) – Time series to estimate autocorrelation of.</p></li>
+<li><p><strong>lags</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of lags. Defaults to all lags.</p></li>
+<li><p><strong>cov</strong> (<em>bool</em><em>, </em><em>optional</em>) – Compute covariances rather than correlations. Defaults to
+<cite>False</cite>.</p></li>
+<li><p><strong>window</strong> (<em>bool</em><em>, </em><em>optional</em>) – Apply a triangular window to the estimate. Defaults to
+<cite>False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Autocorrelation.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>vector</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.closest_psd">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">closest_psd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">a</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#closest_psd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.closest_psd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Map a matrix to the closest PSD matrix.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>a</strong> (<em>tensor</em>) – Matrix.</p></li>
+<li><p><strong>inv</strong> (<em>bool</em><em>, </em><em>optional</em>) – Also invert <cite>a</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>PSD matrix closest to <cite>a</cite> or the inverse of <cite>a</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.collect">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">collect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Quantities'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#collect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.collect" title="Permalink to this definition">¶</a></dt>
+<dd><p>Construct a named tuple with certain attributes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>**kw_args</strong> (<em>object</em>) – Keyword argument specifying the attributes.</p></li>
+<li><p><strong>name</strong> (<em>str</em>) – Name of the named tuple. Defaults to “Quantities”.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Named tuple of the model with the</dt><dd><p>specified attributes.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.namedtuple</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.estimate_psd">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">estimate_psd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_zero</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#estimate_psd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.estimate_psd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimate the PSD from samples of the kernel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>vector</em>) – Time points of the kernel, which should be a linear space
+starting from the origin.</p></li>
+<li><p><strong>k</strong> (<em>vector</em>) – Kernel.</p></li>
+<li><p><strong>n_zero</strong> (<em>int</em><em>, </em><em>optional</em>) – Zero padding. Defaults to <cite>2_000</cite>.</p></li>
+<li><p><strong>db</strong> (<em>bool</em><em>, </em><em>optional</em>) – Convert to decibel. Defaults to <cite>False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>PSD, correctly scaled.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>vector</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.hessian">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">hessian</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#hessian"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.hessian" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the Hessian of a function at a certain input.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> (<em>function</em>) – Function to compute Hessian of.</p></li>
+<li><p><strong>x</strong> (<em>column vector</em>) – Input to compute Hessian at.</p></li>
+<li><p><strong>differentiable</strong> (<em>bool</em><em>, </em><em>optional</em>) – Make the computation of the Hessian
+differentiable. Defaults to <cite>False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Hessian.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.invert_perm">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">invert_perm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">perm</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#invert_perm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.invert_perm" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the inverse of a permutation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>perm</strong> (<em>list</em>) – Permutation to invert.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.laplace_approximation">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">laplace_approximation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">f_eval</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#laplace_approximation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.laplace_approximation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Perform a Laplace approximation of a density.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> (<em>function</em>) – Possibly unnormalised log-density.</p></li>
+<li><p><strong>x_init</strong> (<em>column vector</em>) – Starting point to start the optimisation.</p></li>
+<li><p><strong>f_eval</strong> (<em>function</em>) – Use this log-density for the evaluation at the MAP estimate.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Laplace approximation.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[<code class="xref py py-class docutils literal notranslate"><span class="pre">stheno.Normal</span></code>]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.maximum_a_posteriori">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">maximum_a_posteriori</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">f</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x_init</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iters</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#maximum_a_posteriori"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.maximum_a_posteriori" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the MAP estimate.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>f</strong> (<em>function</em>) – Possibly unnormalised log-density.</p></li>
+<li><p><strong>x_init</strong> (<em>column vector</em>) – Starting point to start the optimisation.</p></li>
+<li><p><strong>iters</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of optimisation iterations. Defaults to <cite>2000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>MAP estimate.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.method">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">method</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cls</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#method"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.method" title="Permalink to this definition">¶</a></dt>
+<dd><p>Decorator to add the function as a method to a class.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>cls</strong> (<em>type</em>) – Class to add the function as a method to.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.min_phase">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">min_phase</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#min_phase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.min_phase" title="Permalink to this definition">¶</a></dt>
+<dd><p>Minimum phase transform using the Hilbert transform.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>h</strong> (<em>vector</em>) – Filter to transform.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Minimum phase filter version of <cite>h</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>vector</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="gpcm.util.summarise_samples">
+<span class="sig-prename descclassname"><span class="pre">gpcm.util.</span></span><span class="sig-name descname"><span class="pre">summarise_samples</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">samples</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">db</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/util.html#summarise_samples"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.util.summarise_samples" title="Permalink to this definition">¶</a></dt>
+<dd><p>Summarise samples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>vector</em>) – Inputs of samples.</p></li>
+<li><p><strong>samples</strong> (<em>tensor</em>) – Samples, with the first dimension corresponding
+to different samples.</p></li>
+<li><p><strong>db</strong> (<em>bool</em><em>, </em><em>optional</em>) – Convert to decibels.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Named tuple containing various</dt><dd><p>statistics of the samples.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.namedtuple</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="gpcm.sample.html" class="btn btn-neutral float-left" title="gpcm.sample module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

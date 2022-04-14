@@ -1,0 +1,7 @@
+gpcm.model module
+=================
+
+.. automodule:: gpcm.model
+   :members:
+   :undoc-members:
+   :show-inheritance:

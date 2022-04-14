@@ -1,0 +1,1060 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.approx &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../readme.html">GPCM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Application Programming Interface</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>gpcm.approx</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for gpcm.approx</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">types</span> <span class="kn">import</span> <span class="n">SimpleNamespace</span>
+
+<span class="kn">import</span> <span class="nn">lab.jax</span> <span class="k">as</span> <span class="nn">B</span>
+<span class="kn">import</span> <span class="nn">wbml.out</span>
+<span class="kn">from</span> <span class="nn">jax.lax</span> <span class="kn">import</span> <span class="n">stop_gradient</span>
+<span class="kn">from</span> <span class="nn">plum</span> <span class="kn">import</span> <span class="n">Dispatcher</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span> <span class="nn">probmods</span> <span class="kn">import</span> <span class="n">Model</span><span class="p">,</span> <span class="n">fit</span>
+<span class="kn">from</span> <span class="nn">varz</span> <span class="kn">import</span> <span class="n">minimise_l_bfgs_b</span><span class="p">,</span> <span class="n">minimise_adam</span>
+<span class="kn">from</span> <span class="nn">varz.spec</span> <span class="kn">import</span> <span class="n">Struct</span>
+
+<span class="kn">from</span> <span class="nn">.normal</span> <span class="kn">import</span> <span class="n">NaturalNormal</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;Structured&quot;</span><span class="p">,</span> <span class="s2">&quot;MeanField&quot;</span><span class="p">]</span>
+
+<span class="n">_dispatch</span> <span class="o">=</span> <span class="n">Dispatcher</span><span class="p">()</span>
+
+
+<span class="nd">@_dispatch</span>
+<span class="k">def</span> <span class="nf">_parametrise_natural</span><span class="p">(</span><span class="n">params</span><span class="p">:</span> <span class="n">Struct</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">NaturalNormal</span><span class="p">(</span>
+        <span class="n">params</span><span class="o">.</span><span class="n">lam</span><span class="o">.</span><span class="n">unbounded</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span>
+        <span class="n">params</span><span class="o">.</span><span class="n">prec</span><span class="o">.</span><span class="n">positive_definite</span><span class="p">(</span><span class="mf">1e-1</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">n</span><span class="p">),</span> <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">)),</span>
+    <span class="p">)</span>
+
+
+<span class="nd">@_dispatch</span>
+<span class="k">def</span> <span class="nf">_columns</span><span class="p">(</span><span class="n">xs</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="n">num</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">num</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">xs</span><span class="p">[:,</span> <span class="n">i</span> <span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">num</span><span class="p">))]</span>
+
+
+<span class="k">class</span> <span class="nc">Approximation</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;Approximation of the GPCM.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (:class:`probmods.Model`): Instantiated GPCM.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Count at which variational posterior we are.</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">p_u</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;:class:`stheno.Normal`: Current prior for :math:`u`.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_parametrise_natural</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_u</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">q_u</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;:class:`stheno.Normal`: Current variational posterior for :math:`u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_parametrise_natural</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_u</span><span class="p">)</span>
+
+    <span class="nd">@q_u</span><span class="o">.</span><span class="n">setter</span>
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">NaturalNormal</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q_u</span>  <span class="c1"># Ensure that it is initialised.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">lam</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">lam</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">prec</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">prec</span><span class="p">))</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">p_z</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;:class:`stheno.Normal`: Current prior for :math:`z`.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_parametrise_natural</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_z</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">q_z</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;:class:`stheno.Normal`: Variational posterior for :math:`z`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">_parametrise_natural</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">n_z</span><span class="p">)</span>
+
+    <span class="nd">@q_z</span><span class="o">.</span><span class="n">setter</span>
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">:</span> <span class="n">NaturalNormal</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">q_z</span>  <span class="c1"># Ensure that it is initialised.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">lam</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">lam</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">prec</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">prec</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">ignore_qs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">previous</span><span class="p">,</span> <span class="n">current</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Get a list of regexes that ignore variables corresponding to approximate</span>
+<span class="sd">        posteriors.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            previous (bool): Ignore all previous approximate posteriors.</span>
+<span class="sd">            current (bool or str): Current approximate posteriors to ignore. Set to</span>
+<span class="sd">                `True` or `False` to ignore all or none or to `z` or `u` to ignore</span>
+<span class="sd">                a specific approximate posterior.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list[str]: Appropriate list of regexes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">previous</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">):</span>
+                <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+                <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">current</span> <span class="o">==</span> <span class="s2">&quot;u&quot;</span><span class="p">:</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+        <span class="k">elif</span> <span class="n">current</span> <span class="o">==</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span>
+            <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;-&quot;</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid value &quot;</span><span class="si">{</span><span class="n">current</span><span class="si">}</span><span class="s1">&quot; for `current`.&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">names</span>
+
+    <span class="k">def</span> <span class="nf">condition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Make the current variational approximation the prior and create a new</span>
+<span class="sd">        variational posterior for further observations.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t (vector): Locations of observations.</span>
+<span class="sd">            y (vector): Observations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">construct_terms</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Construct commonly required quantities.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t (vector): Locations of observations.</span>
+<span class="sd">            y (vector, optional): Observations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">SimpleNamespace</span><span class="p">()</span>
+
+        <span class="n">ts</span><span class="o">.</span><span class="n">n</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">length</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+        <span class="c1"># Construct integrals.</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_hx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_i_hx</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_ux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_I_ux</span><span class="p">()</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_hz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_I_hz</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">compute_I_uz</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+        <span class="c1"># Do some precomputations.</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_hx_sum</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_hx</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_hz_sum</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_hz</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">I_ux_sum</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">n</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_ux</span>
+
+        <span class="n">ts</span><span class="o">.</span><span class="n">K_u_squeezed</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u_inv</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">tr_a</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">K_z_squeezed</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z_inv</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">tr_c</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">A_sum</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_ux_sum</span> <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">K_z_squeezed</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">B_sum</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_hz_sum</span> <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">K_u_squeezed</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">ts</span><span class="o">.</span><span class="n">c_sum</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_hx_sum</span>
+            <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u_inv</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_ux_sum</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z_inv</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_hz_sum</span><span class="p">)</span>
+            <span class="c1"># It would be more efficient to first `B.sum(ts.K_z_squeezed, axis=0)`, but</span>
+            <span class="c1"># for some reason that results in a segmentation fault when run on with the</span>
+            <span class="c1"># JIT on the GPU. I&#39;m not sure what&#39;s going on...</span>
+            <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u_inv</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">K_z_squeezed</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">y</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">y</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_uz_sum</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">y</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Weight by data.</span>
+
+        <span class="k">return</span> <span class="n">ts</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_u_optimal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="n">SimpleNamespace</span><span class="p">,</span> <span class="n">z</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the optimal :math:`q(u|z)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ts (:class:`types.SimpleNamespace`): Terms.</span>
+<span class="sd">            u (tensor): Sample for :math:`z`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[tensor, tensor]: Natural parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_optimal</span><span class="p">(</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">A_sum</span><span class="p">,</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_uz_sum</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u</span><span class="p">,</span>
+            <span class="n">z</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_u_optimal_mean_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="n">SimpleNamespace</span><span class="p">,</span> <span class="n">q_z</span><span class="p">:</span> <span class="n">NaturalNormal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the optimal :math:`q(u)` in the mean-field approximation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ts (:class:`types.SimpleNamespace`): Terms.</span>
+<span class="sd">            q_z (:class:`.normal.NaturalNormal`): Current estimate for :math:`q(z)`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[tensor, tensor]: Natural parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_optimal</span><span class="p">(</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">A_sum</span><span class="p">,</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_uz_sum</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u</span><span class="p">,</span>
+            <span class="n">q_z</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span>
+            <span class="n">q_z</span><span class="o">.</span><span class="n">m2</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_z_optimal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="n">SimpleNamespace</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the optimal :math:`q(z|u)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ts (:class:`types.SimpleNamespace`): Terms.</span>
+<span class="sd">            u (tensor): Sample for :math:`u`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[tensor, tensor]: Natural parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_optimal</span><span class="p">(</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">B_sum</span><span class="p">,</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">),</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz_sum</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z</span><span class="p">,</span>
+            <span class="n">u</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_z_optimal_mean_field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="n">SimpleNamespace</span><span class="p">,</span> <span class="n">q_u</span><span class="p">:</span> <span class="n">NaturalNormal</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the optimal :math:`q(z)` in the mean-field approximation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ts (:class:`types.SimpleNamespace`): Terms.</span>
+<span class="sd">            q_u (:class:`.normal.NaturalNormal`): Current estimate for :math:`q(u)`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[tensor, tensor]: Natural parameters.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_optimal</span><span class="p">(</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">B_sum</span><span class="p">,</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">),</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz_sum</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z</span><span class="p">,</span>
+            <span class="n">q_u</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span>
+            <span class="n">q_u</span><span class="o">.</span><span class="n">m2</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_q_optimal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">I_sum</span><span class="p">,</span> <span class="n">K</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">x2</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">x2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">inner</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">x2</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">tr_c</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># This is _much_ more efficient!</span>
+            <span class="n">part</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+            <span class="n">inner</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">part</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">tr_b</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">NaturalNormal</span><span class="p">(</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">I_sum</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span><span class="p">,</span>
+            <span class="n">K</span> <span class="o">+</span> <span class="p">(</span><span class="n">A</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">inner</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_predict_moments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">u2</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">z2</span><span class="p">):</span>
+        <span class="c1"># Compute first moment.</span>
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">tr_a</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+
+        <span class="c1"># Compute second moment.</span>
+        <span class="n">A</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_ux</span> <span class="o">-</span> <span class="n">ts</span><span class="o">.</span><span class="n">K_z_squeezed</span>
+        <span class="n">B_</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_hz</span> <span class="o">-</span> <span class="n">ts</span><span class="o">.</span><span class="n">K_u_squeezed</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">ts</span><span class="o">.</span><span class="n">I_hx</span>
+            <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u_inv</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_ux</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z_inv</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_hz</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u_inv</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">K_z_squeezed</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">A</span> <span class="o">*</span> <span class="n">u2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">B_</span> <span class="o">*</span> <span class="n">z2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="o">+</span> <span class="n">c</span>
+            <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u2</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">z2</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">tr_c</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span>
+
+    <span class="k">def</span> <span class="nf">_sample_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_k</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">kernel_approx</span><span class="p">(</span>
+                <span class="n">t_k</span><span class="p">,</span>
+                <span class="n">B</span><span class="o">.</span><span class="n">zero</span><span class="p">(</span><span class="n">u</span><span class="p">)[</span><span class="kc">None</span><span class="p">],</span>
+                <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_u</span><span class="p">,</span> <span class="n">u</span><span class="p">)),</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+
+
+<span class="nd">@_dispatch</span>
+<span class="k">def</span> <span class="nf">_fit_mean_field_ca</span><span class="p">(</span><span class="n">instance</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">iters</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Train an instance with a mean-field approximation using coordinate ascent.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        instance (:class:`.gpcm.AbstractGPCM`): Instantiated model.</span>
+<span class="sd">        t (vector): Locations of observations.</span>
+<span class="sd">        y (vector): Observations.</span>
+<span class="sd">        iters (int, optional): Fixed point iterations. Defaults to `5000`.</span>
+<span class="sd">        callback (function, optional): Callback to call after every fixed-point</span>
+<span class="sd">            iteration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ts</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+    <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+    <span class="k">def</span> <span class="nf">compute_q_u</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">prec</span><span class="p">):</span>
+        <span class="n">q_z</span> <span class="o">=</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">prec</span><span class="p">)</span>
+        <span class="n">q_u</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u_optimal_mean_field</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">q_z</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_u</span><span class="o">.</span><span class="n">lam</span><span class="p">),</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_u</span><span class="o">.</span><span class="n">prec</span><span class="p">)</span>
+
+    <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+    <span class="k">def</span> <span class="nf">compute_q_z</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">prec</span><span class="p">):</span>
+        <span class="n">q_u</span> <span class="o">=</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="n">lam</span><span class="p">,</span> <span class="n">prec</span><span class="p">)</span>
+        <span class="n">q_z</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z_optimal_mean_field</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">q_u</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_z</span><span class="o">.</span><span class="n">lam</span><span class="p">),</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_z</span><span class="o">.</span><span class="n">prec</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">diff</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">):</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">xs</span><span class="p">,</span> <span class="n">ys</span><span class="p">):</span>
+            <span class="n">total</span> <span class="o">+=</span> <span class="n">B</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">total</span>
+
+    <span class="c1"># Perform fixed point iterations.</span>
+    <span class="k">with</span> <span class="n">wbml</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">Progress</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Fixed point iterations&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="n">iters</span><span class="p">)</span> <span class="k">as</span> <span class="n">progress</span><span class="p">:</span>
+        <span class="n">q_u</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u</span>
+        <span class="n">q_z</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z</span>
+        <span class="c1"># To be able to use the JIT, we must pass around plain tensors.</span>
+        <span class="n">q_u</span> <span class="o">=</span> <span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_u</span><span class="o">.</span><span class="n">lam</span><span class="p">),</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_u</span><span class="o">.</span><span class="n">prec</span><span class="p">))</span>
+        <span class="n">q_z</span> <span class="o">=</span> <span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_z</span><span class="o">.</span><span class="n">lam</span><span class="p">),</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">q_z</span><span class="o">.</span><span class="n">prec</span><span class="p">))</span>
+        <span class="n">last_q_u</span> <span class="o">=</span> <span class="n">q_u</span>
+        <span class="n">last_q_z</span> <span class="o">=</span> <span class="n">q_z</span>
+
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iters</span><span class="p">):</span>
+            <span class="n">q_u</span> <span class="o">=</span> <span class="n">compute_q_u</span><span class="p">(</span><span class="o">*</span><span class="n">q_z</span><span class="p">)</span>
+            <span class="n">q_z</span> <span class="o">=</span> <span class="n">compute_q_z</span><span class="p">(</span><span class="o">*</span><span class="n">q_u</span><span class="p">)</span>
+            <span class="n">current_diff</span> <span class="o">=</span> <span class="n">diff</span><span class="p">(</span><span class="n">q_u</span> <span class="o">+</span> <span class="n">q_z</span><span class="p">,</span> <span class="n">last_q_u</span> <span class="o">+</span> <span class="n">last_q_z</span><span class="p">)</span>
+            <span class="n">progress</span><span class="p">({</span><span class="s2">&quot;Difference&quot;</span><span class="p">:</span> <span class="n">current_diff</span><span class="p">})</span>
+            <span class="n">last_q_u</span> <span class="o">=</span> <span class="n">q_u</span>
+            <span class="n">last_q_z</span> <span class="o">=</span> <span class="n">q_z</span>
+
+            <span class="c1"># Perform callback, if given.</span>
+            <span class="k">if</span> <span class="n">callback</span><span class="p">:</span>
+                <span class="n">callback</span><span class="p">(</span><span class="n">NaturalNormal</span><span class="p">(</span><span class="o">*</span><span class="n">q_u</span><span class="p">),</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="o">*</span><span class="n">q_z</span><span class="p">))</span>
+
+            <span class="c1"># Early stop if possible.</span>
+            <span class="k">if</span> <span class="n">current_diff</span> <span class="o">&lt;</span> <span class="mf">1e-6</span><span class="p">:</span>
+                <span class="k">break</span>
+
+    <span class="c1"># Store result of fixed point iterations.</span>
+    <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u</span> <span class="o">=</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="o">*</span><span class="n">q_u</span><span class="p">)</span>
+    <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z</span> <span class="o">=</span> <span class="n">NaturalNormal</span><span class="p">(</span><span class="o">*</span><span class="n">q_z</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="Structured"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured">[docs]</a><span class="k">class</span> <span class="nc">Structured</span><span class="p">(</span><span class="n">Approximation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Structured approximation of the GPCM.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">p_u_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;tensor: Samples for the current prior for :math:`u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">q_u_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;tensor: Samples for the current variational posterior for :math:`u`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="p">()</span>
+
+    <span class="nd">@q_u_samples</span><span class="o">.</span><span class="n">setter</span>
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_u_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">samples</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="c1"># We need a setter, because these won&#39;t be trainable through gradients.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_u</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">unbounded</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">samples</span><span class="p">,</span> <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">p_z_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;tensor: Samples from the current prior for :math:`z`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="p">()</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">q_z_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;tensor: Samples from the variational posterior for :math:`z`.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="p">()</span>
+
+    <span class="nd">@q_z_samples</span><span class="o">.</span><span class="n">setter</span>
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">q_z_samples</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">samples</span><span class="p">:</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="c1"># We need a setter, because these won&#39;t be trainable through gradients.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">delete</span><span class="p">()</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">samples</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">ps</span><span class="o">.</span><span class="n">q_z</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span><span class="p">]</span><span class="o">.</span><span class="n">samples</span><span class="o">.</span><span class="n">unbounded</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">samples</span><span class="p">,</span> <span class="n">visible</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">elbo</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">RandomState</span><span class="p">,</span>
+        <span class="n">t</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Fit a mean-field approximation and compute an estimate of the resulting ELBO</span>
+<span class="sd">        collapsed over :math:`q(z|u)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state (random state, optional): Random state.</span>
+<span class="sd">            t (vector): Locations of observations.</span>
+<span class="sd">            y (vector): Observations.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            scalar: ELBO.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_fit_mean_field_ca</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">elbo_collapsed_z</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Structured.elbo"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.elbo">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">elbo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">global_random_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">state</span><span class="p">,</span> <span class="n">elbo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span><span class="p">)</span>
+        <span class="n">B</span><span class="o">.</span><span class="n">set_global_random_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">elbo</span></div>
+
+<div class="viewcode-block" id="Structured.elbo_gibbs"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.elbo_gibbs">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">elbo_gibbs</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">RandomState</span><span class="p">,</span>
+        <span class="n">t</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">,</span>
+        <span class="n">u</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span>
+        <span class="n">z</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span>
+        <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an estimate of the structured ELBO ignoring the entropy of</span>
+<span class="sd">        the optimal :math:`q(u)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state (random state): Random state.</span>
+<span class="sd">            t (vector): Locations of observations.</span>
+<span class="sd">            y (vector): Observations.</span>
+<span class="sd">            u (matrix): Current sample for :math:`u`.</span>
+<span class="sd">            z (matrix): Current sample for :math:`z`.</span>
+<span class="sd">            num_samples (int, optional): Number of Gibbs samples. Defaults to `5`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[random state, scalar, matrix, matrix]: Random state, ELBO, updated</span>
+<span class="sd">                sample for :math:`u`, and updated sample for :math:`z`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span><span class="p">):</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_u_optimal</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_z_optimal</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="n">elbo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_Z_u</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">stop_gradient</span><span class="p">(</span><span class="n">u</span><span class="p">))</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="o">.</span><span class="n">logpdf</span><span class="p">(</span><span class="n">stop_gradient</span><span class="p">(</span><span class="n">u</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">state</span><span class="p">,</span> <span class="n">elbo</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span></div>
+
+<div class="viewcode-block" id="Structured.log_Z_u"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.log_Z_u">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">log_Z_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ts</span><span class="p">:</span> <span class="n">SimpleNamespace</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the normalising constant term of the optimal :math:`q(z|u)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            ts (:class:`types.SimpleNamespace`): Terms.</span>
+<span class="sd">            u (tensor): Sample for :math:`u` to use.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            scalar: Normalising constant term.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">q_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_z_optimal</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+        <span class="n">quadratic</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">A_sum</span><span class="p">,</span> <span class="n">u</span><span class="p">))</span> <span class="o">+</span> <span class="n">ts</span><span class="o">.</span><span class="n">c_sum</span>
+        <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span>
+            <span class="o">-</span><span class="n">ts</span><span class="o">.</span><span class="n">n</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">quadratic</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span>
+            <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">logdet</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">K_z</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">B</span><span class="o">.</span><span class="n">logdet</span><span class="p">(</span><span class="n">q_z</span><span class="o">.</span><span class="n">prec</span><span class="p">)</span>
+            <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">iqf</span><span class="p">(</span><span class="n">q_z</span><span class="o">.</span><span class="n">prec</span><span class="p">,</span> <span class="n">q_z</span><span class="o">.</span><span class="n">lam</span><span class="p">))</span>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="Structured.elbo_collapsed_z"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.elbo_collapsed_z">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">elbo_collapsed_z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">RandomState</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute an estimate of the ELBO collapsed over :math:`q(z|u)`.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state (random state): Random state.</span>
+<span class="sd">            t (vector): Locations of observations.</span>
+<span class="sd">            y (vector): Observations.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[random state, scalar] : Random state and ELBO.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">q_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_u</span>
+        <span class="n">state</span><span class="p">,</span> <span class="n">us</span> <span class="o">=</span> <span class="n">q_u</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">)</span>
+
+        <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+        <span class="k">def</span> <span class="nf">rec</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">log_Z_u</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+
+        <span class="n">recs</span> <span class="o">=</span> <span class="p">[</span><span class="n">rec</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">_columns</span><span class="p">(</span><span class="n">us</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">state</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">recs</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">recs</span><span class="p">)</span> <span class="o">-</span> <span class="n">q_u</span><span class="o">.</span><span class="n">kl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_sample_p_u</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_samples</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_u_samples</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Structured.predict"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.predict">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t (vector): Points to predict at.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: Tuple containing the mean and standard deviation of the</span>
+<span class="sd">                predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+        <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+        <span class="k">def</span> <span class="nf">predict_moments</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+            <span class="n">q_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_z_optimal</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict_moments</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">outer</span><span class="p">(</span><span class="n">u</span><span class="p">),</span> <span class="n">q_z</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span> <span class="n">q_z</span><span class="o">.</span><span class="n">m2</span><span class="p">)</span>
+
+        <span class="n">m1s</span><span class="p">,</span> <span class="n">m2s</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">predict_moments</span><span class="p">(</span><span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_p_u</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)])</span>
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="n">m1s</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="n">m2s</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># Don&#39;t forget to add in the observation noise!</span>
+        <span class="k">return</span> <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span> <span class="o">-</span> <span class="n">m1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span></div>
+
+<div class="viewcode-block" id="Structured.sample_kernel"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.sample_kernel">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">sample_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_k</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sample kernel.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_k (vector): Time point to sample at.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Samples.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">us</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_p_u</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span>
+        <span class="n">sample_kernel</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_kernel</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">sample_kernel</span><span class="p">(</span><span class="n">t_k</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">us</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">_sample_p_z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_q_i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_z</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_samples</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">_columns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_z_samples</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Structured.predict_z"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.Structured.predict_z">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">predict_z</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict Fourier features.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[vector, vector]: Marginals of the predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">zs</span> <span class="o">=</span> <span class="p">[</span><span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sample_p_z</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)]</span>
+        <span class="n">m1</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="n">zs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">m2</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">z</span><span class="o">**</span><span class="mi">2</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zs</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span> <span class="o">-</span> <span class="n">m1</span><span class="o">**</span><span class="mi">2</span></div></div>
+
+
+<div class="viewcode-block" id="MeanField"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.MeanField">[docs]</a><span class="k">class</span> <span class="nc">MeanField</span><span class="p">(</span><span class="n">Approximation</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Mean-field approximation of the GPCM.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (:class:`.gpcm.AbstractGPCM`): Instantiated GPCM.</span>
+<span class="sd">        fit (str): Fitting method. Must be one of `ca`, `bfgs`, `collapsed-bfgs`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">fit</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit</span> <span class="o">=</span> <span class="n">fit</span>
+
+    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">elbo</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">RandomState</span><span class="p">,</span>
+        <span class="n">t</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span>
+        <span class="n">collapsed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compute the mean-field ELBO.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            state (random state, optional): Random state.</span>
+<span class="sd">            t (vector): Locations of observations.</span>
+<span class="sd">            y (vector): Observations.</span>
+<span class="sd">            collapsed (str, optional): Collapse over :math:`z` or :math:`u`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            scalar: ELBO</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">collapsed</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">q_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_u</span>
+            <span class="n">q_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_z</span>
+        <span class="k">elif</span> <span class="n">collapsed</span> <span class="o">==</span> <span class="s2">&quot;z&quot;</span><span class="p">:</span>
+            <span class="n">q_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_u</span>
+            <span class="n">q_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_z_optimal_mean_field</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">q_u</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">collapsed</span> <span class="o">==</span> <span class="s2">&quot;u&quot;</span><span class="p">:</span>
+            <span class="n">q_z</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_z</span>
+            <span class="n">q_u</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">q_u_optimal_mean_field</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">q_z</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid value &quot;</span><span class="si">{</span><span class="n">collapsed</span><span class="si">}</span><span class="s1">&quot; for `collapsed`.&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span><span class="p">,</span> <span class="p">(</span>
+            <span class="p">(</span>
+                <span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">ts</span><span class="o">.</span><span class="n">n</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span><span class="p">)</span>
+                <span class="o">+</span> <span class="p">(</span>
+                    <span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span><span class="p">)</span>
+                    <span class="o">*</span> <span class="p">(</span>
+                        <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">y</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+                        <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">A_sum</span> <span class="o">*</span> <span class="n">q_u</span><span class="o">.</span><span class="n">m2</span><span class="p">)</span>
+                        <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">B_sum</span> <span class="o">*</span> <span class="n">q_z</span><span class="o">.</span><span class="n">m2</span><span class="p">)</span>
+                        <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">q_z</span><span class="o">.</span><span class="n">m2</span><span class="p">,</span> <span class="n">ts</span><span class="o">.</span><span class="n">I_uz</span><span class="p">,</span> <span class="n">tr_c</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">*</span> <span class="n">q_u</span><span class="o">.</span><span class="n">m2</span><span class="p">)</span>
+                        <span class="o">+</span> <span class="n">ts</span><span class="o">.</span><span class="n">c_sum</span>
+                        <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">q_u</span><span class="o">.</span><span class="n">mean</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">ts</span><span class="o">.</span><span class="n">I_uz_sum</span><span class="p">,</span> <span class="n">q_z</span><span class="o">.</span><span class="n">mean</span><span class="p">))</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="o">-</span> <span class="n">q_u</span><span class="o">.</span><span class="n">kl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="p">)</span>
+            <span class="o">-</span> <span class="n">q_z</span><span class="o">.</span><span class="n">kl</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_z</span><span class="p">)</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="MeanField.elbo"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.MeanField.elbo">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">elbo</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Numeric</span><span class="p">,</span> <span class="n">collapsed</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="kc">None</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">global_random_state</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">state</span><span class="p">,</span> <span class="n">elbo</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">collapsed</span><span class="o">=</span><span class="n">collapsed</span><span class="p">)</span>
+        <span class="n">B</span><span class="o">.</span><span class="n">set_global_random_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">elbo</span></div>
+
+<div class="viewcode-block" id="MeanField.predict"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.MeanField.predict">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t (vector): Points to predict at.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[vector, vector]: Marginals of the predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_predict_moments</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">),</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="o">.</span><span class="n">m2</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_z</span><span class="o">.</span><span class="n">mean</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">p_z</span><span class="o">.</span><span class="n">m2</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># Don&#39;t forget to add in the observation noise!</span>
+        <span class="k">return</span> <span class="n">m1</span><span class="p">,</span> <span class="n">m2</span> <span class="o">-</span> <span class="n">m1</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">noise</span></div>
+
+<div class="viewcode-block" id="MeanField.sample_kernel"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.MeanField.sample_kernel">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">sample_kernel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">t_k</span><span class="p">,</span> <span class="n">num_samples</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Sample kernel under the mean-field approximation.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            t_k (vector): Time point to sample at.</span>
+<span class="sd">            num_samples (int, optional): Number of samples to use. Defaults to `1000`.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tensor: Samples.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">us</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">p_u</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span>
+        <span class="n">sample_kernel</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sample_kernel</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">sample_kernel</span><span class="p">(</span><span class="n">t_k</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span> <span class="k">for</span> <span class="n">u</span> <span class="ow">in</span> <span class="n">_columns</span><span class="p">(</span><span class="n">us</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="MeanField.predict_z"><a class="viewcode-back" href="../../source/gpcm.approx.html#gpcm.approx.MeanField.predict_z">[docs]</a>    <span class="nd">@_dispatch</span>
+    <span class="k">def</span> <span class="nf">predict_z</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Predict Fourier features under the mean-field approximation.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[vector, vector]: Marginals of the predictions.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_z</span><span class="o">.</span><span class="n">mean</span><span class="p">),</span> <span class="n">B</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">p_z</span><span class="o">.</span><span class="n">var</span><span class="p">)</span></div></div>
+
+
+<span class="nd">@fit</span><span class="o">.</span><span class="n">dispatch</span>
+<span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">,</span>
+    <span class="n">t</span><span class="p">,</span>
+    <span class="n">y</span><span class="p">,</span>
+    <span class="n">approximation</span><span class="p">:</span> <span class="n">Structured</span><span class="p">,</span>
+    <span class="n">iters</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">,</span>
+    <span class="n">rate</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5e-2</span><span class="p">,</span>
+    <span class="n">optimise_hypers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fit a structured approximation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (:class:`.gpcm.AbstractGPCM`): Model.</span>
+<span class="sd">        approximation (:class:`.Structured`): Approximation.</span>
+<span class="sd">        t (vector): Locations of observations.</span>
+<span class="sd">        y (vector): Observations.</span>
+<span class="sd">        iters (int, optional): Gibbs sampling iterations. Defaults to `5000`.</span>
+<span class="sd">        rate (float, optional): Learning rate. Defaults to `5e-2`.</span>
+<span class="sd">        optimise_hypers (bool, optional): Optimise the hyperparameters.</span>
+<span class="sd">            Defaults to `True`.</span>
+<span class="sd">        num_samples (int, optional): Number of Gibbs samples for the gradients.</span>
+<span class="sd">            Defaults to `5`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">gibbs_sample</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">iters</span><span class="p">,</span> <span class="n">subsample</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Perform Gibbs sampling.&quot;&quot;&quot;</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">model</span><span class="p">()</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+        <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+        <span class="k">def</span> <span class="nf">sample_u</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+            <span class="n">q_u</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u_optimal</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">q_u</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+        <span class="nd">@B</span><span class="o">.</span><span class="n">jit</span>
+        <span class="k">def</span> <span class="nf">sample_z</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="p">):</span>
+            <span class="n">q_z</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z_optimal</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">q_z</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+        <span class="c1"># Initialise the state for the Gibbs sampler.</span>
+        <span class="k">if</span> <span class="n">u</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">z</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+        <span class="c1"># Perform Gibbs sampling.</span>
+        <span class="k">with</span> <span class="n">wbml</span><span class="o">.</span><span class="n">out</span><span class="o">.</span><span class="n">Progress</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Gibbs sampling&quot;</span><span class="p">,</span> <span class="n">total</span><span class="o">=</span><span class="n">iters</span><span class="p">)</span> <span class="k">as</span> <span class="n">progress</span><span class="p">:</span>
+            <span class="n">us</span><span class="p">,</span> <span class="n">zs</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iters</span><span class="p">):</span>
+                <span class="n">state</span><span class="p">,</span> <span class="n">u</span> <span class="o">=</span> <span class="n">sample_u</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+                <span class="n">state</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">sample_z</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">subsample</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">i</span> <span class="o">%</span> <span class="n">subsample</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">us</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">u</span><span class="p">)</span>
+                    <span class="n">zs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">z</span><span class="p">)</span>
+                <span class="n">progress</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">state</span><span class="p">,</span> <span class="n">us</span><span class="p">,</span> <span class="n">zs</span>
+
+    <span class="c1"># Maintain a random state.</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">create_random_state</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1"># Find a good starting points for the samples.</span>
+    <span class="n">state</span><span class="p">,</span> <span class="n">us</span><span class="p">,</span> <span class="n">zs</span> <span class="o">=</span> <span class="n">gibbs_sample</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">iters</span><span class="o">=</span><span class="n">iters</span> <span class="o">//</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">us</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">zs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">optimise_hypers</span><span class="p">:</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">optimise_hypers</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="n">iters_hypers</span> <span class="o">=</span> <span class="n">iters</span> <span class="o">//</span> <span class="n">num_samples</span>  <span class="c1"># Spend the sampling budget.</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">iters_hypers</span> <span class="o">=</span> <span class="n">optimise_hypers</span>
+
+        <span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">vs_</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">elbo</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">vs_</span><span class="p">)</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">elbo_gibbs</span><span class="p">(</span>
+                <span class="n">state</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">num_samples</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">elbo</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span>
+
+        <span class="c1"># Optimise hyperparameters.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">minimise_adam</span><span class="p">(</span>
+            <span class="n">objective</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">vs</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">z</span><span class="p">),</span>
+            <span class="n">iters</span><span class="o">=</span><span class="n">iters_hypers</span><span class="p">,</span>
+            <span class="n">rate</span><span class="o">=</span><span class="n">rate</span><span class="p">,</span>
+            <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">jit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">names</span><span class="o">=</span><span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">ignore_qs</span><span class="p">(</span><span class="n">previous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">current</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Produce 1000 final Gibbs samples and store those samples.</span>
+    <span class="n">thousands</span> <span class="o">=</span> <span class="n">iters</span> <span class="o">//</span> <span class="mi">1000</span> <span class="k">if</span> <span class="n">iters</span> <span class="o">&gt;</span> <span class="mi">1000</span> <span class="k">else</span> <span class="mi">1</span>
+    <span class="n">state</span><span class="p">,</span> <span class="n">us</span><span class="p">,</span> <span class="n">zs</span> <span class="o">=</span> <span class="n">gibbs_sample</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">thousands</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">subsample</span><span class="o">=</span><span class="n">thousands</span><span class="p">,</span> <span class="n">u</span><span class="o">=</span><span class="n">u</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="n">z</span><span class="p">)</span>
+    <span class="n">instance</span> <span class="o">=</span> <span class="n">model</span><span class="p">()</span>
+    <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u_samples</span> <span class="o">=</span> <span class="n">us</span>
+    <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z_samples</span> <span class="o">=</span> <span class="n">zs</span>
+
+
+<span class="nd">@fit</span><span class="o">.</span><span class="n">dispatch</span>
+<span class="k">def</span> <span class="nf">fit</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">approximation</span><span class="p">:</span> <span class="n">MeanField</span><span class="p">,</span> <span class="n">iters</span><span class="p">:</span> <span class="n">B</span><span class="o">.</span><span class="n">Int</span> <span class="o">=</span> <span class="mi">5000</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Fit a mean-field approximation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (:class:`.gpcm.AbstractGPCM`): Model.</span>
+<span class="sd">        approximation (:class:`.MeanField`): Approximation.</span>
+<span class="sd">        t (vector): Locations of observations.</span>
+<span class="sd">        y (vector): Observations.</span>
+<span class="sd">        iters (int, optional): Fixed point iterations. Defaults to `5000`.</span>
+<span class="sd">            Will be divided by `5` to convert to BFGS iterations.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Maintain a random state.</span>
+    <span class="n">state</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">create_random_state</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="o">==</span> <span class="s2">&quot;ca&quot;</span><span class="p">:</span>
+        <span class="n">_fit_mean_field_ca</span><span class="p">(</span><span class="n">model</span><span class="p">(),</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">iters</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="o">==</span> <span class="s2">&quot;bfgs&quot;</span><span class="p">:</span>
+        <span class="c1"># Pre-fit a CA solution, if applicable.</span>
+        <span class="k">if</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="o">==</span> <span class="s2">&quot;ca-bfgs&quot;</span><span class="p">:</span>
+            <span class="n">_fit_mean_field_ca</span><span class="p">(</span><span class="n">model</span><span class="p">(),</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">iters</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">vs_</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">elbo</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">vs_</span><span class="p">)</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">elbo</span><span class="p">,</span> <span class="n">state</span>
+
+        <span class="c1"># Optimise hyperparameters.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">minimise_l_bfgs_b</span><span class="p">(</span>
+            <span class="n">objective</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">vs</span><span class="p">,</span> <span class="n">state</span><span class="p">),</span>
+            <span class="n">iters</span><span class="o">=</span><span class="n">iters</span> <span class="o">//</span> <span class="mi">5</span><span class="p">,</span>
+            <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">jit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">names</span><span class="o">=</span><span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">ignore_qs</span><span class="p">(</span><span class="n">previous</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Post-fit a CA solution, if applicable.</span>
+        <span class="k">if</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="o">==</span> <span class="s2">&quot;ca-bfgs&quot;</span><span class="p">:</span>
+            <span class="n">_fit_mean_field_ca</span><span class="p">(</span><span class="n">model</span><span class="p">(),</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">iters</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;ca-collapsed-bfgs&quot;</span><span class="p">,</span> <span class="s2">&quot;collapsed-bfgs&quot;</span><span class="p">}:</span>
+        <span class="c1"># Pre-fit a CA solution, if applicable.</span>
+        <span class="k">if</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="o">==</span> <span class="s2">&quot;ca-collapsed-bfgs&quot;</span><span class="p">:</span>
+            <span class="n">_fit_mean_field_ca</span><span class="p">(</span><span class="n">model</span><span class="p">(),</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">iters</span><span class="p">)</span>
+
+        <span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">vs_</span><span class="p">,</span> <span class="n">state</span><span class="p">):</span>
+            <span class="n">state</span><span class="p">,</span> <span class="n">elbo</span> <span class="o">=</span> <span class="n">model</span><span class="p">(</span><span class="n">vs_</span><span class="p">)</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">elbo</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">collapsed</span><span class="o">=</span><span class="s2">&quot;z&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="o">-</span><span class="n">elbo</span><span class="p">,</span> <span class="n">state</span>
+
+        <span class="c1"># Optimise hyperparameters.</span>
+        <span class="n">_</span><span class="p">,</span> <span class="n">state</span> <span class="o">=</span> <span class="n">minimise_l_bfgs_b</span><span class="p">(</span>
+            <span class="n">objective</span><span class="p">,</span>
+            <span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">vs</span><span class="p">,</span> <span class="n">state</span><span class="p">),</span>
+            <span class="n">iters</span><span class="o">=</span><span class="n">iters</span> <span class="o">//</span> <span class="mi">5</span><span class="p">,</span>
+            <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">jit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">names</span><span class="o">=</span><span class="n">model</span><span class="p">()</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">ignore_qs</span><span class="p">(</span><span class="n">previous</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">current</span><span class="o">=</span><span class="s2">&quot;z&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Explicitly update :math:`q(z)`: it was collapsed in the ELBO.</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">model</span><span class="p">()</span>
+        <span class="n">ts</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">construct_terms</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+        <span class="n">q_u</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_u</span>
+        <span class="n">q_z</span> <span class="o">=</span> <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z_optimal_mean_field</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="n">q_u</span><span class="p">)</span>
+        <span class="n">instance</span><span class="o">.</span><span class="n">approximation</span><span class="o">.</span><span class="n">q_z</span> <span class="o">=</span> <span class="n">q_z</span>
+
+        <span class="c1"># Post-fit a CA solution, if applicable.</span>
+        <span class="k">if</span> <span class="n">approximation</span><span class="o">.</span><span class="n">fit</span> <span class="o">==</span> <span class="s2">&quot;ca-collapsed-bfgs&quot;</span><span class="p">:</span>
+            <span class="n">_fit_mean_field_ca</span><span class="p">(</span><span class="n">model</span><span class="p">(),</span> <span class="n">t</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">iters</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Invalid value &quot;</span><span class="si">{</span><span class="n">approximation</span><span class="o">.</span><span class="n">fit</span><span class="si">}</span><span class="s1">&quot; for `fit`.&#39;</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

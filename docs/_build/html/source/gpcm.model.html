@@ -1,0 +1,424 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.model module &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="gpcm.normal module" href="gpcm.normal.html" />
+    <link rel="prev" title="gpcm.gpcm module" href="gpcm.gpcm.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../readme.html">GPCM</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Application Programming Interface</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="gpcm.approx.html">gpcm.approx module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.exppoly.html">gpcm.exppoly module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.gpcm.html">gpcm.gpcm module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">gpcm.model module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.normal.html">gpcm.normal module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.rgpcm.html">gpcm.rgpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.sample.html">gpcm.sample module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.util.html">gpcm.util module</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Application Programming Interface</a> &raquo;</li>
+        
+      <li>gpcm.model module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/source/gpcm.model.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-gpcm.model">
+<span id="gpcm-model-module"></span><h1>gpcm.model module<a class="headerlink" href="#module-gpcm.model" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">gpcm.model.</span></span><span class="sig-name descname"><span class="pre">AbstractGPCM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">probmods.model.Model</span></code></p>
+<p>GPCM model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>scheme</strong> (<em>str</em><em>, </em><em>optional</em>) – Approximation scheme. Must be one of <cite>structured</cite>,
+<cite>mean-field-ca</cite>, <cite>mean-field-gradient</cite>, <cite>mean-field-collapsed-gradient</cite>,
+<cite>mean-field-ca-gradient</cite>, or <cite>mean-field-ca-collapsed-gradient</cite>.
+Defaults to <cite>structured</cite>.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.elbo">
+<span class="sig-name descname"><span class="pre">elbo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.elbo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.elbo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.kernel_approx">
+<span class="sig-name descname"><span class="pre">kernel_approx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.kernel_approx"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.kernel_approx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Kernel approximation using inducing variables <span class="math notranslate nohighlight">\(u\)</span> for the
+impulse response <span class="math notranslate nohighlight">\(h\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t1</strong> (<em>vector</em>) – First time input.</p></li>
+<li><p><strong>t2</strong> (<em>vector</em>) – Second time input.</p></li>
+<li><p><strong>u</strong> (<em>vector</em>) – Values of the inducing variables.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Approximation of the kernel matrix broadcasted over <cite>t1</cite> and <cite>t2</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.load">
+<span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Load model from a file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to load from.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Make predictions.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x</strong> (<em>tensor</em>) – Inputs to predict at.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples. Defaults to 100.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Predictions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.predict_filter">
+<span class="sig-name descname"><span class="pre">predict_filter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_h</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_phase</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.predict_filter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.predict_filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict the learned filter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_h</strong> (<em>vector</em><em>, </em><em>optional</em>) – Inputs to sample filter at.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+<li><p><strong>min_phase</strong> (<em>bool</em><em>, </em><em>optional</em>) – Predict a minimum-phase version of the filter.
+Defaults to <cite>True</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Predictions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.namedtuple</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.predict_fourier">
+<span class="sig-name descname"><span class="pre">predict_fourier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.predict_fourier"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.predict_fourier" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict Fourier features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Marginals of the predictions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.predict_kernel">
+<span class="sig-name descname"><span class="pre">predict_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.predict_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.predict_kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict kernel and normalise prediction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_k</strong> (<em>vector</em><em>, </em><em>optional</em>) – Inputs to sample kernel at. Will be automatically
+determined if not given.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>The prediction.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.namedtuple</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.predict_psd">
+<span class="sig-name descname"><span class="pre">predict_psd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.predict_psd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.predict_psd" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict the PSD in dB.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_k</strong> (<em>vector</em><em>, </em><em>optional</em>) – Inputs to sample kernel at. Will be automatically
+determined if not given.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Predictions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">collections.namedtuple</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><a class="headerlink" href="#gpcm.model.AbstractGPCM.sample" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.sample_kernel">
+<span class="sig-name descname"><span class="pre">sample_kernel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t_k</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.sample_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.sample_kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict kernel and normalise prediction.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_k</strong> (<em>vector</em><em>, </em><em>optional</em>) – Inputs to sample kernel at. Will be automatically
+determined if not given.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Tuple containing the inputs of the samples and the</dt><dd><p>samples.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[vector, tensor]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.model.AbstractGPCM.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/model.html#AbstractGPCM.save"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.model.AbstractGPCM.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Save model and inference results to a file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>path</strong> (<em>str</em>) – Path to save to.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="gpcm.normal.html" class="btn btn-neutral float-right" title="gpcm.normal module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="gpcm.gpcm.html" class="btn btn-neutral float-left" title="gpcm.gpcm module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

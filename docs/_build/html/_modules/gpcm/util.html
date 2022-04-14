@@ -1,0 +1,487 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.util &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../readme.html">GPCM</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Application Programming Interface</a></li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>gpcm.util</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for gpcm.util</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span> <span class="nn">varz</span> <span class="kn">import</span> <span class="n">Vars</span><span class="p">,</span> <span class="n">minimise_l_bfgs_b</span>
+
+<span class="kn">import</span> <span class="nn">jax</span>
+<span class="kn">import</span> <span class="nn">lab</span> <span class="k">as</span> <span class="nn">B</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">plum</span> <span class="kn">import</span> <span class="n">Dispatcher</span>
+<span class="kn">from</span> <span class="nn">stheno</span> <span class="kn">import</span> <span class="n">Normal</span>
+<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="kn">import</span> <span class="n">hilbert</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;min_phase&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;summarise_samples&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;estimate_psd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;invert_perm&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;closest_psd&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;collect&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;autocorr&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;method&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;hessian&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;maximum_a_posteriori&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;laplace_approximation&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="n">_dispatch</span> <span class="o">=</span> <span class="n">Dispatcher</span><span class="p">()</span>
+
+
+<div class="viewcode-block" id="min_phase"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.min_phase">[docs]</a><span class="k">def</span> <span class="nf">min_phase</span><span class="p">(</span><span class="n">h</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Minimum phase transform using the Hilbert transform.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        h (vector): Filter to transform.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        vector: Minimum phase filter version of `h`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+    <span class="n">spec</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">h</span><span class="p">)</span>
+    <span class="n">phase</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">imag</span><span class="p">(</span><span class="o">-</span><span class="n">hilbert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">spec</span><span class="p">))))</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="mi">1</span><span class="n">j</span> <span class="o">*</span> <span class="n">phase</span><span class="p">)))</span></div>
+
+
+<div class="viewcode-block" id="summarise_samples"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.summarise_samples">[docs]</a><span class="k">def</span> <span class="nf">summarise_samples</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">samples</span><span class="p">,</span> <span class="n">db</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Summarise samples.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (vector): Inputs of samples.</span>
+<span class="sd">        samples (tensor): Samples, with the first dimension corresponding</span>
+<span class="sd">            to different samples.</span>
+<span class="sd">        db (bool, optional): Convert to decibels.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :class:`collections.namedtuple`: Named tuple containing various</span>
+<span class="sd">            statistics of the samples.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span><span class="p">,</span> <span class="n">samples</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">samples</span><span class="p">)</span>
+    <span class="n">random_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">permutation</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">samples</span><span class="p">)[</span><span class="mi">0</span><span class="p">])[:</span><span class="mi">3</span><span class="p">]</span>
+
+    <span class="k">def</span> <span class="nf">transform</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">db</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">x</span>
+
+    <span class="n">perm</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">reversed</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">rank</span><span class="p">(</span><span class="n">samples</span><span class="p">))))</span>  <span class="c1"># Reverse all dimensions.</span>
+    <span class="k">return</span> <span class="n">collect</span><span class="p">(</span>
+        <span class="n">x</span><span class="o">=</span><span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">x</span><span class="p">),</span>
+        <span class="n">mean</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">var</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">err_68_lower</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mf">0.32</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">err_68_upper</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mf">0.32</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">err_95_lower</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mf">0.025</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">err_95_upper</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mf">0.025</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">err_99_lower</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mf">0.0015</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">err_99_upper</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mf">0.0015</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)),</span>
+        <span class="n">samples</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">perm</span><span class="o">=</span><span class="n">perm</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="n">random_inds</span><span class="p">]),</span>
+        <span class="n">all_samples</span><span class="o">=</span><span class="n">transform</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">perm</span><span class="o">=</span><span class="n">perm</span><span class="p">)),</span>
+    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="estimate_psd"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.estimate_psd">[docs]</a><span class="k">def</span> <span class="nf">estimate_psd</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">n_zero</span><span class="o">=</span><span class="mi">2_000</span><span class="p">,</span> <span class="n">db</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Estimate the PSD from samples of the kernel.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        t (vector): Time points of the kernel, which should be a linear space</span>
+<span class="sd">            starting from the origin.</span>
+<span class="sd">        k (vector): Kernel.</span>
+<span class="sd">        n_zero (int, optional): Zero padding. Defaults to `2_000`.</span>
+<span class="sd">        db (bool, optional): Convert to decibel. Defaults to `False`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        vector: PSD, correctly scaled.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert to NumPy for compatibility with frameworks.</span>
+    <span class="n">t</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Time points must start at zero.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Perform zero padding.</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">B</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">n_zero</span><span class="p">))</span>
+
+    <span class="c1"># Symmetrise and Fourier transform.</span>
+    <span class="n">k_symmetric</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">k</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">][::</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">psd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">k_symmetric</span><span class="p">)</span>
+    <span class="n">freqs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">psd</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+    <span class="c1"># Should be real and positive, but the numerics may not be in our favour.</span>
+    <span class="n">psd</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">psd</span><span class="p">))</span>
+
+    <span class="c1"># Now scale appropriately: the total power should equal `k[0]`.</span>
+    <span class="n">total_power</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trapz</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">psd</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">freqs</span><span class="p">)</span>
+    <span class="n">psd</span> <span class="o">/=</span> <span class="n">total_power</span> <span class="o">/</span> <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="c1"># Convert to dB.</span>
+    <span class="k">if</span> <span class="n">db</span><span class="p">:</span>
+        <span class="n">psd</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">psd</span><span class="p">)</span>
+
+    <span class="c1"># Only return non-negative frequencies.</span>
+    <span class="n">inds</span> <span class="o">=</span> <span class="n">freqs</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+    <span class="n">freqs</span> <span class="o">=</span> <span class="n">freqs</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span>
+    <span class="n">psd</span> <span class="o">=</span> <span class="n">psd</span><span class="p">[</span><span class="n">inds</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">psd</span></div>
+
+
+<div class="viewcode-block" id="invert_perm"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.invert_perm">[docs]</a><span class="k">def</span> <span class="nf">invert_perm</span><span class="p">(</span><span class="n">perm</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute the inverse of a permutation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        perm (list): Permutation to invert.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">inverse_perm</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">perm</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">perm</span><span class="p">):</span>
+        <span class="n">inverse_perm</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+    <span class="k">return</span> <span class="n">inverse_perm</span></div>
+
+
+<div class="viewcode-block" id="closest_psd"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.closest_psd">[docs]</a><span class="k">def</span> <span class="nf">closest_psd</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">inv</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Map a matrix to the closest PSD matrix.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        a (tensor): Matrix.</span>
+<span class="sd">        inv (bool, optional): Also invert `a`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tensor: PSD matrix closest to `a` or the inverse of `a`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">dense</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="n">u</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">v</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+    <span class="n">signs</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">tr_a</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">s</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">diag</span><span class="p">(</span><span class="n">signs</span><span class="p">)</span> <span class="o">*</span> <span class="n">s</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">inv</span><span class="p">:</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">s</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">B</span><span class="o">.</span><span class="n">mm</span><span class="p">(</span><span class="n">u</span> <span class="o">*</span> <span class="n">B</span><span class="o">.</span><span class="n">expand_dims</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">2</span><span class="p">),</span> <span class="n">v</span><span class="p">,</span> <span class="n">tr_b</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="collect"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.collect">[docs]</a><span class="k">def</span> <span class="nf">collect</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Quantities&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kw_args</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Construct a named tuple with certain attributes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        **kw_args (object): Keyword argument specifying the attributes.</span>
+<span class="sd">        name (str): Name of the named tuple. Defaults to &quot;Quantities&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        :class:`collections.namedtuple`: Named tuple of the model with the</span>
+<span class="sd">            specified attributes.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">namedtuple</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">kw_args</span><span class="p">)(</span><span class="o">**</span><span class="n">kw_args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="autocorr"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.autocorr">[docs]</a><span class="k">def</span> <span class="nf">autocorr</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">lags</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cov</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Estimate the autocorrelation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        x (vector): Time series to estimate autocorrelation of.</span>
+<span class="sd">        lags (int, optional): Number of lags. Defaults to all lags.</span>
+<span class="sd">        cov (bool, optional): Compute covariances rather than correlations. Defaults to</span>
+<span class="sd">            `False`.</span>
+<span class="sd">        window (bool, optional): Apply a triangular window to the estimate. Defaults to</span>
+<span class="sd">            `False`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        vector: Autocorrelation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert to NumPy for compatibility with frameworks.</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">B</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="c1"># Compute autocovariance.</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># Flatten the input.</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;full&quot;</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="p">[</span><span class="n">k</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="mi">2</span> <span class="p">:]</span>
+
+    <span class="k">if</span> <span class="n">window</span><span class="p">:</span>
+        <span class="c1"># Do not undo the triangular window.</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span> <span class="o">/</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Divide by the precise numbers of estimates.</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># Get the right number of lags.</span>
+    <span class="k">if</span> <span class="n">lags</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="p">[:</span> <span class="n">lags</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+
+    <span class="c1"># Divide by estimate of variance if computing correlations.</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cov</span><span class="p">:</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span> <span class="o">/</span> <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">k</span></div>
+
+
+<div class="viewcode-block" id="method"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.method">[docs]</a><span class="k">def</span> <span class="nf">method</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Decorator to add the function as a method to a class.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cls (type): Class to add the function as a method to.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">decorator</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+        <span class="nb">setattr</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">f</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">f</span>
+
+    <span class="k">return</span> <span class="n">decorator</span></div>
+
+
+<div class="viewcode-block" id="hessian"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.hessian">[docs]</a><span class="k">def</span> <span class="nf">hessian</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute the Hessian of a function at a certain input.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f (function): Function to compute Hessian of.</span>
+<span class="sd">        x (column vector): Input to compute Hessian at.</span>
+<span class="sd">        differentiable (bool, optional): Make the computation of the Hessian</span>
+<span class="sd">            differentiable. Defaults to `False`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        matrix: Hessian.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">B</span><span class="o">.</span><span class="n">rank</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">B</span><span class="o">.</span><span class="n">shape</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input must be a column vector.&quot;</span><span class="p">)</span>
+    <span class="c1"># Use RMAD twice to preserve memory.</span>
+    <span class="n">hess</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jacrev</span><span class="p">(</span><span class="n">jax</span><span class="o">.</span><span class="n">jacrev</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">f</span><span class="p">(</span><span class="n">x</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">])))(</span><span class="n">x</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">hess</span> <span class="o">+</span> <span class="n">B</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="n">hess</span><span class="p">))</span> <span class="o">/</span> <span class="mi">2</span>  <span class="c1"># Symmetrise to counteract numerical errors.</span></div>
+
+
+<div class="viewcode-block" id="maximum_a_posteriori"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.maximum_a_posteriori">[docs]</a><span class="k">def</span> <span class="nf">maximum_a_posteriori</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x_init</span><span class="p">,</span> <span class="n">iters</span><span class="o">=</span><span class="mi">2000</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Compute the MAP estimate.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f (function): Possibly unnormalised log-density.</span>
+<span class="sd">        x_init (column vector): Starting point to start the optimisation.</span>
+<span class="sd">        iters (int, optional): Number of optimisation iterations. Defaults to `2000`.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tensor: MAP estimate.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">objective</span><span class="p">(</span><span class="n">vs_</span><span class="p">):</span>
+        <span class="k">return</span> <span class="o">-</span><span class="n">f</span><span class="p">(</span><span class="n">vs_</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">])</span>
+
+    <span class="n">vs</span> <span class="o">=</span> <span class="n">Vars</span><span class="p">(</span><span class="n">B</span><span class="o">.</span><span class="n">dtype</span><span class="p">(</span><span class="n">x_init</span><span class="p">))</span>
+    <span class="n">vs</span><span class="o">.</span><span class="n">unbounded</span><span class="p">(</span><span class="n">init</span><span class="o">=</span><span class="n">x_init</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+    <span class="n">minimise_l_bfgs_b</span><span class="p">(</span><span class="n">objective</span><span class="p">,</span> <span class="n">vs</span><span class="p">,</span> <span class="n">iters</span><span class="o">=</span><span class="n">iters</span><span class="p">,</span> <span class="n">jit</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">trace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">vs</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="laplace_approximation"><a class="viewcode-back" href="../../source/gpcm.util.html#gpcm.util.laplace_approximation">[docs]</a><span class="k">def</span> <span class="nf">laplace_approximation</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x_init</span><span class="p">,</span> <span class="n">f_eval</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Perform a Laplace approximation of a density.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f (function): Possibly unnormalised log-density.</span>
+<span class="sd">        x_init (column vector): Starting point to start the optimisation.</span>
+<span class="sd">        f_eval (function): Use this log-density for the evaluation at the MAP estimate.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple[:class:`stheno.Normal`]: Laplace approximation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">maximum_a_posteriori</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">x_init</span><span class="p">)</span>
+    <span class="n">precision</span> <span class="o">=</span> <span class="o">-</span><span class="n">hessian</span><span class="p">(</span><span class="n">f_eval</span> <span class="k">if</span> <span class="n">f_eval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">f</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">Normal</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">closest_psd</span><span class="p">(</span><span class="n">precision</span><span class="p">,</span> <span class="n">inv</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

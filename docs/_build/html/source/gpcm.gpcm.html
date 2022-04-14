@@ -1,0 +1,472 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.gpcm module &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="gpcm.model module" href="gpcm.model.html" />
+    <link rel="prev" title="gpcm.exppoly module" href="gpcm.exppoly.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../readme.html">GPCM</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Application Programming Interface</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="gpcm.approx.html">gpcm.approx module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.exppoly.html">gpcm.exppoly module</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">gpcm.gpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.model.html">gpcm.model module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.normal.html">gpcm.normal module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.rgpcm.html">gpcm.rgpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.sample.html">gpcm.sample module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.util.html">gpcm.util module</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Application Programming Interface</a> &raquo;</li>
+        
+      <li>gpcm.gpcm module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/source/gpcm.gpcm.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-gpcm.gpcm">
+<span id="gpcm-gpcm-module"></span><h1>gpcm.gpcm module<a class="headerlink" href="#module-gpcm.gpcm" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="gpcm.gpcm.CGPCM">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">gpcm.gpcm.</span></span><span class="sig-name descname"><span class="pre">CGPCM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/gpcm.html#CGPCM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.gpcm.CGPCM" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.gpcm.GPCM</span></code></a></p>
+<p>CGPCM variant of the GPCM.</p>
+<p>Takes in the same keyword arguments as <a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>, but the keyword
+<cite>causal</cite> defaults to <cite>True</cite>.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.gpcm.CGPCM.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'CGPCM'</span></em><a class="headerlink" href="#gpcm.gpcm.CGPCM.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Formatted name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">gpcm.gpcm.</span></span><span class="sig-name descname"><span class="pre">GPCM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw_args</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/gpcm.html#GPCM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.gpcm.GPCM" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="gpcm.model.html#gpcm.model.AbstractGPCM" title="gpcm.model.AbstractGPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.model.AbstractGPCM</span></code></a></p>
+<p>GPCM and causal variant.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scheme</strong> (<em>str</em><em>, </em><em>optional</em>) – Approximation scheme. Defaults to <cite>structured</cite>.</p></li>
+<li><p><strong>causal</strong> (<em>bool</em><em>, </em><em>optional</em>) – Use causal variant. Defaults to <cite>False</cite>.</p></li>
+<li><p><strong>noise</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Observation noise. Defaults to <cite>1e-4</cite>.</p></li>
+<li><p><strong>fix_noise</strong> (<em>bool</em><em>, </em><em>optional</em>) – Do not learn the observation noise. Defaults
+to <cite>False</cite>.</p></li>
+<li><p><strong>alpha</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Decay of the window.</p></li>
+<li><p><strong>alpha_t</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Scale of the window. Defaults to
+normalise the window to unity power.</p></li>
+<li><p><strong>window</strong> (<em>scalar</em><em>, </em><em>alternative</em>) – Length of the window. This will be used
+to determine <cite>alpha</cite> if it is not given.</p></li>
+<li><p><strong>fix_window</strong> (<em>bool</em><em>, </em><em>optional</em>) – Do not learn the window. Defaults to <cite>False</cite>.</p></li>
+<li><p><strong>gamma</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Decay on the prior of <span class="math notranslate nohighlight">\(h\)</span>.</p></li>
+<li><p><strong>scale</strong> (<em>scalar</em><em>, </em><em>alternative</em>) – Length scale of the function. This will be
+used to determine <cite>gamma</cite> if it is not given.</p></li>
+<li><p><strong>fix_scale</strong> (<em>bool</em><em>, </em><em>optional</em>) – Do not learn the length scale. Defaults to <cite>False</cite>.</p></li>
+<li><p><strong>omega</strong> (<em>scalar</em><em>, </em><em>optional</em>) – Decay of the transform <span class="math notranslate nohighlight">\(s\)</span> of
+<span class="math notranslate nohighlight">\(x\)</span>. Defaults to length scale half the spacing
+between the inducing points.</p></li>
+<li><p><strong>n_u</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of inducing points for <span class="math notranslate nohighlight">\(u\)</span>.</p></li>
+<li><p><strong>n_u_cap</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum value for <cite>n_u</cite>. Defaults to <cite>300</cite>.</p></li>
+<li><p><strong>t_u</strong> (<em>vector</em><em>, </em><em>optional</em>) – Locations of inducing points for <span class="math notranslate nohighlight">\(u\)</span>.
+Defaults to equally spaced points across twice the filter length
+scale.</p></li>
+<li><p><strong>n_z</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of inducing points for <span class="math notranslate nohighlight">\(s\)</span>.</p></li>
+<li><p><strong>n_z_cap</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum number of inducing points. Defaults to <cite>300</cite>.</p></li>
+<li><p><strong>t_z</strong> (<em>vector</em><em>, </em><em>optional</em>) – Locations of inducing points for <span class="math notranslate nohighlight">\(s\)</span>.
+Defaults to equally spaced points across the span of the data
+extended by twice the filter length scale.</p></li>
+<li><p><strong>extend_t_z</strong> (<em>bool</em><em>, </em><em>optional</em>) – Increase the number of inducing points for
+<span class="math notranslate nohighlight">\(z\)</span> to additionally and appropriately cover an extension of the length
+of the filter on both sides.</p></li>
+<li><p><strong>t</strong> (<em>vector</em><em>, </em><em>alternative</em>) – Locations of interest. Can be used to automatically
+initialise quantities.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.compute_I_hz">
+<span class="sig-name descname"><span class="pre">compute_I_hz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#gpcm.gpcm.GPCM.compute_I_hz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the <span class="math notranslate nohighlight">\(I_{hz,t_i}\)</span> matrix for <span class="math notranslate nohighlight">\(t_i\)</span> in <cite>t</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>) – Model.</p></li>
+<li><p><strong>t</strong> (<em>vector</em>) – Time points of data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Value of <span class="math notranslate nohighlight">\(I_{hz,t_i}\)</span>, with shape</dt><dd><p><cite>(len(t), len(model.t_z), len(model.t_z))</cite>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.compute_I_ux">
+<span class="sig-name descname"><span class="pre">compute_I_ux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#gpcm.gpcm.GPCM.compute_I_ux" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the <span class="math notranslate nohighlight">\(I_{ux}\)</span> integral.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>) – Model.</p></li>
+<li><p><strong>t1</strong> (<em>tensor</em><em>, </em><em>optional</em>) – First time input. Defaults to zero.</p></li>
+<li><p><strong>t2</strong> (<em>tensor</em><em>, </em><em>optional</em>) – Second time input. Defaults to zero.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Value of <span class="math notranslate nohighlight">\(I_{ux}\)</span> for all <cite>t1</cite>, <cite>t2</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.compute_I_uz">
+<span class="sig-name descname"><span class="pre">compute_I_uz</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#gpcm.gpcm.GPCM.compute_I_uz" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the <span class="math notranslate nohighlight">\(I_{uz,t_i}\)</span> matrix for <span class="math notranslate nohighlight">\(t_i\)</span> in <cite>t</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>) – Model.</p></li>
+<li><p><strong>t</strong> (<em>vector</em>) – Time points <span class="math notranslate nohighlight">\(t_i\)</span> of data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Value of <span class="math notranslate nohighlight">\(I_{uz,t_i}\)</span>, with shape</dt><dd><p><cite>(len(t), len(model.t_u), len(model.t_z))</cite>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.compute_K_u">
+<span class="sig-name descname"><span class="pre">compute_K_u</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#gpcm.gpcm.GPCM.compute_K_u" title="Permalink to this definition">¶</a></dt>
+<dd><p>Covariance matrix of inducing variables <span class="math notranslate nohighlight">\(u\)</span> associated with
+<span class="math notranslate nohighlight">\(h\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model</strong> (<a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>) – Model.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><span class="math notranslate nohighlight">\(K_u\)</span>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.compute_K_z">
+<span class="sig-name descname"><span class="pre">compute_K_z</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#gpcm.gpcm.GPCM.compute_K_z" title="Permalink to this definition">¶</a></dt>
+<dd><p>Covariance matrix <span class="math notranslate nohighlight">\(K_z\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>model</strong> (<a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>) – Model.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><span class="math notranslate nohighlight">\(K_z\)</span>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>matrix</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.compute_i_hx">
+<span class="sig-name descname"><span class="pre">compute_i_hx</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t1</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#gpcm.gpcm.GPCM.compute_i_hx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the <span class="math notranslate nohighlight">\(I_{hx}\)</span> integral.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<a class="reference internal" href="#gpcm.gpcm.GPCM" title="gpcm.gpcm.GPCM"><code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.GPCM</span></code></a>) – Model.</p></li>
+<li><p><strong>t1</strong> (<em>tensor</em><em>, </em><em>optional</em>) – First time input. Defaults to zero.</p></li>
+<li><p><strong>t2</strong> (<em>tensor</em><em>, </em><em>optional</em>) – Second time input. Defaults to zero.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Value of <span class="math notranslate nohighlight">\(I_{hx}\)</span> for all <cite>t1</cite> and <cite>t2</cite>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.k_h">
+<span class="sig-name descname"><span class="pre">k_h</span></span><a class="reference internal" href="../_modules/gpcm/gpcm.html#GPCM.k_h"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.gpcm.GPCM.k_h" title="Permalink to this definition">¶</a></dt>
+<dd><p>Kernel function associated to the filter <span class="math notranslate nohighlight">\(h\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t1</strong> (<em>tensor</em>) – First input <span class="math notranslate nohighlight">\(t_1\)</span>.</p></li>
+<li><p><strong>t2</strong> (<em>tensor</em>) – Second input <span class="math notranslate nohighlight">\(t_2\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Expression for <span class="math notranslate nohighlight">\(k_h(t_1, t_2)\)</span>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="gpcm.exppoly.html#gpcm.exppoly.ExpPoly" title="gpcm.exppoly.ExpPoly"><code class="xref py py-class docutils literal notranslate"><span class="pre">exppoly.ExpPoly</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.k_xs">
+<span class="sig-name descname"><span class="pre">k_xs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">t1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">t2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/gpcm.html#GPCM.k_xs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.gpcm.GPCM.k_xs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Covariance function between to the white noise <span class="math notranslate nohighlight">\(x\)</span> and its interdomain
+transform <span class="math notranslate nohighlight">\(s\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t1</strong> (<em>tensor</em>) – First input <span class="math notranslate nohighlight">\(t_1\)</span>.</p></li>
+<li><p><strong>t2</strong> (<em>tensor</em>) – Second input <span class="math notranslate nohighlight">\(t_2\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Expression for <span class="math notranslate nohighlight">\(k_{xs}(t_1, t_2)\)</span>.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="gpcm.exppoly.html#gpcm.exppoly.ExpPoly" title="gpcm.exppoly.ExpPoly"><code class="xref py py-class docutils literal notranslate"><span class="pre">exppoly.ExpPoly</span></code></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.gpcm.GPCM.name">
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"> <span class="pre">=</span> <span class="pre">'GPCM'</span></em><a class="headerlink" href="#gpcm.gpcm.GPCM.name" title="Permalink to this definition">¶</a></dt>
+<dd><p>Formatted name.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="gpcm.model.html" class="btn btn-neutral float-right" title="gpcm.model module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="gpcm.exppoly.html" class="btn btn-neutral float-left" title="gpcm.exppoly module" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

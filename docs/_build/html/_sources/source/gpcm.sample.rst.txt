@@ -1,0 +1,7 @@
+gpcm.sample module
+==================
+
+.. automodule:: gpcm.sample
+   :members:
+   :undoc-members:
+   :show-inheritance:

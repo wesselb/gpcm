@@ -1,0 +1,7 @@
+gpcm.approx module
+==================
+
+.. automodule:: gpcm.approx
+   :members:
+   :undoc-members:
+   :show-inheritance:

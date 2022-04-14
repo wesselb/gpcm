@@ -1,0 +1,523 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <title>gpcm.approx module &mdash; gpcm 0.1.0 documentation</title>
+  
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+
+  
+  
+
+  
+  
+
+  
+
+  
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="gpcm.exppoly module" href="gpcm.exppoly.html" />
+    <link rel="prev" title="Application Programming Interface" href="../api.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> gpcm
+          
+
+          
+          </a>
+
+          
+            
+            
+              <div class="version">
+                0.1
+              </div>
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../readme.html">GPCM</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../api.html">Application Programming Interface</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">gpcm.approx module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.exppoly.html">gpcm.exppoly module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.gpcm.html">gpcm.gpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.model.html">gpcm.model module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.normal.html">gpcm.normal module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.rgpcm.html">gpcm.rgpcm module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.sample.html">gpcm.sample module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="gpcm.util.html">gpcm.util module</a></li>
+</ul>
+</li>
+</ul>
+
+            
+          
+        </div>
+        
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">gpcm</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+        
+          <li><a href="../api.html">Application Programming Interface</a> &raquo;</li>
+        
+      <li>gpcm.approx module</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+          
+            <a href="../_sources/source/gpcm.approx.rst.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <div class="section" id="module-gpcm.approx">
+<span id="gpcm-approx-module"></span><h1>gpcm.approx module<a class="headerlink" href="#module-gpcm.approx" title="Permalink to this headline">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="gpcm.approx.MeanField">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">gpcm.approx.</span></span><span class="sig-name descname"><span class="pre">MeanField</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fit</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/gpcm/approx.html#MeanField"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.MeanField" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.approx.Approximation</span></code></p>
+<p>Mean-field approximation of the GPCM.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>model</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.AbstractGPCM</span></code>) – Instantiated GPCM.</p></li>
+<li><p><strong>fit</strong> (<em>str</em>) – Fitting method. Must be one of <cite>ca</cite>, <cite>bfgs</cite>, <cite>collapsed-bfgs</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.MeanField.elbo">
+<span class="sig-name descname"><span class="pre">elbo</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#MeanField.elbo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.MeanField.elbo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the mean-field ELBO.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<em>random state</em><em>, </em><em>optional</em>) – Random state.</p></li>
+<li><p><strong>t</strong> (<em>vector</em>) – Locations of observations.</p></li>
+<li><p><strong>y</strong> (<em>vector</em>) – Observations.</p></li>
+<li><p><strong>collapsed</strong> (<em>str</em><em>, </em><em>optional</em>) – Collapse over <span class="math notranslate nohighlight">\(z\)</span> or <span class="math notranslate nohighlight">\(u\)</span>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>ELBO</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>scalar</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.MeanField.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#MeanField.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.MeanField.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>t</strong> (<em>vector</em>) – Points to predict at.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Marginals of the predictions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[vector, vector]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.MeanField.predict_z">
+<span class="sig-name descname"><span class="pre">predict_z</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#MeanField.predict_z"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.MeanField.predict_z" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict Fourier features under the mean-field approximation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>Marginals of the predictions.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>tuple[vector, vector]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.MeanField.sample_kernel">
+<span class="sig-name descname"><span class="pre">sample_kernel</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#MeanField.sample_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.MeanField.sample_kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample kernel under the mean-field approximation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_k</strong> (<em>vector</em>) – Time point to sample at.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Samples.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="gpcm.approx.Structured">
+<em class="property"><span class="pre">class</span> </em><span class="sig-prename descclassname"><span class="pre">gpcm.approx.</span></span><span class="sig-name descname"><span class="pre">Structured</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">gpcm.approx.Approximation</span></code></p>
+<p>Structured approximation of the GPCM.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.elbo">
+<span class="sig-name descname"><span class="pre">elbo</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.elbo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.elbo" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fit a mean-field approximation and compute an estimate of the resulting ELBO
+collapsed over <span class="math notranslate nohighlight">\(q(z|u)\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<em>random state</em><em>, </em><em>optional</em>) – Random state.</p></li>
+<li><p><strong>t</strong> (<em>vector</em>) – Locations of observations.</p></li>
+<li><p><strong>y</strong> (<em>vector</em>) – Observations.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>ELBO.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>scalar</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.elbo_collapsed_z">
+<span class="sig-name descname"><span class="pre">elbo_collapsed_z</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.elbo_collapsed_z"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.elbo_collapsed_z" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute an estimate of the ELBO collapsed over <span class="math notranslate nohighlight">\(q(z|u)\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<em>random state</em>) – Random state.</p></li>
+<li><p><strong>t</strong> (<em>vector</em>) – Locations of observations.</p></li>
+<li><p><strong>y</strong> (<em>vector</em>) – Observations.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Random state and ELBO.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[random state, scalar]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.elbo_gibbs">
+<span class="sig-name descname"><span class="pre">elbo_gibbs</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.elbo_gibbs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.elbo_gibbs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute an estimate of the structured ELBO ignoring the entropy of
+the optimal <span class="math notranslate nohighlight">\(q(u)\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>state</strong> (<em>random state</em>) – Random state.</p></li>
+<li><p><strong>t</strong> (<em>vector</em>) – Locations of observations.</p></li>
+<li><p><strong>y</strong> (<em>vector</em>) – Observations.</p></li>
+<li><p><strong>u</strong> (<em>matrix</em>) – Current sample for <span class="math notranslate nohighlight">\(u\)</span>.</p></li>
+<li><p><strong>z</strong> (<em>matrix</em>) – Current sample for <span class="math notranslate nohighlight">\(z\)</span>.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of Gibbs samples. Defaults to <cite>5</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Random state, ELBO, updated</dt><dd><p>sample for <span class="math notranslate nohighlight">\(u\)</span>, and updated sample for <span class="math notranslate nohighlight">\(z\)</span>.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[random state, scalar, matrix, matrix]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.log_Z_u">
+<span class="sig-name descname"><span class="pre">log_Z_u</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.log_Z_u"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.log_Z_u" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the normalising constant term of the optimal <span class="math notranslate nohighlight">\(q(z|u)\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>ts</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">types.SimpleNamespace</span></code>) – Terms.</p></li>
+<li><p><strong>u</strong> (<em>tensor</em>) – Sample for <span class="math notranslate nohighlight">\(u\)</span> to use.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Normalising constant term.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>scalar</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.p_u_samples">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">p_u_samples</span></span><a class="headerlink" href="#gpcm.approx.Structured.p_u_samples" title="Permalink to this definition">¶</a></dt>
+<dd><p>Samples for the current prior for <span class="math notranslate nohighlight">\(u\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.p_z_samples">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">p_z_samples</span></span><a class="headerlink" href="#gpcm.approx.Structured.p_z_samples" title="Permalink to this definition">¶</a></dt>
+<dd><p>Samples from the current prior for <span class="math notranslate nohighlight">\(z\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.predict" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t</strong> (<em>vector</em>) – Points to predict at.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>Tuple containing the mean and standard deviation of the</dt><dd><p>predictions.</p>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.predict_z">
+<span class="sig-name descname"><span class="pre">predict_z</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.predict_z"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.predict_z" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predict Fourier features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Marginals of the predictions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple[vector, vector]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.q_u_samples">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">q_u_samples</span></span><a class="headerlink" href="#gpcm.approx.Structured.q_u_samples" title="Permalink to this definition">¶</a></dt>
+<dd><p>Samples for the current variational posterior for <span class="math notranslate nohighlight">\(u\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.q_z_samples">
+<em class="property"><span class="pre">property</span> </em><span class="sig-name descname"><span class="pre">q_z_samples</span></span><a class="headerlink" href="#gpcm.approx.Structured.q_z_samples" title="Permalink to this definition">¶</a></dt>
+<dd><p>Samples from the variational posterior for <span class="math notranslate nohighlight">\(z\)</span>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="gpcm.approx.Structured.sample_kernel">
+<span class="sig-name descname"><span class="pre">sample_kernel</span></span><a class="reference internal" href="../_modules/gpcm/approx.html#Structured.sample_kernel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#gpcm.approx.Structured.sample_kernel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sample kernel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>t_k</strong> (<em>vector</em>) – Time point to sample at.</p></li>
+<li><p><strong>num_samples</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of samples to use. Defaults to <cite>1000</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Samples.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tensor</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+           </div>
+           
+          </div>
+          <footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+        <a href="gpcm.exppoly.html" class="btn btn-neutral float-right" title="gpcm.exppoly module" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="../api.html" class="btn btn-neutral float-left" title="Application Programming Interface" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &#169; Copyright 2019, Wessel Bruinsma.
+
+    </p>
+  </div>
+    
+    
+    
+    Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    
+    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+gpcm.normal module
+==================
+
+.. automodule:: gpcm.normal
+   :members:
+   :undoc-members:
+   :show-inheritance:
