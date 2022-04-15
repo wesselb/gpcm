@@ -31,7 +31,7 @@ git clone https://github.com/wesselb/gpcm
 cd gpcm
 
 # Checkout to the right commit.
-git checkout e2110a75c96974fac2f75a97f84b847e81d4b643
+git checkout 292beacfd77eb1a53b4944da89be57b874f0d08f
 
 # Setup a virtual environment.
 virtualenv -p python3 venv
