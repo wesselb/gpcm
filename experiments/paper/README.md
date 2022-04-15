@@ -22,11 +22,24 @@ Note that the CGPCM also requires significant CPU compute, so the total runtime 
 depends on the CPU.
 Also note that the numbers may be slightly perturbed due to different random seeds.
 
-To reproduce the experiments, clone and install this repository, and checkout to the
-commit at which the experiments were run:
+To reproduce the experiments, clone this repository, make a virtual environment, and
+install the versions of packages at the time the experiments were produced:
 
 ```bash
-git checkout 2ccd60f06a41261491c0bffbabf7808dd61668a4
+# Clone and enter the repository.
+git clone https://github.com/wesselb/gpcm
+cd gpcm
+
+# Checkout to the right commit.
+git checkout e2110a75c96974fac2f75a97f84b847e81d4b643
+
+# Setup a virtual environment.
+virtualenv -p python3 venv
+source venv/bin/activate
+
+# Install the packages.
+pip install -r experiments/paper/requirements_snapshot.txt
+pip install -e .
 ```
 
 Then run `experiments/paper/reproduce.sh` to run all experiments in sequence at once:
