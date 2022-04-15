@@ -1,7 +1,7 @@
 # Experiments from Bruinsma, Tegnér, and Turner (2022)
 
 This document explains how the experiments from the below citation can be reproduced and
-which differences you can expect w.r.t. the precise numbers reported in the paper.
+which differences you can expect w.r.t. the numbers reported in the paper.
 
 ```
 @inproceedings{Bruinsma:2022:Modelling_Non-Smooth_Signals_With_Complex,
