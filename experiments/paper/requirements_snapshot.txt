@@ -29,7 +29,7 @@ jax==0.3.4
 jaxlib==0.3.2+cuda11.cudnn82
 jedi==0.18.1
 Jinja2==3.1.1
-joblib==1.1.0
+joblib==1.2.0
 kiwisolver==1.4.2
 MarkupSafe==2.1.1
 matplotlib==3.5.1
