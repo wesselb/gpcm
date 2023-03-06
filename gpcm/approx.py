@@ -1,11 +1,12 @@
 from types import SimpleNamespace
+from typing import Union
 
 import lab.jax as B
 import wbml.out
 from jax.lax import stop_gradient
-from plum import Dispatcher, Union
+from plum import Dispatcher
 from probmods import Model, fit
-from varz import minimise_l_bfgs_b, minimise_adam
+from varz import minimise_adam, minimise_l_bfgs_b
 from varz.spec import Struct
 
 from .normal import NaturalNormal

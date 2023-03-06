@@ -1,17 +1,17 @@
 import numpy as np
 import pytest
 from gpcm.exppoly import (
-    var,
-    const,
-    safe_sqrt,
-    is_inf,
-    Factor,
-    _merge_common_factors,
-    Term,
-    _merge_common_terms,
-    _as_poly,
     ExpPoly,
+    Factor,
     Poly,
+    Term,
+    _as_poly,
+    _merge_common_factors,
+    _merge_common_terms,
+    const,
+    is_inf,
+    safe_sqrt,
+    var,
 )
 
 from .util import approx

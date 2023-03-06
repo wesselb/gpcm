@@ -4,7 +4,7 @@ requirements = [
     "numpy>=1.16",
     "scipy",
     "matplotlib",
-    "plum-dispatch>=1",
+    "plum-dispatch>=2",
     "backends>=1.4.9",
     "backends-matrix>=1.1.5",
     "stheno>=1.1.7",

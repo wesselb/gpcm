@@ -1,8 +1,9 @@
 import operator
 from functools import reduce
+
 import lab as B
 import numpy as np
-from plum import Dispatcher, PromisedType
+from plum import Dispatcher, PromisedType, isinstance
 
 __all__ = ["var", "const", "ExpPoly"]
 
