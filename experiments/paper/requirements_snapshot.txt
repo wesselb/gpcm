@@ -6,7 +6,7 @@ Babel==2.9.1
 backcall==0.2.0
 backends==1.4.19
 backends-matrix==1.2.11
-black==22.3.0
+black==26.3.1
 certifi==2022.12.7
 cftime==1.6.0
 charset-normalizer==2.0.12
