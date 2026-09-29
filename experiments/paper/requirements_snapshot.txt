@@ -84,7 +84,7 @@ tomli==2.0.1
 traitlets==5.1.1
 typed-ast==1.5.2
 typing_extensions==4.1.1
-urllib3==1.26.9
+urllib3==2.7.0
 varz==0.7.4
 wbml==0.3.16
 wcwidth==0.2.5
