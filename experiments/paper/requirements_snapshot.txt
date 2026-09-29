@@ -35,7 +35,7 @@ MarkupSafe==2.1.1
 matplotlib==3.5.1
 matplotlib-inline==0.1.3
 mlkernels==0.3.5
-mpmath==1.2.1
+mpmath==1.3.0
 mypy-extensions==0.4.3
 netCDF4==1.5.8
 numpy==1.22.0
