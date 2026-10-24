@@ -7,7 +7,7 @@ backcall==0.2.0
 backends==1.4.19
 backends-matrix==1.2.11
 black==26.10.1
-certifi==2024.7.4
+certifi==2026.10.19
 cftime==1.6.0
 charset-normalizer==2.0.12
 click==8.1.2
@@ -46,7 +46,7 @@ parso==0.8.3
 pathspec==0.9.0
 pexpect==4.8.0
 pickleshare==0.7.5
-Pillow==12.3.0
+Pillow==13.0.0
 platformdirs==2.5.1
 pluggy==1.0.0
 plum-dispatch==1.5.9
